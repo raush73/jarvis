@@ -1,0 +1,6 @@
+# Backend is its own repo
+02_backend/
+
+# OS junk
+.DS_Store
+Thumbs.db
