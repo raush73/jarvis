@@ -193,3 +193,32 @@ body {
 .page-content {
   min-height: calc(100vh - 96px);
 }
+
+/* Phase 2 (frontend-only): visual guardrails (logged-out demo banner) */
+.auth-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(59, 130, 246, 0.55);
+}
+
+.auth-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
