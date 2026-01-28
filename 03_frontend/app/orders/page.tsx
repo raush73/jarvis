@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+
 import { useRouter } from "next/navigation";
 
 // Mock job orders data
@@ -71,6 +73,25 @@ function TradeBadge({ label, filled, total }: { label: string; filled: number; t
 export default function OrdersPage() {
   const router = useRouter();
 
+  const [hash, setHash] = useState<string>("");
+
+  useEffect(() => {
+    const readHash = () => setHash(window.location.hash || "");
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
+
+  const isRecruiting = useMemo(() => hash === "#recruiting", [hash]);
+
+  const recruitingOrders = useMemo(() => {
+    return MOCK_ORDERS.filter((order) => {
+      const trades = Object.values(order.trades);
+      return trades.some((t) => t.filled < t.total);
+    });
+  }, []);
+
+  const visibleOrders = isRecruiting ? recruitingOrders : MOCK_ORDERS;
   const handleLogout = () => {
     router.push("/login");
   };
@@ -80,8 +101,8 @@ export default function OrdersPage() {
       {/* Page Header */}
       <div className="orders-header">
         <div className="header-left">
-          <h1>Job Orders</h1>
-          <span className="order-count">{MOCK_ORDERS.length} active orders</span>
+          <h1>{isRecruiting ? "Recruiting Queue" : "Job Orders"}</h1>
+          <span className="order-count">{visibleOrders.length} {isRecruiting ? "orders needing fill" : "active orders"}</span>
         </div>
         <div className="header-right">
           <button className="logout-btn" onClick={handleLogout}>
@@ -104,7 +125,7 @@ export default function OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_ORDERS.map((order) => (
+            {visibleOrders.map((order) => (
               <tr
                 key={order.id}
                 onClick={() => router.push(`/orders/${order.id}`)}
