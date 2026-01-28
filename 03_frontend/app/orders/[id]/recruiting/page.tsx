@@ -19,7 +19,7 @@ import { RecruitingSourcingPanel } from '@/components/RecruitingSourcingPanel';
  * Implements the recruiting pipeline with conditional Customer-Held gate:
  * - Recruiting (Identified/Interested/Vetted combined view)
  * - Customer-Held (conditional gate - only when pre-approval required)
- * - Pre-Dispatch
+ * - Staging
  * - Dispatched
  * - No-Show (distinct bucket for workers who no-showed)
  * 
@@ -129,7 +129,7 @@ export default function RecruitingPage() {
   const handleRedispatch = (candidate: Candidate) => {
     // UI-only: remove from no-show list (mock behavior)
     setNoShowCandidates(prev => prev.filter(c => c.id !== candidate.id));
-    console.log('Redispatching:', candidate.name, 'back to Recruiting/Pre-Dispatch');
+    console.log('Redispatching:', candidate.name, 'back to Recruiting/Staging');
   };
 
   // Calculate total candidates and dispatched
