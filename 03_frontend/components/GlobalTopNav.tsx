@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter, usePathname } from "next/navigation";
+
 const DOMAINS = [
   { key: "kpi", label: "KPI" },
   { key: "friday", label: "Friday" },
@@ -10,10 +12,14 @@ const DOMAINS = [
   { key: "admin", label: "Admin" },
 ];
 
-// Mocked active domain for UI demonstration
-const MOCKED_ACTIVE_DOMAIN = "kpi";
-
 export default function GlobalTopNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Derive active domain from the first URL path segment
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const activeDomain = pathSegments[0] || "";
+
   return (
     <nav className="global-top-nav">
       {/* Jarvis Prime Logo - Visual Anchor */}
@@ -22,6 +28,7 @@ export default function GlobalTopNav() {
           src="/branding/jarvis-prime-logo.png"
           alt="Jarvis Prime"
           style={{ height: '38px', width: 'auto', cursor: 'pointer' }}
+          onClick={() => router.push("/orders")}
         />
       </div>
 
@@ -31,9 +38,10 @@ export default function GlobalTopNav() {
           <button
             key={domain.key}
             className={`nav-domain-item ${
-              domain.key === MOCKED_ACTIVE_DOMAIN ? "active" : ""
+              domain.key === activeDomain ? "active" : ""
             }`}
             type="button"
+            onClick={() => router.push(`/${domain.key}`)}
           >
             {domain.label}
           </button>
@@ -42,4 +50,3 @@ export default function GlobalTopNav() {
     </nav>
   );
 }
-
