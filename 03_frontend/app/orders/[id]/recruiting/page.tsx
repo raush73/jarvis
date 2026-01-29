@@ -12,6 +12,7 @@ import {
 } from '@/data/mockRecruitingData';
 import { BucketTradeSummary } from '@/components/BucketTradeSummary';
 import { RecruitingSourcingPanel } from '@/components/RecruitingSourcingPanel';
+import { useAuth } from "@/lib/auth/useAuth";
 
 /**
  * Recruiting Page v2 — Canonical Flow
@@ -55,9 +56,6 @@ const REQUIRED_CERTS = [
 ];
 
 
-const IS_AUTHENTICATED = false;
-const DEMO_TITLE = 'Demo mode - sign in required';
-
 // Mock No-Show candidates
 const MOCK_NO_SHOWS: Candidate[] = [
   {
@@ -83,6 +81,7 @@ export default function RecruitingPage() {
   
 
   const router = useRouter();
+  const { isAuthenticated, demoTitle } = useAuth();
   // Use mock data
   const order = mockOrder;
   
@@ -777,6 +776,7 @@ function NoShowBucket({
   candidates: Candidate[];
   onRedispatch: (candidate: Candidate) => void;
 }) {
+  const { isAuthenticated, demoTitle } = useAuth();
   return (
     <div className="noshow-bucket">
       <div className="bucket-header">
@@ -801,7 +801,7 @@ function NoShowBucket({
                 <span className="trade-badge">{candidate.tradeName}</span>
                 <span className="dispatch-date">Was: {candidate.dispatchStartDate}</span>
               </div>
-              <button className="redispatch-btn" disabled={!IS_AUTHENTICATED} title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined} onClick={() => { if (!IS_AUTHENTICATED) return; onRedispatch(candidate); }}>
+              <button className="redispatch-btn" disabled={!isAuthenticated} title={!isAuthenticated ? demoTitle : undefined} onClick={() => { if (!isAuthenticated) return; onRedispatch(candidate); }}>
                 ↩ Redispatch
               </button>
             </div>
@@ -962,6 +962,7 @@ function BucketColumn({
   onDispatch: (candidate: Candidate) => void;
   onViewDispatchOrder: (candidate: Candidate) => void;
 }) {
+  const { demoTitle } = useAuth();
   const tradeBreakdown = getBucketTradeBreakdown(bucket, trades);
   const isDispatchedBucket = bucket.id === 'dispatched';
   const isPreDispatchBucket = bucket.id === 'pre_dispatch';
@@ -1010,7 +1011,7 @@ function BucketColumn({
 
       {!isLast && !isConditional && !isDispatchedBucket && (
         <div className="bucket-actions">
-          <button className="action-btn" disabled title={DEMO_TITLE}>
+          <button className="action-btn" disabled title={demoTitle}>
             Move Selected →
           </button>
         </div>
@@ -1130,6 +1131,7 @@ function CandidateCard({
   onDispatch: () => void;
   onViewDispatchOrder: () => void;
 }) {
+  const { isAuthenticated, demoTitle } = useAuth();
   // State for editable dispatch date (UI-only)
   const [editableDate, setEditableDate] = useState(candidate.dispatchStartDate || '');
 
@@ -1181,8 +1183,8 @@ function CandidateCard({
             type="date"
 
             className="date-input"
-            disabled={!IS_AUTHENTICATED}
-            title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined}
+            disabled={!isAuthenticated}
+            title={!isAuthenticated ? demoTitle : undefined}
             value={editableDate}
             onChange={(e) => setEditableDate(e.target.value)}
             onClick={(e) => e.stopPropagation()}
@@ -1191,7 +1193,7 @@ function CandidateCard({
       )}
 
       {showDispatchButton && (
-        <button className="dispatch-btn" disabled={!IS_AUTHENTICATED} title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined} onClick={(e) => { e.stopPropagation(); if (!IS_AUTHENTICATED) return; onDispatch(); }}>
+        <button className="dispatch-btn" disabled={!isAuthenticated} title={!isAuthenticated ? demoTitle : undefined} onClick={(e) => { e.stopPropagation(); if (!isAuthenticated) return; onDispatch(); }}>
           🚀 Dispatch
         </button>
       )}
@@ -1694,6 +1696,7 @@ function DispatchModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { isAuthenticated, demoTitle } = useAuth();
   const canConfirm = dispatchDate.length > 0;
 
   return (
@@ -1718,8 +1721,8 @@ function DispatchModal({
               type="date"
 
               className="date-input"
-              disabled={!IS_AUTHENTICATED}
-              title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined}
+              disabled={!isAuthenticated}
+              title={!isAuthenticated ? demoTitle : undefined}
               value={dispatchDate}
               onChange={e => onDateChange(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
