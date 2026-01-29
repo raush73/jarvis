@@ -16,7 +16,9 @@ const MODULE_TABS: Record<string, { key: string; label: string }[]> = {
     { key: "assistant", label: "Assistant" },
   ],
   orders: [
-    { key: "recruiting", label: "Recruiting" },
+    { key: "active", label: "All Active" },
+    { key: "recruiting", label: "Has Openings" },
+    { key: "fully-staffed", label: "Fully Staffed" },
     { key: "dispatch", label: "Dispatch" },
     { key: "time", label: "Time" },
     { key: "invoicing", label: "Invoicing" },

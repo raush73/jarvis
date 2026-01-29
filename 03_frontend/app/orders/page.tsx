@@ -76,22 +76,43 @@ export default function OrdersPage() {
   const [hash, setHash] = useState<string>("");
 
   useEffect(() => {
-    const readHash = () => setHash(window.location.hash || "");
+    const readHash = () => setHash(window.location.hash.replace("#", "") || "");
     readHash();
     window.addEventListener("hashchange", readHash);
     return () => window.removeEventListener("hashchange", readHash);
   }, []);
 
-  const isVetting = useMemo(() => hash === "#vetting", [hash]);
+  // Determine active filter from hash
+  // "recruiting" or "vetting" (backwards compat) → Has Openings
+  // "fully-staffed" → Fully Staffed
+  // "active" or empty → All Active
+  const activeFilter = useMemo(() => {
+    if (hash === "recruiting" || hash === "vetting") return "has-openings";
+    if (hash === "fully-staffed") return "fully-staffed";
+    return "all-active";
+  }, [hash]);
 
-  const vettingOrders = useMemo(() => {
-    return MOCK_ORDERS.filter((order) => {
-      const trades = Object.values(order.trades);
-      return trades.some((t) => t.filled < t.total);
-    });
-  }, []);
+  // Helper: calculate total openings for an order
+  const getOpenSlots = (order: typeof MOCK_ORDERS[0]) => {
+    return Object.values(order.trades).reduce(
+      (sum, t) => sum + (t.total - t.filled),
+      0
+    );
+  };
 
-  const visibleOrders = isVetting ? vettingOrders : MOCK_ORDERS;
+  const visibleOrders = useMemo(() => {
+    switch (activeFilter) {
+      case "has-openings":
+        // Orders where Openings O > 0 (some slots still unfilled)
+        return MOCK_ORDERS.filter((order) => getOpenSlots(order) > 0);
+      case "fully-staffed":
+        // Orders where Openings O = 0 (all slots filled)
+        return MOCK_ORDERS.filter((order) => getOpenSlots(order) === 0);
+      default:
+        // All Active: show all orders
+        return MOCK_ORDERS;
+    }
+  }, [activeFilter]);
   const handleLogout = () => {
     router.push("/login");
   };
@@ -101,8 +122,21 @@ export default function OrdersPage() {
       {/* Page Header */}
       <div className="orders-header">
         <div className="header-left">
-          <h1>{isVetting ? "Vetting Queue" : "Job Orders"}</h1>
-          <span className="order-count">{visibleOrders.length} {isVetting ? "orders needing fill" : "active orders"}</span>
+          <h1>
+            {activeFilter === "has-openings"
+              ? "Orders with Openings"
+              : activeFilter === "fully-staffed"
+              ? "Fully Staffed Orders"
+              : "Job Orders"}
+          </h1>
+          <span className="order-count">
+            {visibleOrders.length}{" "}
+            {activeFilter === "has-openings"
+              ? "orders needing fill"
+              : activeFilter === "fully-staffed"
+              ? "fully staffed"
+              : "active orders"}
+          </span>
         </div>
         <div className="header-right">
           <button className="logout-btn" onClick={handleLogout}>
