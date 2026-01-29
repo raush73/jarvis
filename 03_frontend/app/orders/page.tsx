@@ -82,16 +82,16 @@ export default function OrdersPage() {
     return () => window.removeEventListener("hashchange", readHash);
   }, []);
 
-  const isRecruiting = useMemo(() => hash === "#recruiting", [hash]);
+  const isVetting = useMemo(() => hash === "#vetting", [hash]);
 
-  const recruitingOrders = useMemo(() => {
+  const vettingOrders = useMemo(() => {
     return MOCK_ORDERS.filter((order) => {
       const trades = Object.values(order.trades);
       return trades.some((t) => t.filled < t.total);
     });
   }, []);
 
-  const visibleOrders = isRecruiting ? recruitingOrders : MOCK_ORDERS;
+  const visibleOrders = isVetting ? vettingOrders : MOCK_ORDERS;
   const handleLogout = () => {
     router.push("/login");
   };
@@ -101,8 +101,8 @@ export default function OrdersPage() {
       {/* Page Header */}
       <div className="orders-header">
         <div className="header-left">
-          <h1>{isRecruiting ? "Recruiting Queue" : "Job Orders"}</h1>
-          <span className="order-count">{visibleOrders.length} {isRecruiting ? "orders needing fill" : "active orders"}</span>
+          <h1>{isVetting ? "Vetting Queue" : "Job Orders"}</h1>
+          <span className="order-count">{visibleOrders.length} {isVetting ? "orders needing fill" : "active orders"}</span>
         </div>
         <div className="header-right">
           <button className="logout-btn" onClick={handleLogout}>
@@ -128,7 +128,7 @@ export default function OrdersPage() {
             {visibleOrders.map((order) => (
               <tr
                 key={order.id}
-                onClick={() => router.push(`/orders/${order.id}`)}
+                onClick={() => router.push(`/orders/${order.id}/vetting`)}
                 className="order-row"
               >
                 <td className="order-id">{order.id}</td>
