@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   mockOrder,
   Bucket,
@@ -54,6 +54,10 @@ const REQUIRED_CERTS = [
   'Confined Space Entry',
 ];
 
+
+const IS_AUTHENTICATED = false;
+const DEMO_TITLE = 'Demo mode - sign in required';
+
 // Mock No-Show candidates
 const MOCK_NO_SHOWS: Candidate[] = [
   {
@@ -77,6 +81,8 @@ export default function RecruitingPage() {
   const params = useParams();
   const orderId = params?.id as string;
   
+
+  const router = useRouter();
   // Use mock data
   const order = mockOrder;
   
@@ -143,9 +149,9 @@ export default function RecruitingPage() {
       <header className="order-header">
         <div className="header-left">
           <div className="breadcrumb">
-            <span className="breadcrumb-item">Orders</span>
+            <button className="breadcrumb-item breadcrumb-link" onClick={() => router.push('/orders')}>Orders</button>
             <span className="breadcrumb-sep">/</span>
-            <span className="breadcrumb-item active">{order.id}</span>
+            <button className="breadcrumb-item active breadcrumb-link" onClick={() => router.push(`/orders/${orderId}`)}>{order.id}</button>
             <span className="breadcrumb-sep">/</span>
             <span className="breadcrumb-item active">Recruiting</span>
           </div>
@@ -358,6 +364,17 @@ export default function RecruitingPage() {
           color: rgba(255, 255, 255, 0.5);
         }
 
+
+        .breadcrumb-link {
+          background: transparent;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+        }
+
+        .breadcrumb-link:hover {
+          text-decoration: underline;
+        }
         .breadcrumb-item.active {
           color: rgba(255, 255, 255, 0.8);
         }
@@ -784,7 +801,7 @@ function NoShowBucket({
                 <span className="trade-badge">{candidate.tradeName}</span>
                 <span className="dispatch-date">Was: {candidate.dispatchStartDate}</span>
               </div>
-              <button className="redispatch-btn" onClick={() => onRedispatch(candidate)}>
+              <button className="redispatch-btn" disabled={!IS_AUTHENTICATED} title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined} onClick={() => { if (!IS_AUTHENTICATED) return; onRedispatch(candidate); }}>
                 ↩ Redispatch
               </button>
             </div>
@@ -993,7 +1010,7 @@ function BucketColumn({
 
       {!isLast && !isConditional && !isDispatchedBucket && (
         <div className="bucket-actions">
-          <button className="action-btn" disabled>
+          <button className="action-btn" disabled title={DEMO_TITLE}>
             Move Selected →
           </button>
         </div>
@@ -1162,7 +1179,10 @@ function CandidateCard({
           <label className="date-label">Official Start Date:</label>
           <input
             type="date"
+
             className="date-input"
+            disabled={!IS_AUTHENTICATED}
+            title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined}
             value={editableDate}
             onChange={(e) => setEditableDate(e.target.value)}
             onClick={(e) => e.stopPropagation()}
@@ -1171,7 +1191,7 @@ function CandidateCard({
       )}
 
       {showDispatchButton && (
-        <button className="dispatch-btn" onClick={(e) => { e.stopPropagation(); onDispatch(); }}>
+        <button className="dispatch-btn" disabled={!IS_AUTHENTICATED} title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined} onClick={(e) => { e.stopPropagation(); if (!IS_AUTHENTICATED) return; onDispatch(); }}>
           🚀 Dispatch
         </button>
       )}
@@ -1696,7 +1716,10 @@ function DispatchModal({
             </label>
             <input
               type="date"
+
               className="date-input"
+              disabled={!IS_AUTHENTICATED}
+              title={!IS_AUTHENTICATED ? DEMO_TITLE : undefined}
               value={dispatchDate}
               onChange={e => onDateChange(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
