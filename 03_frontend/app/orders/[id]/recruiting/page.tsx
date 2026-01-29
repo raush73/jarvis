@@ -232,6 +232,8 @@ export default function RecruitingPage() {
                 isLast={index === primaryBuckets.length - 1}
                 onDispatch={handleDispatch}
                 onViewDispatchOrder={handleViewDispatchOrder}
+                isAuthenticated={isAuthenticated}
+                demoTitle={demoTitle}
               />
             ))}
             
@@ -239,6 +241,8 @@ export default function RecruitingPage() {
             <NoShowBucket
               candidates={noShowCandidates}
               onRedispatch={handleRedispatch}
+              isAuthenticated={isAuthenticated}
+              demoTitle={demoTitle}
             />
           </div>
 
@@ -255,6 +259,8 @@ export default function RecruitingPage() {
                 isConditional
                 onDispatch={handleDispatch}
                 onViewDispatchOrder={handleViewDispatchOrder}
+                isAuthenticated={isAuthenticated}
+                demoTitle={demoTitle}
               />
             </div>
           )}
@@ -313,6 +319,8 @@ export default function RecruitingPage() {
             setSelectedCandidate(null);
             setDispatchDate('');
           }}
+          isAuthenticated={isAuthenticated}
+          demoTitle={demoTitle}
         />
       )}
       
@@ -772,11 +780,14 @@ function TradeRequirementCard({ trade }: { trade: Trade }) {
 function NoShowBucket({
   candidates,
   onRedispatch,
+  isAuthenticated,
+  demoTitle,
 }: {
   candidates: Candidate[];
   onRedispatch: (candidate: Candidate) => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
 }) {
-  const { isAuthenticated, demoTitle } = useAuth();
   return (
     <div className="noshow-bucket">
       <div className="bucket-header">
@@ -954,6 +965,8 @@ function BucketColumn({
   isConditional,
   onDispatch,
   onViewDispatchOrder,
+  isAuthenticated,
+  demoTitle,
 }: {
   bucket: Bucket;
   trades: Trade[];
@@ -961,8 +974,9 @@ function BucketColumn({
   isConditional?: boolean;
   onDispatch: (candidate: Candidate) => void;
   onViewDispatchOrder: (candidate: Candidate) => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
 }) {
-  const { demoTitle } = useAuth();
   const tradeBreakdown = getBucketTradeBreakdown(bucket, trades);
   const isDispatchedBucket = bucket.id === 'dispatched';
   const isPreDispatchBucket = bucket.id === 'pre_dispatch';
@@ -1004,6 +1018,8 @@ function BucketColumn({
               showDispatchDate={isDispatchedBucket}
               onDispatch={() => onDispatch(candidate)}
               onViewDispatchOrder={() => onViewDispatchOrder(candidate)}
+              isAuthenticated={isAuthenticated}
+              demoTitle={demoTitle}
             />
           ))
         )}
@@ -1123,6 +1139,8 @@ function CandidateCard({
   showDispatchDate,
   onDispatch,
   onViewDispatchOrder,
+  isAuthenticated,
+  demoTitle,
 }: {
   candidate: Candidate;
   bucketId: string;
@@ -1130,8 +1148,9 @@ function CandidateCard({
   showDispatchDate?: boolean;
   onDispatch: () => void;
   onViewDispatchOrder: () => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
 }) {
-  const { isAuthenticated, demoTitle } = useAuth();
   // State for editable dispatch date (UI-only)
   const [editableDate, setEditableDate] = useState(candidate.dispatchStartDate || '');
 
@@ -1689,14 +1708,17 @@ function DispatchModal({
   onDateChange,
   onClose,
   onConfirm,
+  isAuthenticated,
+  demoTitle,
 }: {
   candidate: Candidate;
   dispatchDate: string;
   onDateChange: (date: string) => void;
   onClose: () => void;
   onConfirm: () => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
 }) {
-  const { isAuthenticated, demoTitle } = useAuth();
   const canConfirm = dispatchDate.length > 0;
 
   return (
