@@ -4,3 +4,12 @@
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Quarantine / scratch folders
+_quarantine_untracked_*/
+
+# Local tools
+tools/
+
+# Patch files
+phase15_safety_patch.diff
