@@ -460,7 +460,7 @@ export default function EmployeesPage() {
                             borderColor: `${getStatusColor(emp.status)}40`,
                           }}
                         >
-                          {emp.status}
+                          {emp.status || "Unknown"}
                         </span>
                       </td>
                       <td>
@@ -470,7 +470,13 @@ export default function EmployeesPage() {
                             color: getAvailabilityColor(emp.availability),
                           }}
                         >
-                          {emp.availability}
+                          <span
+                            className="availability-dot"
+                            style={{
+                              backgroundColor: getAvailabilityColor(emp.availability),
+                            }}
+                          />
+                          {emp.availability || "—"}
                         </span>
                       </td>
                     </tr>
@@ -540,7 +546,7 @@ export default function EmployeesPage() {
                               borderColor: `${getStatusColor(emp.status)}40`,
                             }}
                           >
-                            {emp.status}
+                            {emp.status || "Unknown"}
                           </span>
                         </td>
                         <td>
@@ -550,7 +556,13 @@ export default function EmployeesPage() {
                               color: getAvailabilityColor(emp.availability),
                             }}
                           >
-                            {emp.availability}
+                            <span
+                              className="availability-dot"
+                              style={{
+                                backgroundColor: getAvailabilityColor(emp.availability),
+                              }}
+                            />
+                            {emp.availability || "—"}
                           </span>
                         </td>
                       </tr>
@@ -1032,9 +1044,19 @@ export default function EmployeesPage() {
         }
 
         .availability-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           font-size: 12px;
           font-weight: 500;
           white-space: nowrap;
+        }
+
+        .availability-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          flex-shrink: 0;
         }
 
         /* Pagination */
