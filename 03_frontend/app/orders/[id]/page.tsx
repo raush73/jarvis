@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
+import OrderNav from "@/components/OrderNav";
 
 // Mock order detail data
 const MOCK_ORDER_DETAILS: Record<string, {
@@ -113,7 +114,9 @@ export default function OrderDetailPage() {
   const totalRequired = order.trades.reduce((sum, t) => sum + t.total, 0);
 
   return (
-    <div className="order-detail-container">
+    <div className="order-detail-page">
+      <OrderNav />
+      <div className="order-detail-container">
       {/* Page Header */}
       <div className="detail-header">
         <div className="header-left">
@@ -268,7 +271,13 @@ export default function OrderDetailPage() {
         </section>
       </div>
 
+      </div>
       <style jsx>{`
+        .order-detail-page {
+          min-height: 100vh;
+          background: linear-gradient(180deg, #0c0f14 0%, #111827 100%);
+        }
+
         .order-detail-container {
           padding: 24px 40px 60px;
           max-width: 1200px;

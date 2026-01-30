@@ -194,6 +194,63 @@ body {
   min-height: calc(100vh - 96px);
 }
 
+/* --- Level 2: Order-Level Navigation --- */
+.order-nav {
+  height: 42px;
+  padding: 0 20px;
+  background: rgba(15, 18, 25, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 96px; /* Below GlobalTopNav (52px) + ModuleTabs (44px) */
+  z-index: 98;
+  backdrop-filter: blur(8px);
+}
+
+.order-nav-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 136px; /* Align with content after logo */
+}
+
+.order-nav-tab {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0;
+  position: relative;
+}
+
+.order-nav-tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.order-nav-tab.active {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.order-nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 1px;
+}
+
 /* Phase 2 (frontend-only): visual guardrails (logged-out demo banner) */
 .auth-banner {
   display: flex;
