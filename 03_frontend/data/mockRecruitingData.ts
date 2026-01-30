@@ -397,7 +397,7 @@ const bucketDefinitions: Omit<Bucket, 'candidates'>[] = [
   },
   {
     id: 'pre_dispatch',
-    name: 'Staging',
+    name: 'Pre-Dispatch',
     description: 'Ready for dispatch assignment',
   },
   {

@@ -20,7 +20,7 @@ import { useAuth } from "@/lib/auth/useAuth";
  * Implements the vetting pipeline with conditional Customer-Held gate:
  * - Vetting (Identified/Interested/Vetted combined view)
  * - Customer-Held (conditional gate - only when pre-approval required)
- * - Staging
+ * - Pre-Dispatch
  * - Dispatched
  * - No-Show (distinct bucket for workers who no-showed)
  * 
@@ -134,7 +134,7 @@ export default function VettingPage() {
   const handleRedispatch = (candidate: Candidate) => {
     // UI-only: remove from no-show list (mock behavior)
     setNoShowCandidates(prev => prev.filter(c => c.id !== candidate.id));
-    console.log('Redispatching:', candidate.name, 'back to Vetting/Staging');
+    console.log('Redispatching:', candidate.name, 'back to Vetting/Pre-Dispatch');
   };
 
   // Calculate total candidates and dispatched
