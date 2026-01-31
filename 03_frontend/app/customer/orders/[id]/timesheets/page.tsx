@@ -3,20 +3,24 @@
 import { useParams, useRouter } from 'next/navigation';
 
 /**
- * Customer Timesheets Page — UI Shell
+ * Customer Timesheets Page — Micro-Build 3
  * 
  * Customer-facing timesheet view for order-scoped hours.
- * Shows official hours entry shell and approve/reject shell placeholders ONLY.
+ * Shows official hours entry shell and approve/reject shell (UI only).
  * 
- * DOES NOT SHOW (CUSTOMER MAY NOT SEE):
- * - Employee reference hours
+ * VISIBILITY LOCKS (ABSOLUTE — CUSTOMER MAY NOT SEE):
+ * - Employee-entered reference hours
  * - Discrepancies
  * - Internal notes
+ * - Review history
  * 
  * Route: /customer/orders/[id]/timesheets
  * 
- * Micro-Build 1: Shell only.
+ * Micro-Build 3: Official hours entry shell + Approve/Reject shell.
  */
+
+// Mock status for UI demonstration (static, no logic)
+const MOCK_STATUS: 'Draft' | 'Submitted' | 'Finalized' = 'Draft';
 
 export default function CustomerTimesheetsPage() {
   const params = useParams();
@@ -28,7 +32,7 @@ export default function CustomerTimesheetsPage() {
       {/* Demo Banner */}
       <div className="demo-banner">
         <span className="demo-icon">⚠️</span>
-        <span className="demo-text">UI Shell (Micro-Build 1)</span>
+        <span className="demo-text">UI Shell (Micro-Build 3)</span>
       </div>
 
       {/* Breadcrumb Navigation */}
@@ -46,29 +50,70 @@ export default function CustomerTimesheetsPage() {
 
       {/* Page Header */}
       <header className="page-header">
-        <h1 className="page-title">📋 Timesheets</h1>
-        <p className="page-subtitle">UI Shell (Micro-Build 1)</p>
+        <div className="header-row">
+          <div className="header-text">
+            <h1 className="page-title">📋 Timesheets</h1>
+            <p className="page-subtitle">Official hours (customer view)</p>
+          </div>
+          {/* Status Badge (mock/static UI only) */}
+          <div className="status-badge" data-status={MOCK_STATUS.toLowerCase()}>
+            {MOCK_STATUS}
+          </div>
+        </div>
+        <p className="visibility-notice">Employee reference hours are not visible to customers.</p>
       </header>
 
-      {/* Section: Enter Official Hours (Shell) */}
-      <section className="shell-section">
+      {/* Section: Enter Official Hours */}
+      <section className="content-section">
         <h2 className="section-title">
           <span className="section-icon">✏️</span>
-          Enter Official Hours (Shell)
+          Enter Official Hours
         </h2>
-        <div className="section-placeholder">
-          <span className="placeholder-text">Official hours entry form will appear here.</span>
+        <div className="section-body">
+          <div className="hours-entry-shell">
+            <label className="hours-label" htmlFor="total-hours">Total Hours</label>
+            <input
+              id="total-hours"
+              type="number"
+              className="hours-input"
+              placeholder="0.00"
+              disabled
+              aria-label="Total hours input (disabled placeholder)"
+            />
+            <p className="input-hint">Hours entry will be enabled in a future build.</p>
+          </div>
         </div>
       </section>
 
-      {/* Section: Approve / Reject MW4H Hours (Shell) */}
-      <section className="shell-section">
+      {/* Section: Approve / Reject MW4H Hours */}
+      <section className="content-section">
         <h2 className="section-title">
           <span className="section-icon">✅</span>
-          Approve / Reject MW4H Hours (Shell)
+          Approve or Reject MW4H Hours
         </h2>
-        <div className="section-placeholder">
-          <span className="placeholder-text">Hours approval and rejection controls will appear here.</span>
+        <div className="section-body">
+          <p className="section-description">
+            Review and confirm the submitted hours for this order.
+          </p>
+          <div className="action-buttons">
+            <button
+              type="button"
+              className="action-btn approve-btn"
+              disabled
+              aria-label="Approve hours (disabled)"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              className="action-btn reject-btn"
+              disabled
+              aria-label="Reject hours (disabled)"
+            >
+              Reject
+            </button>
+          </div>
+          <p className="input-hint">Approval actions will be enabled in a future build.</p>
         </div>
       </section>
 
@@ -153,6 +198,18 @@ export default function CustomerTimesheetsPage() {
           max-width: 900px;
         }
 
+        .header-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 12px;
+        }
+
+        .header-text {
+          flex: 1;
+        }
+
         .page-title {
           margin: 0 0 8px 0;
           font-size: 28px;
@@ -169,10 +226,50 @@ export default function CustomerTimesheetsPage() {
           color: rgba(255, 255, 255, 0.6);
         }
 
-        /* Shell Sections */
-        .shell-section {
+        /* Status Badge */
+        .status-badge {
+          padding: 6px 14px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          white-space: nowrap;
+        }
+
+        .status-badge[data-status="draft"] {
+          background: rgba(148, 163, 184, 0.15);
+          color: #94a3b8;
+          border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .status-badge[data-status="submitted"] {
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .status-badge[data-status="finalized"] {
+          background: rgba(34, 197, 94, 0.15);
+          color: #4ade80;
+          border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .visibility-notice {
+          margin: 0;
+          padding: 10px 14px;
+          background: rgba(100, 116, 139, 0.1);
+          border-left: 3px solid rgba(100, 116, 139, 0.4);
+          border-radius: 0 6px 6px 0;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.5);
+          font-style: italic;
+        }
+
+        /* Content Sections */
+        .content-section {
           background: rgba(255, 255, 255, 0.02);
-          border: 1px dashed rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 12px;
           padding: 24px;
           margin-bottom: 20px;
@@ -193,17 +290,87 @@ export default function CustomerTimesheetsPage() {
           font-size: 18px;
         }
 
-        .section-placeholder {
-          padding: 32px;
-          background: rgba(255, 255, 255, 0.02);
-          border-radius: 8px;
-          text-align: center;
+        .section-body {
+          padding: 16px 0 0 0;
         }
 
-        .placeholder-text {
+        .section-description {
+          margin: 0 0 16px 0;
           font-size: 14px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Hours Entry Shell */
+        .hours-entry-shell {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          max-width: 280px;
+        }
+
+        .hours-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .hours-input {
+          padding: 12px 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          font-size: 16px;
           color: rgba(255, 255, 255, 0.4);
+          outline: none;
+          transition: border-color 0.15s ease;
+        }
+
+        .hours-input:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .input-hint {
+          margin: 8px 0 0 0;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.35);
           font-style: italic;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .action-btn {
+          padding: 12px 28px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: not-allowed;
+          transition: all 0.15s ease;
+        }
+
+        .approve-btn {
+          background: rgba(34, 197, 94, 0.15);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          color: #4ade80;
+        }
+
+        .approve-btn:disabled {
+          opacity: 0.5;
+        }
+
+        .reject-btn {
+          background: rgba(239, 68, 68, 0.15);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          color: #f87171;
+        }
+
+        .reject-btn:disabled {
+          opacity: 0.5;
         }
 
         /* Footer */
