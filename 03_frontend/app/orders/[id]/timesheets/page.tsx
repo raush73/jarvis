@@ -35,6 +35,169 @@ const DEMO_OFFICIAL_HOURS = [
   { name: 'M. Davis', trade: 'Carpenter', dayCount: '3 days', hoursLabel: '24.0 hrs' },
 ];
 
+// DEMO: Line item type for Project/PO breakdown with pay-impact fields
+type DemoLineItem = {
+  id: string;
+  workerName: string;
+  projectLabel: string;
+  poNumber: string;
+  totalHours: number;
+  perDiemDays: number;
+  holidayHours: number;
+  bonusAmount: number;
+  travelAmount: number;
+  hazardPayAmount: number;
+  mobilizationAmount: number;
+  deductionAmount: number;
+  notes: string;
+};
+
+// DEMO: Line items data - workers can appear on MULTIPLE Project/POs
+const DEMO_LINE_ITEMS: DemoLineItem[] = [
+  // J. Martinez on Main Building Electrical
+  {
+    id: 'line-001',
+    workerName: 'J. Martinez',
+    projectLabel: 'Main Building Electrical',
+    poNumber: 'PO-2026-0142',
+    totalHours: 40.0,
+    perDiemDays: 5,
+    holidayHours: 0,
+    bonusAmount: 0,
+    travelAmount: 150.00,
+    hazardPayAmount: 0,
+    mobilizationAmount: 0,
+    deductionAmount: 0,
+    notes: '',
+  },
+  // R. Chen on Main Building Electrical
+  {
+    id: 'line-002',
+    workerName: 'R. Chen',
+    projectLabel: 'Main Building Electrical',
+    poNumber: 'PO-2026-0142',
+    totalHours: 32.5,
+    perDiemDays: 4,
+    holidayHours: 0,
+    bonusAmount: 100.00,
+    travelAmount: 0,
+    hazardPayAmount: 50.00,
+    mobilizationAmount: 0,
+    deductionAmount: 0,
+    notes: 'Hazard pay for high-voltage work',
+  },
+  // R. Chen on HVAC Installation (worker on MULTIPLE projects)
+  {
+    id: 'line-003',
+    workerName: 'R. Chen',
+    projectLabel: 'HVAC Installation - Wing B',
+    poNumber: 'PO-2026-0156',
+    totalHours: 10.0,
+    perDiemDays: 1,
+    holidayHours: 0,
+    bonusAmount: 0,
+    travelAmount: 0,
+    hazardPayAmount: 0,
+    mobilizationAmount: 75.00,
+    deductionAmount: 0,
+    notes: 'Cross-trained HVAC support',
+  },
+  // S. Thompson on HVAC Installation
+  {
+    id: 'line-004',
+    workerName: 'S. Thompson',
+    projectLabel: 'HVAC Installation - Wing B',
+    poNumber: 'PO-2026-0156',
+    totalHours: 32.0,
+    perDiemDays: 4,
+    holidayHours: 8.0,
+    bonusAmount: 0,
+    travelAmount: 200.00,
+    hazardPayAmount: 0,
+    mobilizationAmount: 0,
+    deductionAmount: 25.00,
+    notes: 'Holiday hours for MLK Day; deduction for damaged tool',
+  },
+  // M. Davis on HVAC Installation (worker on MULTIPLE projects)
+  {
+    id: 'line-005',
+    workerName: 'M. Davis',
+    projectLabel: 'HVAC Installation - Wing B',
+    poNumber: 'PO-2026-0156',
+    totalHours: 14.0,
+    perDiemDays: 2,
+    holidayHours: 0,
+    bonusAmount: 0,
+    travelAmount: 0,
+    hazardPayAmount: 0,
+    mobilizationAmount: 0,
+    deductionAmount: 0,
+    notes: '',
+  },
+  // M. Davis on Carpentry (worker on MULTIPLE projects)
+  {
+    id: 'line-006',
+    workerName: 'M. Davis',
+    projectLabel: 'Carpentry - Office Renovation',
+    poNumber: 'PO-2026-0163',
+    totalHours: 10.0,
+    perDiemDays: 1,
+    holidayHours: 0,
+    bonusAmount: 50.00,
+    travelAmount: 0,
+    hazardPayAmount: 0,
+    mobilizationAmount: 0,
+    deductionAmount: 0,
+    notes: 'Completion bonus for early finish',
+  },
+];
+
+// Helper: Group line items by Project/PO
+function groupByProject(items: DemoLineItem[]): Map<string, DemoLineItem[]> {
+  const groups = new Map<string, DemoLineItem[]>();
+  for (const item of items) {
+    const key = `${item.projectLabel}|||${item.poNumber}`;
+    const existing = groups.get(key) || [];
+    existing.push(item);
+    groups.set(key, existing);
+  }
+  return groups;
+}
+
+// Helper: Calculate project total hours
+function calcProjectTotal(items: DemoLineItem[]): number {
+  return items.reduce((sum, item) => sum + item.totalHours, 0);
+}
+
+// Helper: Derive official rollup from line items (group by worker, sum hours/perDiemDays)
+function deriveOfficialRollup(items: DemoLineItem[]): Array<{ workerName: string; totalHours: number; perDiemDays: number }> {
+  const workerMap = new Map<string, { totalHours: number; perDiemDays: number }>();
+  for (const item of items) {
+    const existing = workerMap.get(item.workerName) || { totalHours: 0, perDiemDays: 0 };
+    existing.totalHours += item.totalHours;
+    existing.perDiemDays += item.perDiemDays;
+    workerMap.set(item.workerName, existing);
+  }
+  return Array.from(workerMap.entries()).map(([workerName, data]) => ({
+    workerName,
+    totalHours: data.totalHours,
+    perDiemDays: data.perDiemDays,
+  }));
+}
+
+// Helper: Check if line item has pay-impact details
+function hasPayImpactDetails(item: DemoLineItem): boolean {
+  return (
+    item.holidayHours > 0 ||
+    item.bonusAmount > 0 ||
+    item.travelAmount > 0 ||
+    item.hazardPayAmount > 0 ||
+    item.mobilizationAmount > 0 ||
+    item.deductionAmount > 0 ||
+    item.notes.length > 0
+  );
+}
+
 // DEMO: Customer review status
 const DEMO_CUSTOMER_REVIEW = {
   status: 'Submitted',
@@ -74,6 +237,28 @@ export default function TimesheetsPage() {
 
   // Override panel visibility (UI state only — no persistence)
   const [showOverridePanel, setShowOverridePanel] = useState(false);
+
+  // Expanded row state for line item details (keyed by line item id)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Toggle expanded state for a line item
+  const toggleRowExpanded = (id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Derived: Project groups from DEMO_LINE_ITEMS
+  const projectGroups = groupByProject(DEMO_LINE_ITEMS);
+
+  // Derived: Official rollup from DEMO_LINE_ITEMS
+  const officialRollup = deriveOfficialRollup(DEMO_LINE_ITEMS);
 
   return (
     <div className="timesheets-page">
@@ -127,19 +312,22 @@ export default function TimesheetsPage() {
           </h2>
           {DEMO_MODE ? (
             <div className="demo-hours-list">
-              {DEMO_OFFICIAL_HOURS.map((worker, idx) => (
+              {officialRollup.map((worker, idx) => (
                 <div key={idx} className="demo-hours-row">
                   <div className="demo-worker-info">
-                    <span className="demo-worker-name">{worker.name}</span>
-                    <span className="demo-worker-trade">{worker.trade}</span>
+                    <span className="demo-worker-name">{worker.workerName}</span>
+                    <span className="demo-worker-trade">{worker.perDiemDays} days (DEMO)</span>
                   </div>
                   <div className="demo-worker-hours">
-                    <span className="demo-day-count">{worker.dayCount}</span>
-                    <span className="demo-hours-label">{worker.hoursLabel}</span>
+                    <span className="demo-day-count">{worker.perDiemDays} days</span>
+                    <span className="demo-hours-label">{worker.totalHours.toFixed(1)} hrs</span>
                   </div>
                 </div>
               ))}
               <p className="demo-note">DEMO: Read-only display - no totals computed.</p>
+              <p className="demo-note" style={{ marginTop: '6px', background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
+                Roll-up view (derived from Project/PO line items).
+              </p>
             </div>
           ) : (
             <div className="section-placeholder">
@@ -159,49 +347,104 @@ export default function TimesheetsPage() {
           </h2>
           {DEMO_MODE ? (
             <div>
-              {(() => {
-                const demoProjects = [
-                  {
-                    projectLabel: 'Main Building Electrical',
-                    poNumber: 'PO-2026-0142',
-                    hoursLabel: '72.5 hrs',
-                    employees: [
-                      { employeeLabel: 'J. Martinez', hoursLabel: '40.0 hrs' },
-                      { employeeLabel: 'R. Chen', hoursLabel: '32.5 hrs' },
-                    ],
-                  },
-                  {
-                    projectLabel: 'HVAC Installation - Wing B',
-                    poNumber: 'PO-2026-0156',
-                    hoursLabel: '56.0 hrs',
-                    employees: [
-                      { employeeLabel: 'R. Chen', hoursLabel: '10.0 hrs' },
-                      { employeeLabel: 'S. Thompson', hoursLabel: '32.0 hrs' },
-                      { employeeLabel: 'M. Davis', hoursLabel: '14.0 hrs' },
-                    ],
-                  },
-                  {
-                    projectLabel: 'Carpentry - Office Renovation',
-                    poNumber: 'PO-2026-0163',
-                    hoursLabel: '10.0 hrs',
-                    employees: [
-                      { employeeLabel: 'M. Davis', hoursLabel: '10.0 hrs' },
-                    ],
-                  },
-                ];
-                return demoProjects.map((project, idx) => (
-                  <div key={idx}>
-                    <div>{project.projectLabel} — {project.poNumber}</div>
-                    <div>Total: {project.hoursLabel}</div>
-                    <div>
-                      {project.employees.map((emp, empIdx) => (
-                        <div key={empIdx}>{emp.employeeLabel} — {emp.hoursLabel}</div>
-                      ))}
+              {Array.from(projectGroups.entries()).map(([key, items]) => {
+                const [projectLabel, poNumber] = key.split('|||');
+                const projectTotal = calcProjectTotal(items);
+                return (
+                  <div key={key} style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {/* Group Header */}
+                    <div style={{ marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
+                        {projectLabel} — {poNumber}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#60a5fa', marginTop: '4px' }}>
+                        Project Total: {projectTotal.toFixed(1)} hrs
+                      </div>
                     </div>
+                    {/* Line Items Table */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>First/Last</th>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Project/PO#</th>
+                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Total Hours</th>
+                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Per Diem Days</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item) => {
+                          const isExpanded = expandedRows.has(item.id);
+                          const hasDetails = hasPayImpactDetails(item);
+                          return (
+                            <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                              <td style={{ padding: '10px', color: 'rgba(255,255,255,0.85)' }}>{item.workerName}</td>
+                              <td style={{ padding: '10px', color: 'rgba(255,255,255,0.6)' }}>{item.poNumber}</td>
+                              <td style={{ padding: '10px', textAlign: 'right', color: '#60a5fa', fontWeight: 500 }}>{item.totalHours.toFixed(1)}</td>
+                              <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255,255,255,0.7)' }}>{item.perDiemDays}</td>
+                              <td style={{ padding: '10px', textAlign: 'center' }}>
+                                {hasDetails ? (
+                                  <button
+                                    onClick={() => toggleRowExpanded(item.id)}
+                                    style={{
+                                      background: 'transparent',
+                                      border: '1px solid rgba(96,165,250,0.4)',
+                                      borderRadius: '4px',
+                                      color: '#60a5fa',
+                                      fontSize: '11px',
+                                      padding: '4px 8px',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {isExpanded ? '▲ Hide' : '▼ Show'}
+                                  </button>
+                                ) : (
+                                  <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {/* Expanded Details */}
+                    {items.filter((item) => expandedRows.has(item.id) && hasPayImpactDetails(item)).map((item) => (
+                      <div key={`details-${item.id}`} style={{ marginTop: '10px', padding: '12px', background: 'rgba(96,165,250,0.08)', borderRadius: '6px', border: '1px solid rgba(96,165,250,0.2)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '8px' }}>
+                          Details: {item.workerName}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                          {item.holidayHours > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Holiday Hours:</span> <span style={{ color: '#fbbf24' }}>{item.holidayHours}</span></div>
+                          )}
+                          {item.bonusAmount > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Bonus:</span> <span style={{ color: '#4ade80' }}>${item.bonusAmount.toFixed(2)}</span></div>
+                          )}
+                          {item.travelAmount > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Travel:</span> <span style={{ color: '#4ade80' }}>${item.travelAmount.toFixed(2)}</span></div>
+                          )}
+                          {item.hazardPayAmount > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Hazard Pay:</span> <span style={{ color: '#f87171' }}>${item.hazardPayAmount.toFixed(2)}</span></div>
+                          )}
+                          {item.mobilizationAmount > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Mobilization:</span> <span style={{ color: '#4ade80' }}>${item.mobilizationAmount.toFixed(2)}</span></div>
+                          )}
+                          {item.deductionAmount > 0 && (
+                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Deduction:</span> <span style={{ color: '#f87171' }}>-${item.deductionAmount.toFixed(2)}</span></div>
+                          )}
+                        </div>
+                        {item.notes && (
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
+                            Note: {item.notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ));
-              })()}
-              <p>ℹ️ Overtime calculation is handled by backend payroll rules (demo view only).</p>
+                );
+              })}
+              <p className="demo-note">DEMO: Workers can appear on multiple Project/POs. Expand rows to see pay-impact fields.</p>
+              <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>ℹ️ Overtime calculation is handled by backend payroll rules (demo view only).</p>
             </div>
           ) : (
             <div className="section-placeholder">
