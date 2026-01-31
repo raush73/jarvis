@@ -27,129 +27,64 @@ import OrderNav from '@/components/OrderNav';
 // DEMO MODE toggle - set to false to hide demo data
 const DEMO_MODE = true;
 
-// DEMO: Official Hours data (inline mock - strings only, no computed totals)
-const DEMO_OFFICIAL_HOURS = [
-  { name: 'J. Martinez', trade: 'Electrician', dayCount: '5 days', hoursLabel: '40.0 hrs' },
-  { name: 'S. Thompson', trade: 'Plumber', dayCount: '4 days', hoursLabel: '32.0 hrs' },
-  { name: 'R. Chen', trade: 'HVAC Tech', dayCount: '5 days', hoursLabel: '42.5 hrs' },
-  { name: 'M. Davis', trade: 'Carpenter', dayCount: '3 days', hoursLabel: '24.0 hrs' },
-];
+// PayrollEarningCode types
+type EarningCode = 'REG' | 'OT' | 'DT' | 'H' | 'PD' | 'TRV' | 'BONUS' | 'REM';
+type UnitType = 'HOURS' | 'DAYS' | 'DOLLARS';
 
-// DEMO: Line item type for Project/PO breakdown with pay-impact fields
+// DEMO: Line item type for Project/PO breakdown with PayrollEarningCode fields
 type DemoLineItem = {
   id: string;
   workerName: string;
   projectLabel: string;
   poNumber: string;
-  totalHours: number;
-  perDiemDays: number;
-  holidayHours: number;
-  bonusAmount: number;
-  travelAmount: number;
-  hazardPayAmount: number;
-  mobilizationAmount: number;
-  deductionAmount: number;
+  earningCode: EarningCode;
+  unit: UnitType;
+  quantity: number;
+  amount: number | null; // optional; for DOLLARS you may use quantity as dollars if amount absent
   notes: string;
 };
 
 // DEMO: Line items data - workers can appear on MULTIPLE Project/POs
+// Each line represents an HoursEntryLine-like record with earningCode + unit
 const DEMO_LINE_ITEMS: DemoLineItem[] = [
   // J. Martinez on Main Building Electrical
-  {
-    id: 'line-001',
-    workerName: 'J. Martinez',
-    projectLabel: 'Main Building Electrical',
-    poNumber: 'PO-2026-0142',
-    totalHours: 40.0,
-    perDiemDays: 5,
-    holidayHours: 0,
-    bonusAmount: 0,
-    travelAmount: 150.00,
-    hazardPayAmount: 0,
-    mobilizationAmount: 0,
-    deductionAmount: 0,
-    notes: '',
-  },
+  { id: 'line-001', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'REG', unit: 'HOURS', quantity: 32.0, amount: null, notes: '' },
+  { id: 'line-002', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'OT', unit: 'HOURS', quantity: 8.0, amount: null, notes: 'Weekend overtime' },
+  { id: 'line-003', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'PD', unit: 'DAYS', quantity: 5, amount: null, notes: '' },
+  { id: 'line-004', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'TRV', unit: 'DOLLARS', quantity: 150.00, amount: 150.00, notes: '' },
+  { id: 'line-005', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'H', unit: 'HOURS', quantity: 8.0, amount: null, notes: 'MLK Day' },
+  { id: 'line-006', workerName: 'J. Martinez', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'BONUS', unit: 'DOLLARS', quantity: 100.00, amount: 100.00, notes: '' },
+
   // R. Chen on Main Building Electrical
-  {
-    id: 'line-002',
-    workerName: 'R. Chen',
-    projectLabel: 'Main Building Electrical',
-    poNumber: 'PO-2026-0142',
-    totalHours: 32.5,
-    perDiemDays: 4,
-    holidayHours: 0,
-    bonusAmount: 100.00,
-    travelAmount: 0,
-    hazardPayAmount: 50.00,
-    mobilizationAmount: 0,
-    deductionAmount: 0,
-    notes: 'Hazard pay for high-voltage work',
-  },
+  { id: 'line-010', workerName: 'R. Chen', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'REG', unit: 'HOURS', quantity: 28.5, amount: null, notes: '' },
+  { id: 'line-011', workerName: 'R. Chen', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'OT', unit: 'HOURS', quantity: 4.0, amount: null, notes: '' },
+  { id: 'line-012', workerName: 'R. Chen', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'PD', unit: 'DAYS', quantity: 4, amount: null, notes: '' },
+  { id: 'line-013', workerName: 'R. Chen', projectLabel: 'Main Building Electrical', poNumber: 'PO-2026-0142', earningCode: 'REM', unit: 'DOLLARS', quantity: 50.00, amount: 50.00, notes: 'Hazard pay reimbursement' },
+
   // R. Chen on HVAC Installation (worker on MULTIPLE projects)
-  {
-    id: 'line-003',
-    workerName: 'R. Chen',
-    projectLabel: 'HVAC Installation - Wing B',
-    poNumber: 'PO-2026-0156',
-    totalHours: 10.0,
-    perDiemDays: 1,
-    holidayHours: 0,
-    bonusAmount: 0,
-    travelAmount: 0,
-    hazardPayAmount: 0,
-    mobilizationAmount: 75.00,
-    deductionAmount: 0,
-    notes: 'Cross-trained HVAC support',
-  },
+  { id: 'line-020', workerName: 'R. Chen', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'REG', unit: 'HOURS', quantity: 10.0, amount: null, notes: 'Cross-trained HVAC support' },
+  { id: 'line-021', workerName: 'R. Chen', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'PD', unit: 'DAYS', quantity: 1, amount: null, notes: '' },
+  { id: 'line-022', workerName: 'R. Chen', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'H', unit: 'HOURS', quantity: 8.0, amount: null, notes: 'MLK Day' },
+  { id: 'line-023', workerName: 'R. Chen', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'BONUS', unit: 'DOLLARS', quantity: 100.00, amount: 100.00, notes: '' },
+
   // S. Thompson on HVAC Installation
-  {
-    id: 'line-004',
-    workerName: 'S. Thompson',
-    projectLabel: 'HVAC Installation - Wing B',
-    poNumber: 'PO-2026-0156',
-    totalHours: 32.0,
-    perDiemDays: 4,
-    holidayHours: 8.0,
-    bonusAmount: 0,
-    travelAmount: 200.00,
-    hazardPayAmount: 0,
-    mobilizationAmount: 0,
-    deductionAmount: 25.00,
-    notes: 'Holiday hours for MLK Day; deduction for damaged tool',
-  },
+  { id: 'line-030', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'REG', unit: 'HOURS', quantity: 24.0, amount: null, notes: '' },
+  { id: 'line-031', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'DT', unit: 'HOURS', quantity: 4.0, amount: null, notes: 'Sunday double-time' },
+  { id: 'line-032', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'PD', unit: 'DAYS', quantity: 4, amount: null, notes: '' },
+  { id: 'line-033', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'TRV', unit: 'DOLLARS', quantity: 200.00, amount: 200.00, notes: '' },
+  { id: 'line-034', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'H', unit: 'HOURS', quantity: 8.0, amount: null, notes: 'MLK Day' },
+  { id: 'line-035', workerName: 'S. Thompson', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'BONUS', unit: 'DOLLARS', quantity: 100.00, amount: 100.00, notes: '' },
+
   // M. Davis on HVAC Installation (worker on MULTIPLE projects)
-  {
-    id: 'line-005',
-    workerName: 'M. Davis',
-    projectLabel: 'HVAC Installation - Wing B',
-    poNumber: 'PO-2026-0156',
-    totalHours: 14.0,
-    perDiemDays: 2,
-    holidayHours: 0,
-    bonusAmount: 0,
-    travelAmount: 0,
-    hazardPayAmount: 0,
-    mobilizationAmount: 0,
-    deductionAmount: 0,
-    notes: '',
-  },
+  { id: 'line-040', workerName: 'M. Davis', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'REG', unit: 'HOURS', quantity: 14.0, amount: null, notes: '' },
+  { id: 'line-041', workerName: 'M. Davis', projectLabel: 'HVAC Installation - Wing B', poNumber: 'PO-2026-0156', earningCode: 'PD', unit: 'DAYS', quantity: 2, amount: null, notes: '' },
+
   // M. Davis on Carpentry (worker on MULTIPLE projects)
-  {
-    id: 'line-006',
-    workerName: 'M. Davis',
-    projectLabel: 'Carpentry - Office Renovation',
-    poNumber: 'PO-2026-0163',
-    totalHours: 10.0,
-    perDiemDays: 1,
-    holidayHours: 0,
-    bonusAmount: 50.00,
-    travelAmount: 0,
-    hazardPayAmount: 0,
-    mobilizationAmount: 0,
-    deductionAmount: 0,
-    notes: 'Completion bonus for early finish',
-  },
+  { id: 'line-050', workerName: 'M. Davis', projectLabel: 'Carpentry - Office Renovation', poNumber: 'PO-2026-0163', earningCode: 'REG', unit: 'HOURS', quantity: 8.0, amount: null, notes: '' },
+  { id: 'line-051', workerName: 'M. Davis', projectLabel: 'Carpentry - Office Renovation', poNumber: 'PO-2026-0163', earningCode: 'OT', unit: 'HOURS', quantity: 2.0, amount: null, notes: '' },
+  { id: 'line-052', workerName: 'M. Davis', projectLabel: 'Carpentry - Office Renovation', poNumber: 'PO-2026-0163', earningCode: 'PD', unit: 'DAYS', quantity: 1, amount: null, notes: '' },
+  { id: 'line-053', workerName: 'M. Davis', projectLabel: 'Carpentry - Office Renovation', poNumber: 'PO-2026-0163', earningCode: 'H', unit: 'HOURS', quantity: 8.0, amount: null, notes: 'MLK Day' },
+  { id: 'line-054', workerName: 'M. Davis', projectLabel: 'Carpentry - Office Renovation', poNumber: 'PO-2026-0163', earningCode: 'BONUS', unit: 'DOLLARS', quantity: 100.00, amount: 100.00, notes: 'Completion bonus for early finish' },
 ];
 
 // Helper: Group line items by Project/PO
@@ -164,36 +99,93 @@ function groupByProject(items: DemoLineItem[]): Map<string, DemoLineItem[]> {
   return groups;
 }
 
-// Helper: Calculate project total hours
+// Helper: Calculate project total hours (only HOURS unit with hour-based earning codes)
 function calcProjectTotal(items: DemoLineItem[]): number {
-  return items.reduce((sum, item) => sum + item.totalHours, 0);
+  return items.reduce((sum, item) => {
+    if (item.unit === 'HOURS' && ['REG', 'OT', 'DT', 'H'].includes(item.earningCode)) {
+      return sum + item.quantity;
+    }
+    return sum;
+  }, 0);
 }
 
-// Helper: Derive official rollup from line items (group by worker, sum hours/perDiemDays)
-function deriveOfficialRollup(items: DemoLineItem[]): Array<{ workerName: string; totalHours: number; perDiemDays: number }> {
-  const workerMap = new Map<string, { totalHours: number; perDiemDays: number }>();
+// Official rollup type per worker
+type WorkerRollup = {
+  workerName: string;
+  regHours: number;
+  otHours: number;
+  dtHours: number;
+  holidayHours: number;
+  perDiemDays: number;
+  bonusDollars: number;
+  travelDollars: number;
+  reimbDollars: number;
+  totalHours: number;
+};
+
+// Helper: Derive official rollup from line items (group by worker, sum by earning code bucket)
+// Rollup rules:
+// - Only count HOURS units into hour buckets (REG/OT/DT/H)
+// - Only count DAYS into PD
+// - Only count DOLLARS into BONUS/TRV/REM
+// - Ignore mismatched unit/code combos safely
+function deriveOfficialRollup(items: DemoLineItem[]): WorkerRollup[] {
+  const workerMap = new Map<string, Omit<WorkerRollup, 'workerName' | 'totalHours'>>();
+  
   for (const item of items) {
-    const existing = workerMap.get(item.workerName) || { totalHours: 0, perDiemDays: 0 };
-    existing.totalHours += item.totalHours;
-    existing.perDiemDays += item.perDiemDays;
+    const existing = workerMap.get(item.workerName) || {
+      regHours: 0,
+      otHours: 0,
+      dtHours: 0,
+      holidayHours: 0,
+      perDiemDays: 0,
+      bonusDollars: 0,
+      travelDollars: 0,
+      reimbDollars: 0,
+    };
+
+    // Only process valid unit/code combinations
+    switch (item.earningCode) {
+      case 'REG':
+        if (item.unit === 'HOURS') existing.regHours += item.quantity;
+        break;
+      case 'OT':
+        if (item.unit === 'HOURS') existing.otHours += item.quantity;
+        break;
+      case 'DT':
+        if (item.unit === 'HOURS') existing.dtHours += item.quantity;
+        break;
+      case 'H':
+        if (item.unit === 'HOURS') existing.holidayHours += item.quantity;
+        break;
+      case 'PD':
+        if (item.unit === 'DAYS') existing.perDiemDays += item.quantity;
+        break;
+      case 'BONUS':
+        if (item.unit === 'DOLLARS') existing.bonusDollars += item.amount ?? item.quantity;
+        break;
+      case 'TRV':
+        if (item.unit === 'DOLLARS') existing.travelDollars += item.amount ?? item.quantity;
+        break;
+      case 'REM':
+        if (item.unit === 'DOLLARS') existing.reimbDollars += item.amount ?? item.quantity;
+        break;
+    }
+
     workerMap.set(item.workerName, existing);
   }
+
   return Array.from(workerMap.entries()).map(([workerName, data]) => ({
     workerName,
-    totalHours: data.totalHours,
-    perDiemDays: data.perDiemDays,
+    ...data,
+    totalHours: data.regHours + data.otHours + data.dtHours + data.holidayHours,
   }));
 }
 
-// Helper: Check if line item has pay-impact details
+// Helper: Check if line item has notable details (non-REG earning codes or notes)
 function hasPayImpactDetails(item: DemoLineItem): boolean {
   return (
-    item.holidayHours > 0 ||
-    item.bonusAmount > 0 ||
-    item.travelAmount > 0 ||
-    item.hazardPayAmount > 0 ||
-    item.mobilizationAmount > 0 ||
-    item.deductionAmount > 0 ||
+    item.earningCode !== 'REG' ||
     item.notes.length > 0
   );
 }
@@ -312,21 +304,39 @@ export default function TimesheetsPage() {
           </h2>
           {DEMO_MODE ? (
             <div className="demo-hours-list">
+              {/* Column Headers */}
+              <div className="official-hours-header">
+                <div className="oh-col oh-col-name">Worker</div>
+                <div className="oh-col oh-col-hours">REG</div>
+                <div className="oh-col oh-col-hours">OT</div>
+                <div className="oh-col oh-col-hours">DT</div>
+                <div className="oh-col oh-col-hours">H</div>
+                <div className="oh-col oh-col-days">PD</div>
+                <div className="oh-col oh-col-dollars">BONUS</div>
+                <div className="oh-col oh-col-dollars">TRV</div>
+                <div className="oh-col oh-col-dollars">REM</div>
+                <div className="oh-col oh-col-total">Total Hrs</div>
+              </div>
+              {/* Worker Rows */}
               {officialRollup.map((worker, idx) => (
-                <div key={idx} className="demo-hours-row">
-                  <div className="demo-worker-info">
-                    <span className="demo-worker-name">{worker.workerName}</span>
-                    <span className="demo-worker-trade">{worker.perDiemDays} days (DEMO)</span>
+                <div key={idx} className="official-hours-row">
+                  <div className="oh-col oh-col-name">
+                    <span className="oh-worker-name">{worker.workerName}</span>
                   </div>
-                  <div className="demo-worker-hours">
-                    <span className="demo-day-count">{worker.perDiemDays} days</span>
-                    <span className="demo-hours-label">{worker.totalHours.toFixed(1)} hrs</span>
-                  </div>
+                  <div className="oh-col oh-col-hours">{worker.regHours > 0 ? worker.regHours.toFixed(1) : '—'}</div>
+                  <div className="oh-col oh-col-hours">{worker.otHours > 0 ? worker.otHours.toFixed(1) : '—'}</div>
+                  <div className="oh-col oh-col-hours">{worker.dtHours > 0 ? worker.dtHours.toFixed(1) : '—'}</div>
+                  <div className="oh-col oh-col-hours oh-holiday">{worker.holidayHours > 0 ? worker.holidayHours.toFixed(1) : '—'}</div>
+                  <div className="oh-col oh-col-days">{worker.perDiemDays > 0 ? worker.perDiemDays : '—'}</div>
+                  <div className="oh-col oh-col-dollars oh-bonus">{worker.bonusDollars > 0 ? `$${worker.bonusDollars.toFixed(0)}` : '—'}</div>
+                  <div className="oh-col oh-col-dollars">{worker.travelDollars > 0 ? `$${worker.travelDollars.toFixed(0)}` : '—'}</div>
+                  <div className="oh-col oh-col-dollars">{worker.reimbDollars > 0 ? `$${worker.reimbDollars.toFixed(0)}` : '—'}</div>
+                  <div className="oh-col oh-col-total">{worker.totalHours.toFixed(1)}</div>
                 </div>
               ))}
-              <p className="demo-note">DEMO: Read-only display - no totals computed.</p>
+              <p className="demo-note">DEMO: Rollup by PayrollEarningCode (REG/OT/DT/H/PD/BONUS/TRV/REM).</p>
               <p className="demo-note" style={{ marginTop: '6px', background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
-                Roll-up view (derived from Project/PO line items).
+                Each worker: 8 H (holiday) hrs + $100 BONUS. Total = REG + OT + DT + H.
               </p>
             </div>
           ) : (
@@ -365,25 +375,42 @@ export default function TimesheetsPage() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>First/Last</th>
-                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Project/PO#</th>
-                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Total Hours</th>
-                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Per Diem Days</th>
-                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Details</th>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Worker</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Code</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Unit</th>
+                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Qty</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Notes</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item) => {
                           const isExpanded = expandedRows.has(item.id);
                           const hasDetails = hasPayImpactDetails(item);
+                          // Color coding for earning codes
+                          const codeColor = {
+                            REG: 'rgba(255,255,255,0.7)',
+                            OT: '#fbbf24',
+                            DT: '#f97316',
+                            H: '#a78bfa',
+                            PD: '#60a5fa',
+                            BONUS: '#4ade80',
+                            TRV: '#22d3ee',
+                            REM: '#fb7185',
+                          }[item.earningCode] || 'rgba(255,255,255,0.7)';
                           return (
                             <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                               <td style={{ padding: '10px', color: 'rgba(255,255,255,0.85)' }}>{item.workerName}</td>
-                              <td style={{ padding: '10px', color: 'rgba(255,255,255,0.6)' }}>{item.poNumber}</td>
-                              <td style={{ padding: '10px', textAlign: 'right', color: '#60a5fa', fontWeight: 500 }}>{item.totalHours.toFixed(1)}</td>
-                              <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255,255,255,0.7)' }}>{item.perDiemDays}</td>
                               <td style={{ padding: '10px', textAlign: 'center' }}>
-                                {hasDetails ? (
+                                <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', color: codeColor, fontWeight: 600, fontSize: '11px' }}>
+                                  {item.earningCode}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>{item.unit}</td>
+                              <td style={{ padding: '10px', textAlign: 'right', color: '#60a5fa', fontWeight: 500 }}>
+                                {item.unit === 'DOLLARS' ? `$${item.quantity.toFixed(2)}` : item.quantity.toFixed(1)}
+                              </td>
+                              <td style={{ padding: '10px', textAlign: 'center' }}>
+                                {hasDetails && item.notes ? (
                                   <button
                                     onClick={() => toggleRowExpanded(item.id)}
                                     style={{
@@ -408,36 +435,14 @@ export default function TimesheetsPage() {
                       </tbody>
                     </table>
                     {/* Expanded Details */}
-                    {items.filter((item) => expandedRows.has(item.id) && hasPayImpactDetails(item)).map((item) => (
+                    {items.filter((item) => expandedRows.has(item.id) && item.notes).map((item) => (
                       <div key={`details-${item.id}`} style={{ marginTop: '10px', padding: '12px', background: 'rgba(96,165,250,0.08)', borderRadius: '6px', border: '1px solid rgba(96,165,250,0.2)' }}>
                         <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '8px' }}>
-                          Details: {item.workerName}
+                          {item.workerName} — {item.earningCode} ({item.unit})
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
-                          {item.holidayHours > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Holiday Hours:</span> <span style={{ color: '#fbbf24' }}>{item.holidayHours}</span></div>
-                          )}
-                          {item.bonusAmount > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Bonus:</span> <span style={{ color: '#4ade80' }}>${item.bonusAmount.toFixed(2)}</span></div>
-                          )}
-                          {item.travelAmount > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Travel:</span> <span style={{ color: '#4ade80' }}>${item.travelAmount.toFixed(2)}</span></div>
-                          )}
-                          {item.hazardPayAmount > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Hazard Pay:</span> <span style={{ color: '#f87171' }}>${item.hazardPayAmount.toFixed(2)}</span></div>
-                          )}
-                          {item.mobilizationAmount > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Mobilization:</span> <span style={{ color: '#4ade80' }}>${item.mobilizationAmount.toFixed(2)}</span></div>
-                          )}
-                          {item.deductionAmount > 0 && (
-                            <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Deduction:</span> <span style={{ color: '#f87171' }}>-${item.deductionAmount.toFixed(2)}</span></div>
-                          )}
+                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
+                          {item.notes}
                         </div>
-                        {item.notes && (
-                          <div style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                            Note: {item.notes}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -650,51 +655,94 @@ export default function TimesheetsPage() {
         .demo-hours-list {
           display: flex;
           flex-direction: column;
-          gap: 10px;
-        }
-
-        .demo-hours-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 18px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 8px;
-        }
-
-        .demo-worker-info {
-          display: flex;
-          flex-direction: column;
           gap: 4px;
         }
 
-        .demo-worker-name {
-          font-size: 14px;
+        /* Official Hours Header */
+        .official-hours-header {
+          display: grid;
+          grid-template-columns: 2fr repeat(8, 1fr) 1.2fr;
+          gap: 4px;
+          padding: 10px 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px 8px 0 0;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-bottom: none;
+        }
+
+        .official-hours-header .oh-col {
+          font-size: 11px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        /* Official Hours Row */
+        .official-hours-row {
+          display: grid;
+          grid-template-columns: 2fr repeat(8, 1fr) 1.2fr;
+          gap: 4px;
+          padding: 12px 14px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: none;
+        }
+
+        .official-hours-row:last-of-type {
+          border-radius: 0 0 8px 8px;
+        }
+
+        .official-hours-row:hover {
+          background: rgba(255, 255, 255, 0.04);
+        }
+
+        .oh-col {
+          display: flex;
+          align-items: center;
+          font-size: 13px;
+        }
+
+        .oh-col-name {
+          justify-content: flex-start;
+        }
+
+        .oh-col-hours,
+        .oh-col-days,
+        .oh-col-dollars,
+        .oh-col-total {
+          justify-content: flex-end;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .oh-worker-name {
           font-weight: 600;
           color: rgba(255, 255, 255, 0.9);
         }
 
-        .demo-worker-trade {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
+        .oh-col-hours {
+          color: rgba(255, 255, 255, 0.7);
         }
 
-        .demo-worker-hours {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .demo-day-count {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .demo-hours-label {
-          font-size: 14px;
-          font-weight: 600;
+        .oh-col-days {
           color: #60a5fa;
+        }
+
+        .oh-col-dollars {
+          color: #4ade80;
+        }
+
+        .oh-col-total {
+          color: #60a5fa;
+          font-weight: 600;
+        }
+
+        .oh-holiday {
+          color: #a78bfa;
+        }
+
+        .oh-bonus {
+          color: #4ade80;
         }
 
         .demo-note {
