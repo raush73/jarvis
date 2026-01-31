@@ -34,6 +34,7 @@ const ORDER_TABS = [
   { key: "vetting", label: "Vetting", path: "/vetting" },
   { key: "dispatch", label: "Dispatch", path: "/dispatch-order" },
   { key: "time", label: "Time", path: "/time" },
+  { key: "timesheets", label: "Timesheets", path: "/timesheets" },
   { key: "invoicing", label: "Invoicing", path: "/invoicing" },
   { key: "documents", label: "Documents", path: "/documents" },
 ] as const;

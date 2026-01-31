@@ -18,6 +18,7 @@ const VALID_ORDER_SUBROUTES = [
   "vetting",
   "dispatch-order",
   "time",
+  "timesheets",
   "invoicing",
   "documents",
   "recruiting", // Legacy redirect handled by its own page
