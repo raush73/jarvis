@@ -11,13 +11,24 @@ import OrderNav from '@/components/OrderNav';
  * 
  * Route: /orders/[id]/timesheets
  * 
- * Micro-Build 1: Shell only.
+ * Micro-Build 4: Hardened internal sections + review window indicator.
+ * 
+ * VISIBILITY LOCKS (ABSOLUTE):
+ * - NO editable employee reference forms
+ * - NO customer-facing approve/reject controls
+ * - NO payroll math
+ * - NO invoice math
+ * - NO history tables with data
  */
 
 export default function TimesheetsPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params?.id as string;
+
+  // Mock review window state (visual only — no logic)
+  const reviewWindowOpen = true;
+  const weekLabel = 'Week of Jan 27 – Feb 2, 2026';
 
   return (
     <div className="timesheets-page">
@@ -38,8 +49,22 @@ export default function TimesheetsPage() {
             <span className="breadcrumb-current">Timesheets</span>
           </div>
           <h1 className="page-title">📋 Timesheets</h1>
-          <p className="page-subtitle">UI Shell (Micro-Build 1)</p>
+          <p className="page-subtitle">Internal review &amp; finalization</p>
+          <p className="page-visibility-note">
+            🔒 Internal MW4H view — not visible to employees or customers.
+          </p>
         </header>
+
+        {/* Review Window Indicator (Visual Only) */}
+        <div className={`review-window-indicator ${reviewWindowOpen ? 'open' : 'closed'}`}>
+          <div className="review-window-status">
+            <span className="review-window-icon">{reviewWindowOpen ? '🟢' : '🔴'}</span>
+            <span className="review-window-label">
+              Review window: <strong>{reviewWindowOpen ? 'OPEN' : 'CLOSED'}</strong>
+            </span>
+          </div>
+          <span className="review-window-week">{weekLabel}</span>
+        </div>
 
         {/* Section: Official Hours */}
         <section className="shell-section">
@@ -48,7 +73,11 @@ export default function TimesheetsPage() {
             Official Hours
           </h2>
           <div className="section-placeholder">
-            <span className="placeholder-text">Official hours entry and display will appear here.</span>
+            <span className="placeholder-text">
+              Final approved hours for this order period will be displayed here.
+              <br />
+              <span className="placeholder-note">No data — shell only.</span>
+            </span>
           </div>
         </section>
 
@@ -59,7 +88,11 @@ export default function TimesheetsPage() {
             Customer Review
           </h2>
           <div className="section-placeholder">
-            <span className="placeholder-text">Customer review status and actions will appear here.</span>
+            <span className="placeholder-text">
+              Customer review status will be displayed here (read-only).
+              <br />
+              <span className="placeholder-note">No approve/reject controls — internal view only.</span>
+            </span>
           </div>
         </section>
 
@@ -71,7 +104,11 @@ export default function TimesheetsPage() {
             <span className="internal-badge">Internal Only</span>
           </h2>
           <div className="section-placeholder">
-            <span className="placeholder-text">Employee reference signals for internal comparison will appear here.</span>
+            <span className="placeholder-text">
+              Employee-submitted reference hours for internal comparison.
+              <br />
+              <span className="placeholder-note">Never billable. Never visible to customers.</span>
+            </span>
           </div>
         </section>
 
@@ -82,7 +119,11 @@ export default function TimesheetsPage() {
             Finalize &amp; Snapshots
           </h2>
           <div className="section-placeholder">
-            <span className="placeholder-text">Approval finalization and snapshot controls will appear here.</span>
+            <span className="placeholder-text">
+              Finalization actions and snapshot history will appear here.
+              <br />
+              <span className="placeholder-note">No actions wired — shell only.</span>
+            </span>
           </div>
         </section>
       </div>
@@ -148,9 +189,68 @@ export default function TimesheetsPage() {
         }
 
         .page-subtitle {
-          margin: 0;
+          margin: 0 0 8px 0;
           font-size: 15px;
           color: rgba(255, 255, 255, 0.6);
+        }
+
+        .page-visibility-note {
+          margin: 0;
+          padding: 8px 12px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          border-radius: 6px;
+          font-size: 13px;
+          color: #fca5a5;
+          display: inline-block;
+        }
+
+        /* Review Window Indicator */
+        .review-window-indicator {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 20px;
+          border-radius: 10px;
+          margin-bottom: 24px;
+        }
+
+        .review-window-indicator.open {
+          background: rgba(34, 197, 94, 0.08);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .review-window-indicator.closed {
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .review-window-status {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .review-window-icon {
+          font-size: 14px;
+        }
+
+        .review-window-label {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.85);
+        }
+
+        .review-window-indicator.open .review-window-label strong {
+          color: #4ade80;
+        }
+
+        .review-window-indicator.closed .review-window-label strong {
+          color: #f87171;
+        }
+
+        .review-window-week {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.5);
         }
 
         /* Shell Sections */
@@ -204,6 +304,14 @@ export default function TimesheetsPage() {
           font-size: 14px;
           color: rgba(255, 255, 255, 0.4);
           font-style: italic;
+          line-height: 1.6;
+        }
+
+        .placeholder-note {
+          display: block;
+          margin-top: 8px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.3);
         }
       `}</style>
     </div>
