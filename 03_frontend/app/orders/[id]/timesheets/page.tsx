@@ -152,6 +152,68 @@ export default function TimesheetsPage() {
           )}
         </section>
 
+        {/* Section: Projects & Job Sites */}
+        <section className="shell-section">
+          <h2 className="section-title">
+            Projects & Job Sites
+          </h2>
+          {DEMO_MODE ? (
+            <div>
+              {(() => {
+                const demoProjects = [
+                  {
+                    projectLabel: 'Main Building Electrical',
+                    poNumber: 'PO-2026-0142',
+                    hoursLabel: '72.5 hrs',
+                    employees: [
+                      { employeeLabel: 'J. Martinez', hoursLabel: '40.0 hrs' },
+                      { employeeLabel: 'R. Chen', hoursLabel: '32.5 hrs' },
+                    ],
+                  },
+                  {
+                    projectLabel: 'HVAC Installation - Wing B',
+                    poNumber: 'PO-2026-0156',
+                    hoursLabel: '56.0 hrs',
+                    employees: [
+                      { employeeLabel: 'R. Chen', hoursLabel: '10.0 hrs' },
+                      { employeeLabel: 'S. Thompson', hoursLabel: '32.0 hrs' },
+                      { employeeLabel: 'M. Davis', hoursLabel: '14.0 hrs' },
+                    ],
+                  },
+                  {
+                    projectLabel: 'Carpentry - Office Renovation',
+                    poNumber: 'PO-2026-0163',
+                    hoursLabel: '10.0 hrs',
+                    employees: [
+                      { employeeLabel: 'M. Davis', hoursLabel: '10.0 hrs' },
+                    ],
+                  },
+                ];
+                return demoProjects.map((project, idx) => (
+                  <div key={idx}>
+                    <div>{project.projectLabel} — {project.poNumber}</div>
+                    <div>Total: {project.hoursLabel}</div>
+                    <div>
+                      {project.employees.map((emp, empIdx) => (
+                        <div key={empIdx}>{emp.employeeLabel} — {emp.hoursLabel}</div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+              <p>ℹ️ Overtime calculation is handled by backend payroll rules (demo view only).</p>
+            </div>
+          ) : (
+            <div className="section-placeholder">
+              <span className="placeholder-text">
+                Project and job site hour breakdown will be displayed here.
+                <br />
+                <span className="placeholder-note">No data - shell only.</span>
+              </span>
+            </div>
+          )}
+        </section>
+
         {/* Section: Customer Review */}
         <section className="shell-section">
           <h2 className="section-title">
