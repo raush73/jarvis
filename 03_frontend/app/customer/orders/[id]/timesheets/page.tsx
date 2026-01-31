@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
  * Customer-facing timesheet view for order-scoped hours.
  * Shows official hours entry shell and approve/reject shell (UI only).
  * 
- * VISIBILITY LOCKS (ABSOLUTE — CUSTOMER MAY NOT SEE):
+ * VISIBILITY LOCKS (ABSOLUTE - CUSTOMER MAY NOT SEE):
  * - Employee-entered reference hours
  * - Discrepancies
  * - Internal notes
@@ -18,6 +18,18 @@ import { useParams, useRouter } from 'next/navigation';
  * 
  * Micro-Build 3: Official hours entry shell + Approve/Reject shell.
  */
+
+// DEMO MODE toggle - set to false to hide demo data
+const DEMO_MODE = true;
+
+// DEMO: Static status for demonstration
+const DEMO_STATUS: 'Draft' | 'Submitted' | 'Finalized' = 'Submitted';
+
+// DEMO: Hours entry placeholder hint (not prefilling input, just a hint)
+const DEMO_HOURS_HINT = 'Demo: 42.0 hours for current period';
+
+// DEMO: MW4H submitted summary (read-only, no employee reference data)
+const DEMO_MW4H_SUMMARY = 'MW4H submitted: 42.0 hours (demo)';
 
 // Mock status for UI demonstration (static, no logic)
 const MOCK_STATUS: 'Draft' | 'Submitted' | 'Finalized' = 'Draft';
@@ -29,11 +41,13 @@ export default function CustomerTimesheetsPage() {
 
   return (
     <div className="customer-timesheets-page">
-      {/* Demo Banner */}
-      <div className="demo-banner">
-        <span className="demo-icon">⚠️</span>
-        <span className="demo-text">UI Shell (Micro-Build 3)</span>
-      </div>
+      {/* DEMO MODE Banner */}
+      {DEMO_MODE && (
+        <div className="demo-banner">
+          <span className="demo-icon">[!]</span>
+          <span className="demo-text">DEMO DATA - UI ONLY (toggle: DEMO_MODE)</span>
+        </div>
+      )}
 
       {/* Breadcrumb Navigation */}
       <nav className="breadcrumb">
@@ -52,12 +66,12 @@ export default function CustomerTimesheetsPage() {
       <header className="page-header">
         <div className="header-row">
           <div className="header-text">
-            <h1 className="page-title">📋 Timesheets</h1>
+            <h1 className="page-title">[T] Timesheets</h1>
             <p className="page-subtitle">Official hours (customer view)</p>
           </div>
-          {/* Status Badge (mock/static UI only) */}
-          <div className="status-badge" data-status={MOCK_STATUS.toLowerCase()}>
-            {MOCK_STATUS}
+          {/* Status Badge (demo/static UI only) */}
+          <div className="status-badge" data-status={(DEMO_MODE ? DEMO_STATUS : MOCK_STATUS).toLowerCase()}>
+            {DEMO_MODE ? DEMO_STATUS : MOCK_STATUS}
           </div>
         </div>
         <p className="visibility-notice">Employee reference hours are not visible to customers.</p>
@@ -66,12 +80,15 @@ export default function CustomerTimesheetsPage() {
       {/* Section: Enter Official Hours */}
       <section className="content-section">
         <h2 className="section-title">
-          <span className="section-icon">✏️</span>
+          <span className="section-icon">[E]</span>
           Enter Official Hours
         </h2>
         <div className="section-body">
           <div className="hours-entry-shell">
             <label className="hours-label" htmlFor="total-hours">Total Hours</label>
+            {DEMO_MODE && (
+              <p className="demo-hint">{DEMO_HOURS_HINT}</p>
+            )}
             <input
               id="total-hours"
               type="number"
@@ -88,13 +105,19 @@ export default function CustomerTimesheetsPage() {
       {/* Section: Approve / Reject MW4H Hours */}
       <section className="content-section">
         <h2 className="section-title">
-          <span className="section-icon">✅</span>
+          <span className="section-icon">[A]</span>
           Approve or Reject MW4H Hours
         </h2>
         <div className="section-body">
           <p className="section-description">
             Review and confirm the submitted hours for this order.
           </p>
+          {DEMO_MODE && (
+            <div className="demo-summary-card">
+              <span className="demo-summary-text">{DEMO_MW4H_SUMMARY}</span>
+              <p className="demo-card-note">DEMO: Read-only summary - no employee reference data shown.</p>
+            </div>
+          )}
           <div className="action-buttons">
             <button
               type="button"
@@ -140,14 +163,15 @@ export default function CustomerTimesheetsPage() {
           justify-content: center;
           gap: 10px;
           padding: 10px 20px;
-          background: rgba(245, 158, 11, 0.1);
-          border: 1px solid rgba(245, 158, 11, 0.2);
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.3);
           border-radius: 8px;
           margin-bottom: 24px;
         }
 
         .demo-icon {
           font-size: 14px;
+          color: #fbbf24;
         }
 
         .demo-text {
@@ -156,6 +180,40 @@ export default function CustomerTimesheetsPage() {
           color: #fbbf24;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+        }
+
+        .demo-hint {
+          margin: 0 0 8px 0;
+          padding: 8px 12px;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          border-radius: 6px;
+          font-size: 12px;
+          color: #60a5fa;
+          font-style: italic;
+        }
+
+        .demo-summary-card {
+          padding: 16px 20px;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          border-radius: 8px;
+          margin-bottom: 16px;
+        }
+
+        .demo-summary-text {
+          display: block;
+          font-size: 15px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+          margin-bottom: 8px;
+        }
+
+        .demo-card-note {
+          margin: 0;
+          font-size: 11px;
+          color: #fbbf24;
+          font-style: italic;
         }
 
         /* Breadcrumb */

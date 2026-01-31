@@ -24,17 +24,40 @@ import OrderNav from '@/components/OrderNav';
  * - NO customer-visible content
  */
 
-// Mock finalized snapshots (inline mock data — shell only)
+// DEMO MODE toggle - set to false to hide demo data
+const DEMO_MODE = true;
+
+// DEMO: Official Hours data (inline mock - strings only, no computed totals)
+const DEMO_OFFICIAL_HOURS = [
+  { name: 'J. Martinez', trade: 'Electrician', dayCount: '5 days', hoursLabel: '40.0 hrs' },
+  { name: 'S. Thompson', trade: 'Plumber', dayCount: '4 days', hoursLabel: '32.0 hrs' },
+  { name: 'R. Chen', trade: 'HVAC Tech', dayCount: '5 days', hoursLabel: '42.5 hrs' },
+  { name: 'M. Davis', trade: 'Carpenter', dayCount: '3 days', hoursLabel: '24.0 hrs' },
+];
+
+// DEMO: Customer review status
+const DEMO_CUSTOMER_REVIEW = {
+  status: 'Submitted',
+  note: 'Customer review pending - awaiting approval.',
+};
+
+// DEMO: Reference signals (internal only)
+const DEMO_REFERENCE_SIGNALS = [
+  'Employee reference entry received (not billable).',
+  'Mismatch flagged (demo).',
+];
+
+// Mock finalized snapshots (inline mock data - shell only, ASCII dashes)
 const MOCK_SNAPSHOTS = [
   {
     id: 'snap-001',
-    weekLabel: 'Week of Jan 20 – Jan 26, 2026',
+    weekLabel: 'Week of Jan 20 - Jan 26, 2026',
     finalizedBy: 'J. Martinez',
     timestamp: '2026-01-27 09:14:32 EST',
   },
   {
     id: 'snap-002',
-    weekLabel: 'Week of Jan 13 – Jan 19, 2026',
+    weekLabel: 'Week of Jan 13 - Jan 19, 2026',
     finalizedBy: 'S. Thompson',
     timestamp: '2026-01-20 08:47:15 EST',
   },
@@ -45,9 +68,9 @@ export default function TimesheetsPage() {
   const router = useRouter();
   const orderId = params?.id as string;
 
-  // Mock review window state (visual only — no logic)
+  // Mock review window state (visual only - no logic)
   const reviewWindowOpen = true;
-  const weekLabel = 'Week of Jan 27 – Feb 2, 2026';
+  const weekLabel = 'Week of Jan 27 - Feb 2, 2026';
 
   // Override panel visibility (UI state only — no persistence)
   const [showOverridePanel, setShowOverridePanel] = useState(false);
@@ -57,6 +80,14 @@ export default function TimesheetsPage() {
       <OrderNav />
       
       <div className="page-content">
+        {/* DEMO MODE Banner */}
+        {DEMO_MODE && (
+          <div className="demo-banner">
+            <span className="demo-icon">[!]</span>
+            <span className="demo-text">DEMO DATA - UI ONLY (toggle: DEMO_MODE)</span>
+          </div>
+        )}
+
         {/* Page Header */}
         <header className="page-header">
           <div className="breadcrumb">
@@ -91,47 +122,88 @@ export default function TimesheetsPage() {
         {/* Section: Official Hours */}
         <section className="shell-section">
           <h2 className="section-title">
-            <span className="section-icon">⏱️</span>
+            <span className="section-icon">[T]</span>
             Official Hours
           </h2>
-          <div className="section-placeholder">
-            <span className="placeholder-text">
-              Final approved hours for this order period will be displayed here.
-              <br />
-              <span className="placeholder-note">No data — shell only.</span>
-            </span>
-          </div>
+          {DEMO_MODE ? (
+            <div className="demo-hours-list">
+              {DEMO_OFFICIAL_HOURS.map((worker, idx) => (
+                <div key={idx} className="demo-hours-row">
+                  <div className="demo-worker-info">
+                    <span className="demo-worker-name">{worker.name}</span>
+                    <span className="demo-worker-trade">{worker.trade}</span>
+                  </div>
+                  <div className="demo-worker-hours">
+                    <span className="demo-day-count">{worker.dayCount}</span>
+                    <span className="demo-hours-label">{worker.hoursLabel}</span>
+                  </div>
+                </div>
+              ))}
+              <p className="demo-note">DEMO: Read-only display - no totals computed.</p>
+            </div>
+          ) : (
+            <div className="section-placeholder">
+              <span className="placeholder-text">
+                Final approved hours for this order period will be displayed here.
+                <br />
+                <span className="placeholder-note">No data - shell only.</span>
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Section: Customer Review */}
         <section className="shell-section">
           <h2 className="section-title">
-            <span className="section-icon">👁️</span>
+            <span className="section-icon">[R]</span>
             Customer Review
           </h2>
-          <div className="section-placeholder">
-            <span className="placeholder-text">
-              Customer review status will be displayed here (read-only).
-              <br />
-              <span className="placeholder-note">No approve/reject controls — internal view only.</span>
-            </span>
-          </div>
+          {DEMO_MODE ? (
+            <div className="demo-customer-review">
+              <div className="demo-review-status">
+                <span className="demo-status-badge" data-status={DEMO_CUSTOMER_REVIEW.status.toLowerCase()}>
+                  {DEMO_CUSTOMER_REVIEW.status}
+                </span>
+              </div>
+              <p className="demo-review-note">{DEMO_CUSTOMER_REVIEW.note}</p>
+              <p className="demo-note">DEMO: Read-only status - no approve/reject controls.</p>
+            </div>
+          ) : (
+            <div className="section-placeholder">
+              <span className="placeholder-text">
+                Customer review status will be displayed here (read-only).
+                <br />
+                <span className="placeholder-note">No approve/reject controls - internal view only.</span>
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Section: Reference Signals (Internal Only) */}
         <section className="shell-section internal-section">
           <h2 className="section-title">
-            <span className="section-icon">📊</span>
+            <span className="section-icon">[S]</span>
             Reference Signals
             <span className="internal-badge">Internal Only</span>
           </h2>
-          <div className="section-placeholder">
-            <span className="placeholder-text">
-              Employee-submitted reference hours for internal comparison.
-              <br />
-              <span className="placeholder-note">Never billable. Never visible to customers.</span>
-            </span>
-          </div>
+          {DEMO_MODE ? (
+            <div className="demo-reference-signals">
+              <ul className="demo-signals-list">
+                {DEMO_REFERENCE_SIGNALS.map((signal, idx) => (
+                  <li key={idx} className="demo-signal-item">{signal}</li>
+                ))}
+              </ul>
+              <p className="demo-note">DEMO: Internal-only signals - never customer-visible.</p>
+            </div>
+          ) : (
+            <div className="section-placeholder">
+              <span className="placeholder-text">
+                Employee-submitted reference hours for internal comparison.
+                <br />
+                <span className="placeholder-note">Never billable. Never visible to customers.</span>
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Section: Finalize & Snapshots */}
@@ -241,6 +313,153 @@ export default function TimesheetsPage() {
           padding: 24px 40px 60px;
           max-width: 1000px;
           margin: 0 auto;
+        }
+
+        /* DEMO Banner */
+        .demo-banner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 10px 20px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          border-radius: 8px;
+          margin-bottom: 24px;
+        }
+
+        .demo-icon {
+          font-size: 14px;
+          color: #fbbf24;
+        }
+
+        .demo-text {
+          font-size: 12px;
+          font-weight: 600;
+          color: #fbbf24;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* DEMO Official Hours List */
+        .demo-hours-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .demo-hours-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 18px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+        }
+
+        .demo-worker-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .demo-worker-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .demo-worker-trade {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .demo-worker-hours {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .demo-day-count {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .demo-hours-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #60a5fa;
+        }
+
+        .demo-note {
+          margin: 12px 0 0 0;
+          padding: 8px 12px;
+          background: rgba(245, 158, 11, 0.08);
+          border-radius: 6px;
+          font-size: 11px;
+          color: #fbbf24;
+          font-style: italic;
+        }
+
+        /* DEMO Customer Review */
+        .demo-customer-review {
+          padding: 16px 0;
+        }
+
+        .demo-review-status {
+          margin-bottom: 12px;
+        }
+
+        .demo-status-badge {
+          display: inline-block;
+          padding: 6px 14px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .demo-status-badge[data-status="submitted"] {
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .demo-status-badge[data-status="approved"] {
+          background: rgba(34, 197, 94, 0.15);
+          color: #4ade80;
+          border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .demo-status-badge[data-status="rejected"] {
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .demo-review-note {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* DEMO Reference Signals */
+        .demo-reference-signals {
+          padding: 8px 0;
+        }
+
+        .demo-signals-list {
+          margin: 0;
+          padding-left: 20px;
+          list-style-type: disc;
+        }
+
+        .demo-signal-item {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.7);
+          line-height: 1.8;
         }
 
         /* Page Header */
