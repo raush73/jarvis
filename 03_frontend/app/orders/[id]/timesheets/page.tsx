@@ -190,6 +190,60 @@ function hasPayImpactDetails(item: DemoLineItem): boolean {
   );
 }
 
+// Helper: Derive worker rollup for a single project's items (project-level grouping)
+function deriveProjectWorkerRollup(items: DemoLineItem[]): WorkerRollup[] {
+  const workerMap = new Map<string, Omit<WorkerRollup, 'workerName' | 'totalHours'>>();
+  
+  for (const item of items) {
+    const existing = workerMap.get(item.workerName) || {
+      regHours: 0,
+      otHours: 0,
+      dtHours: 0,
+      holidayHours: 0,
+      perDiemDays: 0,
+      bonusDollars: 0,
+      travelDollars: 0,
+      reimbDollars: 0,
+    };
+
+    // Only process valid unit/code combinations (same rules as deriveOfficialRollup)
+    switch (item.earningCode) {
+      case 'REG':
+        if (item.unit === 'HOURS') existing.regHours += item.quantity;
+        break;
+      case 'OT':
+        if (item.unit === 'HOURS') existing.otHours += item.quantity;
+        break;
+      case 'DT':
+        if (item.unit === 'HOURS') existing.dtHours += item.quantity;
+        break;
+      case 'H':
+        if (item.unit === 'HOURS') existing.holidayHours += item.quantity;
+        break;
+      case 'PD':
+        if (item.unit === 'DAYS') existing.perDiemDays += item.quantity;
+        break;
+      case 'BONUS':
+        if (item.unit === 'DOLLARS') existing.bonusDollars += item.amount ?? item.quantity;
+        break;
+      case 'TRV':
+        if (item.unit === 'DOLLARS') existing.travelDollars += item.amount ?? item.quantity;
+        break;
+      case 'REM':
+        if (item.unit === 'DOLLARS') existing.reimbDollars += item.amount ?? item.quantity;
+        break;
+    }
+
+    workerMap.set(item.workerName, existing);
+  }
+
+  return Array.from(workerMap.entries()).map(([workerName, data]) => ({
+    workerName,
+    ...data,
+    totalHours: data.regHours + data.otHours + data.dtHours + data.holidayHours,
+  }));
+}
+
 // DEMO: Customer review status
 const DEMO_CUSTOMER_REVIEW = {
   status: 'Submitted',
@@ -360,6 +414,14 @@ export default function TimesheetsPage() {
               {Array.from(projectGroups.entries()).map(([key, items]) => {
                 const [projectLabel, poNumber] = key.split('|||');
                 const projectTotal = calcProjectTotal(items);
+                // Derive project-level worker rollups (one row per worker)
+                const projectWorkerRollup = deriveProjectWorkerRollup(items);
+                // Check if any worker in this project has TRV or REM
+                const showTrvColumn = projectWorkerRollup.some(w => w.travelDollars > 0);
+                const showRemColumn = projectWorkerRollup.some(w => w.reimbDollars > 0);
+                // Calculate column count for grid
+                const baseColCount = 8; // Worker + REG + OT + DT + H + PD + BONUS + Total Hrs
+                const colCount = baseColCount + (showTrvColumn ? 1 : 0) + (showRemColumn ? 1 : 0);
                 return (
                   <div key={key} style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     {/* Group Header */}
@@ -371,84 +433,122 @@ export default function TimesheetsPage() {
                         Project Total: {projectTotal.toFixed(1)} hrs
                       </div>
                     </div>
-                    {/* Line Items Table */}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                          <th style={{ textAlign: 'left', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Worker</th>
-                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Code</th>
-                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Unit</th>
-                          <th style={{ textAlign: 'right', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Qty</th>
-                          <th style={{ textAlign: 'center', padding: '8px 10px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((item) => {
-                          const isExpanded = expandedRows.has(item.id);
-                          const hasDetails = hasPayImpactDetails(item);
-                          // Color coding for earning codes
-                          const codeColor = {
-                            REG: 'rgba(255,255,255,0.7)',
-                            OT: '#fbbf24',
-                            DT: '#f97316',
-                            H: '#a78bfa',
-                            PD: '#60a5fa',
-                            BONUS: '#4ade80',
-                            TRV: '#22d3ee',
-                            REM: '#fb7185',
-                          }[item.earningCode] || 'rgba(255,255,255,0.7)';
-                          return (
-                            <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                              <td style={{ padding: '10px', color: 'rgba(255,255,255,0.85)' }}>{item.workerName}</td>
-                              <td style={{ padding: '10px', textAlign: 'center' }}>
-                                <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', color: codeColor, fontWeight: 600, fontSize: '11px' }}>
-                                  {item.earningCode}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>{item.unit}</td>
-                              <td style={{ padding: '10px', textAlign: 'right', color: '#60a5fa', fontWeight: 500 }}>
-                                {item.unit === 'DOLLARS' ? `$${item.quantity.toFixed(2)}` : item.quantity.toFixed(1)}
-                              </td>
-                              <td style={{ padding: '10px', textAlign: 'center' }}>
-                                {hasDetails && item.notes ? (
-                                  <button
-                                    onClick={() => toggleRowExpanded(item.id)}
-                                    style={{
-                                      background: 'transparent',
-                                      border: '1px solid rgba(96,165,250,0.4)',
-                                      borderRadius: '4px',
-                                      color: '#60a5fa',
-                                      fontSize: '11px',
-                                      padding: '4px 8px',
-                                      cursor: 'pointer',
-                                    }}
-                                  >
-                                    {isExpanded ? '▲ Hide' : '▼ Show'}
-                                  </button>
-                                ) : (
-                                  <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {/* Expanded Details */}
-                    {items.filter((item) => expandedRows.has(item.id) && item.notes).map((item) => (
-                      <div key={`details-${item.id}`} style={{ marginTop: '10px', padding: '12px', background: 'rgba(96,165,250,0.08)', borderRadius: '6px', border: '1px solid rgba(96,165,250,0.2)' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '8px' }}>
-                          {item.workerName} — {item.earningCode} ({item.unit})
+                    {/* Worker Rollup Table (one row per worker) */}
+                    <div className="project-rollup-header" style={{
+                      display: 'grid',
+                      gridTemplateColumns: `2fr repeat(${colCount - 1}, 1fr)`,
+                      gap: '4px',
+                      padding: '10px 14px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '8px 8px 0 0',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderBottom: 'none',
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Worker</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>REG</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>OT</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>DT</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>H</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>PD</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>BONUS</div>
+                      {showTrvColumn && (
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>TRV</div>
+                      )}
+                      {showRemColumn && (
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>REM</div>
+                      )}
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'right' }}>Total Hrs</div>
+                    </div>
+                    {/* Worker Rows */}
+                    {projectWorkerRollup.map((worker, idx) => {
+                      const isExpanded = expandedRows.has(`${key}-${worker.workerName}`);
+                      const workerLineItems = items.filter(item => item.workerName === worker.workerName);
+                      const hasNotesForWorker = workerLineItems.some(item => item.notes.length > 0);
+                      return (
+                        <div key={`${key}-${worker.workerName}`}>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: `2fr repeat(${colCount - 1}, 1fr)`,
+                              gap: '4px',
+                              padding: '12px 14px',
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderTop: 'none',
+                              borderRadius: idx === projectWorkerRollup.length - 1 && !isExpanded ? '0 0 8px 8px' : '0',
+                              cursor: hasNotesForWorker ? 'pointer' : 'default',
+                            }}
+                            onClick={() => hasNotesForWorker && toggleRowExpanded(`${key}-${worker.workerName}`)}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)', fontSize: '13px' }}>{worker.workerName}</span>
+                              {hasNotesForWorker && (
+                                <span style={{ fontSize: '10px', color: '#60a5fa' }}>{isExpanded ? '▲' : '▼'}</span>
+                              )}
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', fontVariantNumeric: 'tabular-nums' }}>{worker.regHours > 0 ? worker.regHours.toFixed(1) : '—'}</div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', fontVariantNumeric: 'tabular-nums' }}>{worker.otHours > 0 ? worker.otHours.toFixed(1) : '—'}</div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', fontVariantNumeric: 'tabular-nums' }}>{worker.dtHours > 0 ? worker.dtHours.toFixed(1) : '—'}</div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: '#a78bfa', fontVariantNumeric: 'tabular-nums' }}>{worker.holidayHours > 0 ? worker.holidayHours.toFixed(1) : '—'}</div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: '#60a5fa', fontVariantNumeric: 'tabular-nums' }}>{worker.perDiemDays > 0 ? worker.perDiemDays : '—'}</div>
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: '#4ade80', fontVariantNumeric: 'tabular-nums' }}>{worker.bonusDollars > 0 ? `$${worker.bonusDollars.toFixed(0)}` : '—'}</div>
+                            {showTrvColumn && (
+                              <div style={{ textAlign: 'right', fontSize: '13px', color: '#4ade80', fontVariantNumeric: 'tabular-nums' }}>{worker.travelDollars > 0 ? `$${worker.travelDollars.toFixed(0)}` : '—'}</div>
+                            )}
+                            {showRemColumn && (
+                              <div style={{ textAlign: 'right', fontSize: '13px', color: '#4ade80', fontVariantNumeric: 'tabular-nums' }}>{worker.reimbDollars > 0 ? `$${worker.reimbDollars.toFixed(0)}` : '—'}</div>
+                            )}
+                            <div style={{ textAlign: 'right', fontSize: '13px', color: '#60a5fa', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{worker.totalHours.toFixed(1)}</div>
+                          </div>
+                          {/* Expanded Details for this worker */}
+                          {isExpanded && (
+                            <div style={{
+                              padding: '12px 14px',
+                              background: 'rgba(96,165,250,0.06)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderTop: 'none',
+                              borderRadius: idx === projectWorkerRollup.length - 1 ? '0 0 8px 8px' : '0',
+                            }}>
+                              <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Line Items & Notes</div>
+                              {workerLineItems.filter(item => hasPayImpactDetails(item)).map((item) => (
+                                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <span style={{
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    color: {
+                                      REG: 'rgba(255,255,255,0.7)',
+                                      OT: '#fbbf24',
+                                      DT: '#f97316',
+                                      H: '#a78bfa',
+                                      PD: '#60a5fa',
+                                      BONUS: '#4ade80',
+                                      TRV: '#22d3ee',
+                                      REM: '#fb7185',
+                                    }[item.earningCode] || 'rgba(255,255,255,0.7)',
+                                    fontWeight: 600,
+                                    fontSize: '10px',
+                                  }}>
+                                    {item.earningCode}
+                                  </span>
+                                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{item.unit}</span>
+                                  <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 500 }}>
+                                    {item.unit === 'DOLLARS' ? `$${item.quantity.toFixed(2)}` : item.quantity.toFixed(1)}
+                                  </span>
+                                  {item.notes && (
+                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', flex: 1 }}>— {item.notes}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                          {item.notes}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
-              <p className="demo-note">DEMO: Workers can appear on multiple Project/POs. Expand rows to see pay-impact fields.</p>
+              <p className="demo-note">DEMO: Workers appear once per project (rollup). Click a row to expand line item details.</p>
               <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>ℹ️ Overtime calculation is handled by backend payroll rules (demo view only).</p>
             </div>
           ) : (
