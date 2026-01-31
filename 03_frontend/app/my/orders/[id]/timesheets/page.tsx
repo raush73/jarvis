@@ -1,12 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 /**
- * Employee Timesheets Page — UI Shell
+ * Employee Timesheets Page — Submit-Only Reference Hours Entry
  * 
  * Employee-facing timesheet view for order-scoped reference hours entry.
- * Shows ONLY a submit-only skeleton form and confirmation placeholder.
+ * Submit-only form with confirmation-only post-submit UI.
  * 
  * DOES NOT SHOW (EMPLOYEE MAY NOT SEE):
  * - Submitted values
@@ -18,7 +19,7 @@ import { useParams, useRouter } from 'next/navigation';
  * 
  * Route: /my/orders/[id]/timesheets
  * 
- * Micro-Build 1: Shell only.
+ * Micro-Build 2: Submit-only with confirmation view.
  */
 
 export default function EmployeeTimesheetsPage() {
@@ -26,14 +27,219 @@ export default function EmployeeTimesheetsPage() {
   const router = useRouter();
   const orderId = params?.id as string;
 
+  // Client-only state (no persistence, no API)
+  const [hours, setHours] = useState<string>('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const hoursValue = parseFloat(hours);
+  const canSubmit = !isNaN(hoursValue) && hoursValue > 0;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    // No API call, no persistence — client-only state switch
+    setSubmitted(true);
+  };
+
+  const handleReset = () => {
+    setHours('');
+    setSubmitted(false);
+  };
+
+  // CONFIRMATION VIEW — shows ONLY after submit
+  if (submitted) {
+    return (
+      <div className="employee-timesheets-page">
+        {/* Breadcrumb Navigation */}
+        <nav className="breadcrumb">
+          <button className="breadcrumb-link" onClick={() => router.push('/my/orders')}>
+            My Orders
+          </button>
+          <span className="breadcrumb-sep">›</span>
+          <button className="breadcrumb-link" onClick={() => router.push(`/my/orders/${orderId}`)}>
+            {orderId}
+          </button>
+          <span className="breadcrumb-sep">›</span>
+          <span className="breadcrumb-current">Timesheets</span>
+        </nav>
+
+        {/* Page Header */}
+        <header className="page-header">
+          <h1 className="page-title">📋 Timesheets</h1>
+        </header>
+
+        {/* Confirmation View — NO values displayed */}
+        <section className="confirmation-card">
+          <div className="confirmation-icon-wrap">
+            <span className="confirmation-check">✓</span>
+          </div>
+          <h2 className="confirmation-title">Hours submitted (reference only).</h2>
+          <p className="confirmation-reminder">
+            Official hours must be entered and approved by your customer or MW4H separately.
+          </p>
+          <button className="reset-btn" onClick={handleReset}>
+            Submit another entry
+          </button>
+        </section>
+
+        {/* Footer */}
+        <footer className="page-footer">
+          <button className="back-link" onClick={() => router.push('/my/orders')}>
+            ← Back to My Orders
+          </button>
+        </footer>
+
+        <style jsx>{`
+          .employee-timesheets-page {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0c0f14 0%, #111827 100%);
+            color: #fff;
+            padding: 24px 40px 60px;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+          }
+
+          /* Breadcrumb */
+          .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+          }
+
+          .breadcrumb-link {
+            background: none;
+            border: none;
+            padding: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: color 0.15s ease;
+          }
+
+          .breadcrumb-link:hover {
+            color: #60a5fa;
+            text-decoration: underline;
+          }
+
+          .breadcrumb-sep {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 14px;
+          }
+
+          .breadcrumb-current {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+          }
+
+          /* Page Header */
+          .page-header {
+            margin-bottom: 32px;
+            max-width: 500px;
+          }
+
+          .page-title {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+          }
+
+          /* Confirmation Card */
+          .confirmation-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 48px 32px;
+            background: rgba(34, 197, 94, 0.06);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 12px;
+            max-width: 500px;
+          }
+
+          .confirmation-icon-wrap {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(34, 197, 94, 0.15);
+            border-radius: 50%;
+            margin-bottom: 20px;
+          }
+
+          .confirmation-check {
+            font-size: 28px;
+            color: #22c55e;
+          }
+
+          .confirmation-title {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+          }
+
+          .confirmation-reminder {
+            margin: 0 0 28px 0;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.5;
+            max-width: 360px;
+          }
+
+          .reset-btn {
+            padding: 14px 28px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #60a5fa;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .reset-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+          }
+
+          /* Footer */
+          .page-footer {
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 32px;
+            max-width: 500px;
+          }
+
+          .back-link {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .back-link:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.25);
+            color: #60a5fa;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ENTRY VIEW — submit-only form
   return (
     <div className="employee-timesheets-page">
-      {/* Demo Banner */}
-      <div className="demo-banner">
-        <span className="demo-icon">⚠️</span>
-        <span className="demo-text">UI Shell (Micro-Build 1)</span>
-      </div>
-
       {/* Breadcrumb Navigation */}
       <nav className="breadcrumb">
         <button className="breadcrumb-link" onClick={() => router.push('/my/orders')}>
@@ -50,49 +256,57 @@ export default function EmployeeTimesheetsPage() {
       {/* Page Header */}
       <header className="page-header">
         <h1 className="page-title">📋 Timesheets</h1>
-        <p className="page-subtitle">UI Shell (Micro-Build 1)</p>
       </header>
 
-      {/* Reference Hours Notice */}
+      {/* Reference Hours Notice — Prominent */}
       <div className="reference-notice">
-        <span className="notice-icon">ℹ️</span>
+        <span className="notice-icon">⚠️</span>
         <div className="notice-content">
-          <span className="notice-title">Reference Hours Only</span>
-          <span className="notice-text">Hours you enter here are for internal reference only and are not billable.</span>
+          <span className="notice-title">Reference-Only Hours</span>
+          <ul className="notice-list">
+            <li>Not official</li>
+            <li>Not billable</li>
+            <li>Not visible to customer</li>
+          </ul>
+          <p className="notice-official">
+            Official hours must be entered and approved by your customer or MW4H.
+          </p>
         </div>
       </div>
 
-      {/* Submit Form Skeleton */}
+      {/* Submit Form */}
       <section className="form-section">
         <h2 className="section-title">
           <span className="section-icon">⏱️</span>
           Enter Hours
         </h2>
         
-        <div className="form-skeleton">
-          {/* Input Field Skeleton */}
+        <div className="form-content">
+          {/* Input Field */}
           <div className="input-group">
-            <label className="input-label">Total hours (reference only)</label>
+            <label className="input-label" htmlFor="hours-input">
+              Total hours (reference only)
+            </label>
             <input 
+              id="hours-input"
               type="number" 
               className="input-field"
               placeholder="0.0"
-              disabled
+              min="0"
+              step="0.5"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
             />
           </div>
 
-          {/* Submit Button (disabled) */}
-          <button className="submit-btn" disabled>
+          {/* Submit Button */}
+          <button 
+            className={`submit-btn ${canSubmit ? 'submit-btn--enabled' : ''}`}
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+          >
             Submit
           </button>
-        </div>
-      </section>
-
-      {/* Confirmation Placeholder */}
-      <section className="confirmation-section">
-        <div className="confirmation-placeholder">
-          <span className="confirmation-icon">✓</span>
-          <span className="confirmation-text">After submit: confirmation message only</span>
         </div>
       </section>
 
@@ -110,31 +324,6 @@ export default function EmployeeTimesheetsPage() {
           color: #fff;
           padding: 24px 40px 60px;
           font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-
-        /* Demo Banner */
-        .demo-banner {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          padding: 10px 20px;
-          background: rgba(245, 158, 11, 0.1);
-          border: 1px solid rgba(245, 158, 11, 0.2);
-          border-radius: 8px;
-          margin-bottom: 24px;
-        }
-
-        .demo-icon {
-          font-size: 14px;
-        }
-
-        .demo-text {
-          font-size: 12px;
-          font-weight: 600;
-          color: #fbbf24;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
         }
 
         /* Breadcrumb */
@@ -178,7 +367,7 @@ export default function EmployeeTimesheetsPage() {
         }
 
         .page-title {
-          margin: 0 0 8px 0;
+          margin: 0;
           font-size: 28px;
           font-weight: 700;
           background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
@@ -187,52 +376,60 @@ export default function EmployeeTimesheetsPage() {
           background-clip: text;
         }
 
-        .page-subtitle {
-          margin: 0;
-          font-size: 15px;
-          color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Reference Notice */
+        /* Reference Notice — Prominent */
         .reference-notice {
           display: flex;
           align-items: flex-start;
           gap: 14px;
-          padding: 16px 20px;
-          background: rgba(59, 130, 246, 0.08);
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          padding: 18px 22px;
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.25);
           border-radius: 10px;
           margin-bottom: 24px;
           max-width: 500px;
         }
 
         .notice-icon {
-          font-size: 20px;
+          font-size: 22px;
           flex-shrink: 0;
+          margin-top: 2px;
         }
 
         .notice-content {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 8px;
         }
 
         .notice-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #60a5fa;
+          font-size: 15px;
+          font-weight: 700;
+          color: #fbbf24;
         }
 
-        .notice-text {
+        .notice-list {
+          margin: 0;
+          padding-left: 18px;
           font-size: 13px;
-          color: rgba(255, 255, 255, 0.6);
-          line-height: 1.4;
+          color: rgba(255, 255, 255, 0.7);
+          line-height: 1.6;
+        }
+
+        .notice-list li {
+          margin-bottom: 2px;
+        }
+
+        .notice-official {
+          margin: 4px 0 0 0;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.55);
+          line-height: 1.5;
         }
 
         /* Form Section */
         .form-section {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px dashed rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           padding: 24px;
           margin-bottom: 20px;
@@ -253,7 +450,7 @@ export default function EmployeeTimesheetsPage() {
           font-size: 18px;
         }
 
-        .form-skeleton {
+        .form-content {
           display: flex;
           flex-direction: column;
           gap: 20px;
@@ -273,57 +470,45 @@ export default function EmployeeTimesheetsPage() {
 
         .input-field {
           padding: 14px 16px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 8px;
           font-size: 16px;
-          color: rgba(255, 255, 255, 0.3);
+          color: #fff;
           outline: none;
+          transition: border-color 0.15s ease;
         }
 
-        .input-field:disabled {
-          cursor: not-allowed;
-          opacity: 0.6;
+        .input-field::placeholder {
+          color: rgba(255, 255, 255, 0.3);
+        }
+
+        .input-field:focus {
+          border-color: rgba(59, 130, 246, 0.5);
         }
 
         .submit-btn {
           padding: 14px 24px;
-          background: rgba(59, 130, 246, 0.15);
-          border: 1px solid rgba(59, 130, 246, 0.3);
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.2);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
-          color: rgba(96, 165, 250, 0.5);
+          color: rgba(96, 165, 250, 0.4);
           cursor: not-allowed;
-          opacity: 0.6;
+          transition: all 0.15s ease;
         }
 
-        /* Confirmation Section */
-        .confirmation-section {
-          max-width: 500px;
-          margin-bottom: 20px;
+        .submit-btn--enabled {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(59, 130, 246, 0.4);
+          color: #60a5fa;
+          cursor: pointer;
         }
 
-        .confirmation-placeholder {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          padding: 24px;
-          background: rgba(34, 197, 94, 0.05);
-          border: 1px dashed rgba(34, 197, 94, 0.2);
-          border-radius: 10px;
-        }
-
-        .confirmation-icon {
-          font-size: 18px;
-          color: rgba(34, 197, 94, 0.4);
-        }
-
-        .confirmation-text {
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.4);
-          font-style: italic;
+        .submit-btn--enabled:hover {
+          background: rgba(59, 130, 246, 0.3);
+          border-color: rgba(59, 130, 246, 0.6);
         }
 
         /* Footer */
@@ -354,4 +539,3 @@ export default function EmployeeTimesheetsPage() {
     </div>
   );
 }
-
