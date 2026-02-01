@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useParams, useRouter } from 'next/navigation';
 
@@ -20,8 +20,11 @@ type Assignment = {
   jobName: string;
   customerName: string;
   site: string;
-  startDate: string;
-  endDate: string;
+  dispatchedAt: string;              // when MW4H issued/sent this assignment
+  plannedStartDate: string;          // estimate
+  plannedEndDate: string;            // estimate
+  actualFirstDayWorked?: string;     // optional until known
+  actualLastDayWorked?: string;      // optional until known
   status: AssignmentStatus;
 
   // Compensation (read-only display for this assignment)
@@ -41,8 +44,11 @@ const MOCK_ASSIGNMENTS: Record<string, Assignment> = {
     jobName: 'Refinery Turnaround Q1',
     customerName: 'Marathon Petroleum',
     site: 'Marathon Petroleum Refinery - 2401 5th Ave S, Texas City, TX 77590',
-    startDate: '2026-02-01',
-    endDate: '2026-02-28',
+    dispatchedAt: '2026-01-29',
+    plannedStartDate: '2026-02-01',
+    plannedEndDate: '2026-02-28',
+    actualFirstDayWorked: '2026-02-01',
+    actualLastDayWorked: undefined,
     status: 'current',
 
     rateReg: 42.00,
@@ -59,8 +65,11 @@ const MOCK_ASSIGNMENTS: Record<string, Assignment> = {
     jobName: 'Power Plant Maintenance',
     customerName: 'NRG Energy',
     site: 'NRG W.A. Parish Generating Station - 2500 S FM 521, Thompsons, TX 77481',
-    startDate: '2026-03-05',
-    endDate: '2026-03-20',
+    dispatchedAt: '2026-03-01',
+    plannedStartDate: '2026-03-05',
+    plannedEndDate: '2026-03-20',
+    actualFirstDayWorked: undefined,
+    actualLastDayWorked: undefined,
     status: 'current',
 
     rateReg: 39.50,
@@ -189,13 +198,31 @@ export default function MyAssignmentDetailsPage() {
           <div className="card-title">Assignment Summary</div>
           <div className="kv">
             <div className="kv-row">
-              <div className="k">Site</div>
-              <div className="v">{assignment.site}</div>
+              <div className="k">Dispatched To</div>
+              <div className="v">
+                {assignment.jobName}
+                <br />
+                <span className="site-line">{assignment.site}</span>
+              </div>
             </div>
             <div className="kv-row">
-              <div className="k">Dates</div>
+              <div className="k">Dispatched On</div>
+              <div className="v">{assignment.dispatchedAt}</div>
+            </div>
+            <div className="kv-row">
+              <div className="k">Planned Dates</div>
               <div className="v">
-                {assignment.startDate} to {assignment.endDate}
+                {assignment.plannedStartDate} to {assignment.plannedEndDate}
+                <div className="muted small inline-note">Planned dates are estimates and may change.</div>
+              </div>
+            </div>
+            <div className="kv-row">
+              <div className="k">Actual Work</div>
+              <div className="v">
+                First day worked: {assignment.actualFirstDayWorked ?? '—'}
+                <br />
+                Last day worked: {assignment.actualLastDayWorked ?? '—'}
+                <div className="muted small inline-note">Actual dates are recorded after work begins/ends.</div>
               </div>
             </div>
             <div className="kv-row">
@@ -492,6 +519,13 @@ export default function MyAssignmentDetailsPage() {
         .muted.small {
           font-size: 11px;
           margin-top: 12px;
+        }
+        .muted.small.inline-note {
+          margin-top: 4px;
+        }
+        .site-line {
+          opacity: 0.85;
+          font-size: 12px;
         }
       `}</style>
     </div>
