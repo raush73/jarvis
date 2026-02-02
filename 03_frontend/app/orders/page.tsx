@@ -145,6 +145,35 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Staffing Status Dropdown */}
+      <div className="staffing-filter">
+        <label htmlFor="staffing-status-dropdown">Staffing Status:</label>
+        <select
+          id="staffing-status-dropdown"
+          value={
+            activeFilter === "has-openings"
+              ? "has-openings"
+              : activeFilter === "fully-staffed"
+              ? "fully-staffed"
+              : "all"
+          }
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "has-openings") {
+              window.location.hash = "recruiting";
+            } else if (val === "fully-staffed") {
+              window.location.hash = "fully-staffed";
+            } else {
+              window.location.hash = "";
+            }
+          }}
+        >
+          <option value="all">All</option>
+          <option value="has-openings">Has Openings</option>
+          <option value="fully-staffed">Fully Staffed</option>
+        </select>
+      </div>
+
       {/* Orders Table */}
       <div className="orders-table-wrap">
         <table className="orders-table">
@@ -155,6 +184,7 @@ export default function OrdersPage() {
               <th>Site / Location</th>
               <th>Start Date</th>
               <th>Trade Summary</th>
+              <th>Staffing Status</th>
               <th>Last Updated</th>
             </tr>
           </thead>
@@ -178,6 +208,13 @@ export default function OrdersPage() {
                 <td className="trades">
                   <TradeBadge label="MW" filled={order.trades.mw.filled} total={order.trades.mw.total} />
                   <TradeBadge label="PW" filled={order.trades.pw.filled} total={order.trades.pw.total} />
+                </td>
+                <td className="staffing-status">
+                  {getOpenSlots(order) > 0 ? (
+                    <span className="staffing-badge has-openings">Has Openings</span>
+                  ) : (
+                    <span className="staffing-badge fully-staffed">Fully Staffed</span>
+                  )}
                 </td>
                 <td className="last-updated">{order.lastUpdated}</td>
               </tr>
@@ -240,6 +277,38 @@ export default function OrdersPage() {
           background: rgba(239, 68, 68, 0.15);
           border-color: rgba(239, 68, 68, 0.3);
           color: #f87171;
+        }
+
+        .staffing-filter {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .staffing-filter label {
+          font-size: 14px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .staffing-filter select {
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          font-size: 14px;
+          color: #fff;
+          cursor: pointer;
+          outline: none;
+        }
+
+        .staffing-filter select:hover {
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .staffing-filter select:focus {
+          border-color: #3b82f6;
         }
 
         .orders-table-wrap {
@@ -317,6 +386,30 @@ export default function OrdersPage() {
           color: rgba(255, 255, 255, 0.45) !important;
           font-size: 13px !important;
           white-space: nowrap;
+        }
+
+        .staffing-status {
+          white-space: nowrap;
+        }
+
+        .staffing-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 5px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .staffing-badge.has-openings {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+          border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .staffing-badge.fully-staffed {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+          border: 1px solid rgba(34, 197, 94, 0.3);
         }
       `}</style>
 
