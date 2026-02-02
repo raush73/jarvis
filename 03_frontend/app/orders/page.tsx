@@ -318,6 +318,11 @@ export default function OrdersPage() {
           border-color: #3b82f6;
         }
 
+        .staffing-filter select option {
+          background: #1a1a2e;
+          color: #fff;
+        }
+
         .orders-table-wrap {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
