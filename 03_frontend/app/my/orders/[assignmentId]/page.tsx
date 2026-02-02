@@ -165,6 +165,26 @@ export default function MyAssignmentDetailsPage() {
         <span className="demo-text">UI Shell / Mock Data / Demo Only</span>
       </div>
 
+      {/* Dispatch Snapshot (Read-Only) */}
+      <div className="snapshot-section">
+        <div className="snapshot-title">Dispatch Snapshot (Read-Only)</div>
+        <div className="snapshot-grid">
+          <div className="snapshot-item">
+            <div className="snapshot-label">Pay Rate (at dispatch)</div>
+            <div className="snapshot-value">{formatMoney(assignment.rateReg)}/hr</div>
+          </div>
+          <div className="snapshot-item">
+            <div className="snapshot-label">Per Diem (at dispatch)</div>
+            <div className="snapshot-value">
+              {assignment.perDiemEligible ? formatMoney(assignment.perDiemDaily) + '/day' : 'Not Eligible'}
+            </div>
+          </div>
+        </div>
+        <div className="snapshot-note">
+          These values reflect the terms at the time of dispatch and are read-only.
+        </div>
+      </div>
+
       {/* Header */}
       <div className="header">
         <div className="title-block">
@@ -297,7 +317,57 @@ export default function MyAssignmentDetailsPage() {
           min-height: 100vh;
           background: linear-gradient(180deg, #0c0f14 0%, #111827 100%);
           color: #fff;
-          padding: 24px;
+          padding: 24px 40px 60px;
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .snapshot-section {
+          background: rgba(139, 92, 246, 0.08);
+          border: 1px solid rgba(139, 92, 246, 0.25);
+          border-radius: 14px;
+          padding: 16px;
+          margin-bottom: 18px;
+        }
+        .snapshot-title {
+          font-weight: 800;
+          font-size: 14px;
+          margin-bottom: 12px;
+          color: rgba(255, 255, 255, 0.95);
+        }
+        .snapshot-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+        @media (max-width: 520px) {
+          .snapshot-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .snapshot-item {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.10);
+          border-radius: 10px;
+          padding: 12px;
+        }
+        .snapshot-label {
+          font-size: 11px;
+          font-weight: 700;
+          opacity: 0.75;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 4px;
+        }
+        .snapshot-value {
+          font-size: 18px;
+          font-weight: 900;
+        }
+        .snapshot-note {
+          font-size: 11px;
+          opacity: 0.7;
+          font-style: italic;
         }
 
         .readonly-banner {
