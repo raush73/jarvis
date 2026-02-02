@@ -362,6 +362,8 @@ export default function MyOrdersPage() {
           background: linear-gradient(180deg, #0c0f14 0%, #111827 100%);
           color: #fff;
           padding: 24px 40px 60px;
+          max-width: 1400px;
+          margin: 0 auto;
           font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
