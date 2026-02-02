@@ -78,6 +78,12 @@ export default function ModuleTabs() {
     hash && tabs.some((t) => t.key === hash) ? hash : tabs[0]?.key || "";
 
   const handleTabClick = (tabKey: string) => {
+    // Orders tabs: set hash directly, no router navigation
+    if (currentDomain === "orders") {
+      // "active" clears hash; others set their key
+      window.location.hash = tabKey === "active" ? "" : tabKey;
+      return;
+    }
     router.push(`/${currentDomain}#${tabKey}`);
   };
 

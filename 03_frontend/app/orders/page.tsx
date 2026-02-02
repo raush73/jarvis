@@ -73,24 +73,31 @@ function TradeBadge({ label, filled, total }: { label: string; filled: number; t
 export default function OrdersPage() {
   const router = useRouter();
 
-  const [hash, setHash] = useState<string>("");
+  // Force re-render on hash change
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const readHash = () => setHash(window.location.hash.replace("#", "") || "");
-    readHash();
-    window.addEventListener("hashchange", readHash);
-    return () => window.removeEventListener("hashchange", readHash);
+    const onHashChange = () => forceUpdate((n) => n + 1);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  // Determine active filter from hash
+  // Read hash at render time (client only)
+  const currentHash =
+    typeof window !== "undefined"
+      ? window.location.hash.replace("#", "")
+      : "";
+
+  // Determine active filter from currentHash
   // "recruiting" or "vetting" (backwards compat) → Has Openings
-  // "fully-staffed" → Fully Staffed
-  // "active" or empty → All Active
-  const activeFilter = useMemo(() => {
-    if (hash === "recruiting" || hash === "vetting") return "has-openings";
-    if (hash === "fully-staffed") return "fully-staffed";
-    return "all-active";
-  }, [hash]);
+  // "fully-staffed" or "staffed" → Fully Staffed
+  // otherwise → All Active
+  const activeFilter =
+    currentHash === "recruiting" || currentHash === "vetting"
+      ? "has-openings"
+      : currentHash === "fully-staffed" || currentHash === "staffed"
+      ? "fully-staffed"
+      : "all-active";
 
   // Helper: calculate total openings for an order
   const getOpenSlots = (order: typeof MOCK_ORDERS[0]) => {
