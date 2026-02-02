@@ -20,7 +20,7 @@ const MODULE_TABS: Record<string, { key: string; label: string }[]> = {
     { key: "recruiting", label: "Has Openings" },
     { key: "fully-staffed", label: "Fully Staffed" },
     { key: "dispatch", label: "Dispatch" },
-    { key: "time", label: "Time" },
+    { key: "time", label: "Timesheets" },
     { key: "invoicing", label: "Invoicing" },
     { key: "documents", label: "Documents" },
   ],

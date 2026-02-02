@@ -23,7 +23,7 @@ import { useRouter, usePathname, useParams } from "next/navigation";
  * - Overview   → /orders/[id]
  * - Vetting    → /orders/[id]/vetting
  * - Dispatch   → /orders/[id]/dispatch-order (Order-specific dispatch document)
- * - Time       → /orders/[id]/time
+ * - Timesheets → /orders/[id]/time (canonical hub route)
  * - Invoicing  → /orders/[id]/invoicing
  * - Documents  → /orders/[id]/documents
  * 
@@ -33,8 +33,7 @@ const ORDER_TABS = [
   { key: "overview", label: "Overview", path: "" },
   { key: "vetting", label: "Vetting", path: "/vetting" },
   { key: "dispatch", label: "Dispatch", path: "/dispatch-order" },
-  { key: "time", label: "Time", path: "/time" },
-  { key: "timesheets", label: "Timesheets", path: "/timesheets" },
+  { key: "time", label: "Timesheets", path: "/time" },
   { key: "invoicing", label: "Invoicing", path: "/invoicing" },
   { key: "documents", label: "Documents", path: "/documents" },
 ] as const;
@@ -54,6 +53,9 @@ export default function OrderNav() {
    * ORDER-CONTEXT ENFORCEMENT:
    * - Only matches paths within /orders/[id]/*
    * - Falls back to "overview" for the base path or unknown routes
+   * 
+   * TIMESHEETS TAB HIGHLIGHTING:
+   * - Highlights "Timesheets" tab for both /time (canonical) and /timesheets (compat alias)
    */
   const getActiveTab = (): string => {
     if (!pathname || !orderId) return "overview";
@@ -65,6 +67,11 @@ export default function OrderNav() {
     const normalizedPath = remainingPath.startsWith("/") 
       ? remainingPath 
       : `/${remainingPath}`;
+    
+    // Special case: /timesheets compat alias highlights "Timesheets" tab (canonical: /time)
+    if (normalizedPath.startsWith("/timesheets")) {
+      return "time";
+    }
     
     // Find matching tab (exact match or starts with for nested routes)
     for (const tab of ORDER_TABS) {
