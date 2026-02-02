@@ -166,9 +166,21 @@ export default function CustomerOrdersPage() {
                   </div>
                 </div>
               </div>
-              <div className="order-action">
-                <span className="action-text">View Dispatch</span>
-                <span className="action-arrow">→</span>
+              <div className="order-actions">
+                <button
+                  className="action-btn action-btn-time"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/customer/orders/${order.id}/timesheets`);
+                  }}
+                >
+                  <span className="action-text">Time</span>
+                  <span className="action-arrow">→</span>
+                </button>
+                <div className="action-btn action-btn-dispatch">
+                  <span className="action-text">View Dispatch</span>
+                  <span className="action-arrow">→</span>
+                </div>
               </div>
             </div>
           );
@@ -353,21 +365,58 @@ export default function CustomerOrdersPage() {
           color: rgba(255, 255, 255, 0.7);
         }
 
-        .order-action {
+        .order-actions {
+          display: flex;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .action-btn {
           display: flex;
           align-items: center;
           gap: 10px;
           padding: 12px 20px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.2);
           border-radius: 8px;
           flex-shrink: 0;
           transition: all 0.2s ease;
+          cursor: pointer;
+          border: 1px solid;
+          background: none;
+          font-family: inherit;
         }
 
-        .order-card:hover .order-action {
+        .action-btn-dispatch {
+          background: rgba(59, 130, 246, 0.1);
+          border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .action-btn-dispatch .action-text,
+        .action-btn-dispatch .action-arrow {
+          color: #60a5fa;
+        }
+
+        .action-btn-time {
+          background: rgba(168, 85, 247, 0.1);
+          border-color: rgba(168, 85, 247, 0.2);
+        }
+
+        .action-btn-time .action-text,
+        .action-btn-time .action-arrow {
+          color: #c084fc;
+        }
+
+        .action-btn:hover {
+          transform: translateX(2px);
+        }
+
+        .action-btn-dispatch:hover {
           background: rgba(59, 130, 246, 0.15);
           border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .action-btn-time:hover {
+          background: rgba(168, 85, 247, 0.15);
+          border-color: rgba(168, 85, 247, 0.35);
         }
 
         .action-text {
@@ -423,7 +472,12 @@ export default function CustomerOrdersPage() {
             gap: 16px;
           }
 
-          .order-action {
+          .order-actions {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .action-btn {
             justify-content: center;
           }
 
