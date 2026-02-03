@@ -199,7 +199,7 @@ export default function OrdersPage() {
             {visibleOrders.map((order) => (
               <tr
                 key={order.id}
-                onClick={() => router.push(`/orders/${order.id}/vetting`)}
+                onClick={() => router.push(`/orders/${order.id}`)}
                 className="order-row"
               >
                 <td className="order-id">{order.id}</td>

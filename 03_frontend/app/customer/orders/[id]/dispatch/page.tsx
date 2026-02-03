@@ -626,6 +626,7 @@ export default function CustomerDispatchPage() {
         /* Dispatch Content */
         .dispatch-content {
           max-width: 900px;
+          margin: 0 auto;
         }
 
         /* Header */
