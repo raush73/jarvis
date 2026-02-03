@@ -93,6 +93,14 @@ const MOCK_COMMISSION_EVENTS = [
 
 type FilterType = "all" | "pending" | "paid" | "reversed";
 
+// Unique salespeople derived from mock data
+const SALESPEOPLE = [
+  "Jordan Miles",
+  "Taylor Brooks",
+  "Morgan Chen",
+  "Casey Rivera",
+] as const;
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, React.CSSProperties> = {
     Pending: {
@@ -130,21 +138,29 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AccountingCommissionsPage() {
   const [filter, setFilter] = useState<FilterType>("all");
+  const [salespersonFilter, setSalespersonFilter] = useState<string>("all");
 
   const filteredEvents = useMemo(() => {
     return MOCK_COMMISSION_EVENTS.filter((evt) => {
+      // Status filter
+      let statusMatch = true;
       switch (filter) {
         case "pending":
-          return evt.status === "Pending";
+          statusMatch = evt.status === "Pending";
+          break;
         case "paid":
-          return evt.status === "Paid";
+          statusMatch = evt.status === "Paid";
+          break;
         case "reversed":
-          return evt.status === "Reversed";
-        default:
-          return true;
+          statusMatch = evt.status === "Reversed";
+          break;
       }
+      // Salesperson filter
+      const salespersonMatch =
+        salespersonFilter === "all" || evt.salesperson === salespersonFilter;
+      return statusMatch && salespersonMatch;
     });
-  }, [filter]);
+  }, [filter, salespersonFilter]);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", {
@@ -160,15 +176,14 @@ export default function AccountingCommissionsPage() {
     });
 
   const totals = useMemo(() => {
-    const pending = MOCK_COMMISSION_EVENTS.filter(
-      (e) => e.status === "Pending"
-    ).reduce((sum, e) => sum + e.commissionAmount, 0);
-    const paid = MOCK_COMMISSION_EVENTS.filter((e) => e.status === "Paid").reduce(
-      (sum, e) => sum + e.commissionAmount,
-      0
-    );
+    const pending = filteredEvents
+      .filter((e) => e.status === "Pending")
+      .reduce((sum, e) => sum + e.commissionAmount, 0);
+    const paid = filteredEvents
+      .filter((e) => e.status === "Paid")
+      .reduce((sum, e) => sum + e.commissionAmount, 0);
     return { pending, paid };
-  }, []);
+  }, [filteredEvents]);
 
   return (
     <div className="commissions-container">
@@ -197,23 +212,38 @@ export default function AccountingCommissionsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs + Export */}
+      {/* Filter Tabs + Salesperson Dropdown + Export */}
       <div className="controls-row">
-        <div className="filter-tabs">
-          {[
-            { key: "all", label: "All" },
-            { key: "pending", label: "Pending" },
-            { key: "paid", label: "Paid" },
-            { key: "reversed", label: "Reversed" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key as FilterType)}
-              className={`filter-tab ${filter === tab.key ? "active" : ""}`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="filters-left">
+          <div className="filter-tabs">
+            {[
+              { key: "all", label: "All" },
+              { key: "pending", label: "Pending" },
+              { key: "paid", label: "Paid" },
+              { key: "reversed", label: "Reversed" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as FilterType)}
+                className={`filter-tab ${filter === tab.key ? "active" : ""}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <select
+            className="salesperson-select"
+            value={salespersonFilter}
+            onChange={(e) => setSalespersonFilter(e.target.value)}
+          >
+            <option value="all">All Salespeople</option>
+            {SALESPEOPLE.map((sp) => (
+              <option key={sp} value={sp}>
+                {sp}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button className="export-btn" disabled title="Placeholder — no download">
@@ -363,9 +393,42 @@ export default function AccountingCommissionsPage() {
           margin-bottom: 20px;
         }
 
+        .filters-left {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
         .filter-tabs {
           display: flex;
           gap: 8px;
+        }
+
+        .salesperson-select {
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          min-width: 160px;
+        }
+
+        .salesperson-select:hover {
+          border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .salesperson-select:focus {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .salesperson-select option {
+          background: #1a1a1a;
+          color: rgba(255, 255, 255, 0.85);
         }
 
         .filter-tab {
