@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { mockOrder, Candidate } from '@/data/mockRecruitingData';
-import OrderNav from '@/components/OrderNav';
-
 /**
  * Dispatch Order Page — UI Shell / Demo Only
  * 
@@ -121,8 +119,6 @@ export default function DispatchOrderPage() {
   if (!order) {
     return (
       <div className="dispatch-order-page">
-        <OrderNav />
-        
         {/* Demo Warning Banner */}
         <div className="demo-banner">
           <span className="demo-icon">⚠️</span>
@@ -371,8 +367,6 @@ export default function DispatchOrderPage() {
 
   return (
     <div className="dispatch-order-page">
-      <OrderNav />
-      
       {/* Demo Warning Banner */}
       <div className="demo-banner">
         <span className="demo-icon">⚠️</span>

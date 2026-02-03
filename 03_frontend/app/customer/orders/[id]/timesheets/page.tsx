@@ -1,43 +1,40 @@
-'use client';
+﻿"use client";
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from "next/navigation";
 
 /**
  * Customer Timesheets HUB Page - Slice C
- * 
- * Customer-facing timesheet periods list for order-scoped hours.
- * Displays list of timesheet periods; clicking navigates to detail view.
- * 
  * Route: /customer/orders/[id]/timesheets
  */
 
-// DEMO MODE toggle - set to false to hide demo data
 const DEMO_MODE = true;
 
-// Mock timesheet period type
 type TimesheetPeriod = {
   id: string;
   label: string;
-  status: 'Draft' | 'Submitted' | 'Finalized';
+  status: "Draft" | "Submitted" | "Finalized";
 };
 
-// Mock timesheet periods data
 const MOCK_TIMESHEET_PERIODS: TimesheetPeriod[] = [
-  { id: 'ts_001', label: 'Week of Jan 27 – Feb 2, 2026', status: 'Submitted' },
+  { id: "ts_001", label: "Week of Jan 27 – Feb 2, 2026", status: "Submitted" },
 ];
 
-export default function CustomerTimesheetsHubPage() {
+export default function CustomerTimesheetsHubPage({ __internal }: any) {
   const params = useParams();
   const router = useRouter();
-  const orderId = params?.id as string;
+  const raw = (params as any)?.id as string | string[] | undefined;
+  const orderId = Array.isArray(raw) ? raw[0] : (raw as string);
 
   const handlePeriodClick = (timesheetId: string) => {
-    router.push(`/customer/orders/${orderId}/timesheets/${timesheetId}`);
+    router.push(
+      __internal
+        ? `/orders/${orderId}/timesheets/${timesheetId}`
+        : `/customer/orders/${orderId}/timesheets/${timesheetId}`
+    );
   };
 
   return (
     <div className="customer-timesheets-hub">
-      {/* DEMO MODE Banner */}
       {DEMO_MODE && (
         <div className="demo-banner">
           <span className="demo-icon">[!]</span>
@@ -45,31 +42,31 @@ export default function CustomerTimesheetsHubPage() {
         </div>
       )}
 
-      {/* Breadcrumb Navigation */}
-      <nav className="breadcrumb">
-        <button className="breadcrumb-link" onClick={() => router.push('/customer/orders')}>
-          Your Orders
-        </button>
-        <span className="breadcrumb-sep">&gt;</span>
-        <button className="breadcrumb-link" onClick={() => router.push(`/customer/orders/${orderId}`)}>
-          {orderId}
-        </button>
-        <span className="breadcrumb-sep">&gt;</span>
-        <span className="breadcrumb-current">Timesheets</span>
-      </nav>
+      {!__internal && (
+        <nav className="breadcrumb">
+          <button className="breadcrumb-link" onClick={() => router.push("/customer/orders")}>
+            Your Orders
+          </button>
+          <span className="breadcrumb-sep">&gt;</span>
+          <button className="breadcrumb-link" onClick={() => router.push(`/customer/orders/${orderId}`)}>
+            {orderId}
+          </button>
+          <span className="breadcrumb-sep">&gt;</span>
+          <span className="breadcrumb-current">Timesheets</span>
+        </nav>
+      )}
 
-      {/* Page Header */}
       <header className="page-header">
         <h1 className="page-title">[T] Timesheets (Read-Only)</h1>
         <p className="page-subtitle">View submitted timesheet periods for this order.</p>
       </header>
 
-      {/* Section: Timesheet Periods */}
       <section className="content-section">
         <h2 className="section-title">
           <span className="section-icon">[P]</span>
           Timesheet Periods
         </h2>
+
         <div className="section-body">
           <div className="periods-list">
             {MOCK_TIMESHEET_PERIODS.map((period) => (
@@ -83,25 +80,27 @@ export default function CustomerTimesheetsHubPage() {
                   <span className="period-label">{period.label}</span>
                   <span className="period-id">{period.id}</span>
                 </div>
+
                 <div className="period-status" data-status={period.status.toLowerCase()}>
                   {period.status}
                 </div>
+
                 <span className="period-arrow">&rarr;</span>
               </button>
             ))}
           </div>
-          {DEMO_MODE && (
-            <p className="demo-note">DEMO: Mock timesheet period. Click to view detail.</p>
-          )}
+
+          {DEMO_MODE && <p className="demo-note">DEMO: Mock timesheet period. Click to view detail.</p>}
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="page-footer">
-        <button className="back-link" onClick={() => router.push(`/customer/orders/${orderId}`)}>
-          &lt;- Back to Order
-        </button>
-      </footer>
+      {!__internal && (
+        <footer className="page-footer">
+          <button className="back-link" onClick={() => router.push(`/customer/orders/${orderId}`)}>
+            &lt;- Back to Order
+          </button>
+        </footer>
+      )}
 
       <style jsx>{`
         .customer-timesheets-hub {
@@ -109,7 +108,7 @@ export default function CustomerTimesheetsHubPage() {
           background: linear-gradient(180deg, #0c0f14 0%, #111827 100%);
           color: #fff;
           padding: 24px 40px 60px;
-          font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
           max-width: 1400px;
           margin: 0 auto;
         }

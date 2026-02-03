@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import OrderNav from "@/components/OrderNav";
 
 // Mock order detail data
 const MOCK_ORDER_DETAILS: Record<string, {
@@ -115,7 +114,6 @@ export default function OrderDetailPage() {
 
   return (
     <div className="order-detail-page">
-      <OrderNav />
       <div className="order-detail-container">
       {/* Page Header */}
       <div className="detail-header">

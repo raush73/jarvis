@@ -1,56 +1,25 @@
-"use client";
+﻿import React from "react";
+import OrderNav from "@/components/OrderNav";
 
-import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-/**
- * Order Context Layout
- * 
- * Enforces order-scoped routing for all /orders/[id]/* routes.
- * Ensures navigation stays within order context and handles invalid routes.
- * 
- * UI Shell only — no data fetching, no permissions, no backend.
- */
-
-// Valid sub-routes within order context (matching OrderNav tabs)
-const VALID_ORDER_SUBROUTES = [
-  "", // Overview at /orders/[id]
-  "vetting",
-  "dispatch-order",
-  "time",
-  "timesheets",
-  "invoicing",
-  "documents",
-  "recruiting", // Legacy redirect handled by its own page
-];
-
-export default function OrderContextLayout({
+export default async function OrderLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ id?: string | string[] }>;
 }) {
-  const params = useParams();
-  const pathname = usePathname();
-  const router = useRouter();
-  const orderId = params?.id as string;
+  const resolved = await params;
+  const rawId = resolved?.id;
+  const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
 
-  useEffect(() => {
-    // Extract the sub-route from the current pathname
-    const basePath = `/orders/${orderId}`;
-    const remainingPath = pathname.replace(basePath, "").replace(/^\//, "");
-    
-    // Get the first segment of the remaining path (the sub-route)
-    const subRoute = remainingPath.split("/")[0] || "";
-    
-    // Check if the sub-route is valid
-    const isValidRoute = VALID_ORDER_SUBROUTES.includes(subRoute);
-    
-    // If invalid route, redirect to order overview
-    if (!isValidRoute && orderId) {
-      router.replace(`/orders/${orderId}`);
-    }
-  }, [pathname, orderId, router]);
+  if (!orderId) {
+    return <>{children}</>;
+  }
 
-  return <>{children}</>;
+  return (
+    <div className="order-layout">
+      <OrderNav orderId={orderId} />
+      <div className="order-content">{children}</div>
+    </div>
+  );
 }
-

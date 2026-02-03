@@ -1,39 +1,39 @@
-"use client";
+﻿"use client";
 
 import { useRouter, usePathname, useParams } from "next/navigation";
 
 /**
- * OrderNav — Order-Level Navigation Component
- * 
+ * OrderNav â€” Order-Level Navigation Component
+ *
  * Provides consistent order-scoped navigation for internal users
  * navigating between order-related views within /orders/[id].
- * 
+ *
  * ORDER-CONTEXT ROUTING ENFORCEMENT:
  * - ALL tabs resolve to order-scoped pages (/orders/[id]/*)
  * - NO tab routes to list-level views (/orders, /dispatch, etc.)
  * - Dispatch tab routes to /orders/[id]/dispatch-order (NOT recruiting queue)
- * 
- * UI Shell only — no data fetching, no permissions.
+ *
+ * UI Shell only â€” no data fetching, no permissions.
  */
 
 /**
  * ORDER_TABS Configuration (LOCKED)
- * 
+ *
  * Tab routing is STRICTLY order-scoped:
- * - Overview   → /orders/[id]
- * - Vetting    → /orders/[id]/vetting
- * - Dispatch   → /orders/[id]/dispatch-order (Order-specific dispatch document)
- * - Timesheets → /orders/[id]/time (canonical hub route)
- * - Invoicing  → /orders/[id]/invoicing
- * - Documents  → /orders/[id]/documents
- * 
+ * - Overview   â†’ /orders/[id]
+ * - Vetting    â†’ /orders/[id]/vetting
+ * - Dispatch   â†’ /orders/[id]/dispatch-order (Order-specific dispatch document)
+ * - Timesheets â†’ /orders/[id]/timesheets (canonical hub route)
+ * - Invoicing  â†’ /orders/[id]/invoicing
+ * - Documents  â†’ /orders/[id]/documents
+ *
  * DO NOT modify these paths to point to list-level routes.
  */
 const ORDER_TABS = [
   { key: "overview", label: "Overview", path: "" },
   { key: "vetting", label: "Vetting", path: "/vetting" },
   { key: "dispatch", label: "Dispatch", path: "/dispatch-order" },
-  { key: "time", label: "Timesheets", path: "/time" },
+  { key: "time", label: "Timesheets", path: "/timesheets" },
   { key: "invoicing", label: "Invoicing", path: "/invoicing" },
   { key: "documents", label: "Documents", path: "/documents" },
 ] as const;
@@ -44,51 +44,49 @@ export default function OrderNav() {
   const params = useParams();
   const orderId = params?.id as string;
 
-  // Base path for this order — ALL navigation stays within this context
+  // Base path for this order â€” ALL navigation stays within this context
   const basePath = `/orders/${orderId}`;
 
   /**
    * Determine active tab based on pathname
-   * 
+   *
    * ORDER-CONTEXT ENFORCEMENT:
    * - Only matches paths within /orders/[id]/*
    * - Falls back to "overview" for the base path or unknown routes
-   * 
+   *
    * TIMESHEETS TAB HIGHLIGHTING:
-   * - Highlights "Timesheets" tab for both /time (canonical) and /timesheets (compat alias)
+   * - Highlights "Timesheets" tab for both /timesheets (canonical) and /time (compat alias)
    */
   const getActiveTab = (): string => {
     if (!pathname || !orderId) return "overview";
-    
+
     // Remove base path to get the remaining segment
     const remainingPath = pathname.replace(basePath, "");
-    
-    // Normalize: remove leading slash for comparison
-    const normalizedPath = remainingPath.startsWith("/") 
-      ? remainingPath 
+
+    // Normalize: ensure leading slash for comparison
+    const normalizedPath = remainingPath.startsWith("/")
+      ? remainingPath
       : `/${remainingPath}`;
+
+    // Compat: /time alias highlights "Timesheets" tab (canonical: /timesheets)
     
-    // Special case: /timesheets compat alias highlights "Timesheets" tab (canonical: /time)
-    if (normalizedPath.startsWith("/timesheets")) {
-      return "time";
-    }
-    
+
     // Find matching tab (exact match or starts with for nested routes)
     for (const tab of ORDER_TABS) {
       const tabPath = tab.path || "";
       const normalizedTabPath = tabPath.startsWith("/") ? tabPath : `/${tabPath}`;
-      
+
       // Exact match for empty path (overview)
       if (tabPath === "" && (normalizedPath === "" || normalizedPath === "/")) {
         return tab.key;
       }
-      
+
       // Match for non-empty paths
       if (tabPath !== "" && normalizedPath.startsWith(normalizedTabPath)) {
         return tab.key;
       }
     }
-    
+
     // Default to overview if no match (handles invalid routes gracefully)
     return "overview";
   };
@@ -97,12 +95,12 @@ export default function OrderNav() {
 
   /**
    * Handle tab navigation
-   * 
+   *
    * ORDER-CONTEXT ENFORCEMENT:
    * - ALWAYS routes to /orders/[id]/* paths
    * - NEVER routes to list-level pages
    */
-  const handleTabClick = (tab: typeof ORDER_TABS[number]) => {
+  const handleTabClick = (tab: (typeof ORDER_TABS)[number]) => {
     const targetPath = `${basePath}${tab.path}`;
     router.push(targetPath);
   };

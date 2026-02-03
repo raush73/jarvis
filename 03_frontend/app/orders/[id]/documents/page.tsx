@@ -1,8 +1,6 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import OrderNav from '@/components/OrderNav';
-
 /**
  * Documents Page — UI Shell / Coming Soon
  * 
@@ -17,8 +15,6 @@ export default function DocumentsPage() {
 
   return (
     <div className="documents-page">
-      <OrderNav />
-      
       <div className="page-content">
         {/* Page Header */}
         <header className="page-header">

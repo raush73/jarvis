@@ -13,8 +13,6 @@ import {
 import { BucketTradeSummary } from '@/components/BucketTradeSummary';
 import { RecruitingSourcingPanel } from '@/components/RecruitingSourcingPanel';
 import { useAuth } from "@/lib/auth/useAuth";
-import OrderNav from '@/components/OrderNav';
-
 /**
  * Vetting Page — Canonical Flow
  * 
@@ -145,8 +143,6 @@ export default function VettingPage() {
 
   return (
     <div className="vetting-page">
-      <OrderNav />
-      
       {/* Order Context Header */}
       <header className="order-header">
         <div className="header-left">

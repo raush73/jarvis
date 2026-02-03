@@ -1,8 +1,6 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import OrderNav from '@/components/OrderNav';
-
 /**
  * Invoicing Page — UI Shell / Coming Soon
  * 
@@ -17,8 +15,6 @@ export default function InvoicingPage() {
 
   return (
     <div className="invoicing-page">
-      <OrderNav />
-      
       <div className="page-content">
         {/* Page Header */}
         <header className="page-header">
