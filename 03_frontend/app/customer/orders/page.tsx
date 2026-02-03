@@ -133,12 +133,12 @@ export default function CustomerOrdersPage() {
             <div
               key={order.id}
               className="order-card"
-              onClick={() => router.push(`/customer/orders/${order.id}/dispatch`)}
+              onClick={() => router.push(`/customer/orders/${order.id}`)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
-                  router.push(`/customer/orders/${order.id}/dispatch`);
+                  router.push(`/customer/orders/${order.id}`);
                 }
               }}
             >
@@ -178,10 +178,16 @@ export default function CustomerOrdersPage() {
                   <span className="action-text">Time</span>
                   <span className="action-arrow">{">"}</span>
                 </button>
-                <div className="action-btn action-btn-dispatch">
+                <button
+                  className="action-btn action-btn-dispatch"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/customer/orders/${order.id}/dispatch`);
+                  }}
+                >
                   <span className="action-text">View Dispatch</span>
                   <span className="action-arrow">{">"}</span>
-                </div>
+                </button>
               </div>
             </div>
           );
@@ -517,4 +523,9 @@ export default function CustomerOrdersPage() {
     </div>
   );
 }
+
+
+
+
+
 
