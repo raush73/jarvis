@@ -1,91 +1,196 @@
 "use client";
 
+import Link from "next/link";
+
 export default function AdminPage() {
   return (
-    <div className="stub-container">
-      <div className="stub-content">
+    <div className="admin-container">
+      <div className="admin-header">
         <h1>Admin</h1>
-        <p className="stub-description">UI shell placeholder (no logic yet)</p>
-        
-        <div className="future-tabs">
-          <span className="future-tabs-label">Planned sub-tabs:</span>
-          <ul className="future-tabs-list">
-            <li>User Management</li>
-            <li>Role & Permissions</li>
-            <li>System Settings</li>
-            <li>Integrations</li>
-            <li>Audit Logs</li>
-          </ul>
+        <p className="subtitle">System configuration and settings</p>
+      </div>
+
+      <div className="admin-grid">
+        {/* Commissions Card - Active */}
+        <Link href="/admin/commissions" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Commissions</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Configure commission tiers based on days-to-paid from invoice payment events.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Commission Settings →</span>
+          </div>
+        </Link>
+
+        {/* Placeholder Cards */}
+        <div className="admin-card disabled">
+          <div className="card-header">
+            <div className="card-title">User Management</div>
+            <span className="badge future">FUTURE</span>
+          </div>
+          <div className="card-desc">
+            Manage system users, roles, and access permissions.
+          </div>
+          <div className="card-footer">
+            <span className="disabled-hint">UI shell planned</span>
+          </div>
+        </div>
+
+        <div className="admin-card disabled">
+          <div className="card-header">
+            <div className="card-title">System Settings</div>
+            <span className="badge future">FUTURE</span>
+          </div>
+          <div className="card-desc">
+            Global configuration options and system preferences.
+          </div>
+          <div className="card-footer">
+            <span className="disabled-hint">UI shell planned</span>
+          </div>
+        </div>
+
+        <div className="admin-card disabled">
+          <div className="card-header">
+            <div className="card-title">Integrations</div>
+            <span className="badge future">FUTURE</span>
+          </div>
+          <div className="card-desc">
+            External system connections and API configurations.
+          </div>
+          <div className="card-footer">
+            <span className="disabled-hint">UI shell planned</span>
+          </div>
+        </div>
+
+        <div className="admin-card disabled">
+          <div className="card-header">
+            <div className="card-title">Audit Logs</div>
+            <span className="badge future">FUTURE</span>
+          </div>
+          <div className="card-desc">
+            System activity logs and audit trail.
+          </div>
+          <div className="card-footer">
+            <span className="disabled-hint">UI shell planned</span>
+          </div>
         </div>
       </div>
 
       <style jsx>{`
-        .stub-container {
-          padding: 48px 40px;
-          max-width: 800px;
+        .admin-container {
+          padding: 24px 40px 60px;
+          max-width: 1000px;
           margin: 0 auto;
         }
 
-        .stub-content {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px;
-          padding: 48px;
+        .admin-header {
           text-align: center;
+          margin-bottom: 32px;
         }
 
         h1 {
           font-size: 36px;
           font-weight: 700;
           color: #fff;
-          margin: 0 0 12px;
+          margin: 0 0 8px;
           letter-spacing: -0.5px;
         }
 
-        .stub-description {
+        .subtitle {
           font-size: 15px;
           color: rgba(255, 255, 255, 0.5);
-          margin: 0 0 40px;
-        }
-
-        .future-tabs {
-          background: rgba(239, 68, 68, 0.05);
-          border: 1px dashed rgba(239, 68, 68, 0.2);
-          border-radius: 12px;
-          padding: 24px 32px;
-          text-align: left;
-        }
-
-        .future-tabs-label {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.4);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          display: block;
-          margin-bottom: 12px;
-        }
-
-        .future-tabs-list {
-          list-style: none;
           margin: 0;
-          padding: 0;
+        }
+
+        .admin-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+
+        .admin-card {
+          display: block;
+          text-decoration: none;
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+          transition: all 0.15s ease;
+        }
+
+        .admin-card.active {
+          cursor: pointer;
+        }
+
+        .admin-card.active:hover {
+          background: rgba(255, 255, 255, 0.04);
+          border-color: rgba(59, 130, 246, 0.3);
+          transform: translateY(-2px);
+        }
+
+        .admin-card.disabled {
+          opacity: 0.75;
+          cursor: default;
+        }
+
+        .card-header {
           display: flex;
-          flex-direction: column;
-          gap: 8px;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
         }
 
-        .future-tabs-list li {
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.7);
-          padding-left: 20px;
-          position: relative;
+        .card-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #fff;
         }
 
-        .future-tabs-list li::before {
-          content: "→";
-          position: absolute;
-          left: 0;
-          color: #ef4444;
+        .badge {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 4px 8px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .badge.active {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+          border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+
+        .badge.future {
+          background: rgba(148, 163, 184, 0.12);
+          color: rgba(148, 163, 184, 0.8);
+          border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .card-desc {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.55);
+          line-height: 1.5;
+          margin-bottom: 14px;
+        }
+
+        .card-footer {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .link-hint {
+          font-size: 13px;
+          font-weight: 600;
+          color: #3b82f6;
+        }
+
+        .disabled-hint {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.35);
         }
       `}</style>
     </div>

@@ -38,30 +38,30 @@ export default function AccountingPage() {
           </div>
         </Link>
 
-        <div className="moneyCard moneyCardDisabled" style={styles.cardDisabled}>
+        <Link href="/accounting/commissions" className="moneyCard">
           <div style={styles.cardHeader}>
             <div>
               <div style={styles.cardTitle}>Commissions</div>
               <div style={styles.cardDesc}>
-                Based on paid invoice events (next slice).
+                Commission events derived from paid invoice payment events.
               </div>
             </div>
-            <span style={styles.badgeSoon}>COMING SOON</span>
+            <span style={styles.badgeActive}>ACTIVE</span>
           </div>
 
           <div style={styles.cardBody}>
             <ul style={styles.bullets}>
-              <li>Commission structure config</li>
-              <li>Customer default salesperson</li>
-              <li>Order-level split shells</li>
-              <li>Commission packet export</li>
+              <li>Commission events list</li>
+              <li>Days-to-paid tier buckets</li>
+              <li>Pending / Paid / Reversed filters</li>
+              <li>Export placeholder (CSV)</li>
             </ul>
           </div>
 
           <div style={styles.cardFooter}>
-            <span style={styles.disabledHint}>UI shell planned</span>
+            <span style={styles.linkHint}>Open Commissions →</span>
           </div>
-        </div>
+        </Link>
 
         <div className="moneyCard moneyCardDisabled" style={styles.cardDisabled}>
           <div style={styles.cardHeader}>
