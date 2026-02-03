@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 
 /**
- * Customer Orders List — UI Shell / Demo Only
+ * Customer Orders List  UI Shell / Demo Only
  * 
  * A READ-ONLY view of customer orders.
  * This is a CUSTOMER-SAFE projection showing only:
@@ -22,7 +22,7 @@ const MOCK_CUSTOMER_ORDERS = [
   {
     id: 'cust_ord_001',
     orderName: 'Refinery Turnaround Q1',
-    site: 'Marathon Petroleum Refinery — Texas City, TX',
+    site: 'Marathon Petroleum Refinery  Texas City, TX',
     startDate: '2026-02-01',
     endDate: '2026-02-28',
     status: 'Dispatched' as const,
@@ -30,7 +30,7 @@ const MOCK_CUSTOMER_ORDERS = [
   {
     id: 'cust_ord_002',
     orderName: 'Power Plant Maintenance',
-    site: 'NRG W.A. Parish Generating Station — Thompsons, TX',
+    site: 'NRG W.A. Parish Generating Station  Thompsons, TX',
     startDate: '2026-03-05',
     endDate: '2026-03-20',
     status: 'Scheduled' as const,
@@ -38,7 +38,7 @@ const MOCK_CUSTOMER_ORDERS = [
   {
     id: 'cust_ord_003',
     orderName: 'Chemical Plant Expansion',
-    site: 'BASF Freeport Site — Freeport, TX',
+    site: 'BASF Freeport Site  Freeport, TX',
     startDate: '2026-04-10',
     endDate: '2026-05-15',
     status: 'Scheduled' as const,
@@ -46,7 +46,7 @@ const MOCK_CUSTOMER_ORDERS = [
   {
     id: 'cust_ord_004',
     orderName: 'LNG Terminal Commissioning',
-    site: 'Sabine Pass LNG — Sabine Pass, TX',
+    site: 'Sabine Pass LNG  Sabine Pass, TX',
     startDate: '2026-06-01',
     endDate: '2026-07-30',
     status: 'Pending' as const,
@@ -66,9 +66,9 @@ function formatDateRange(startDate: string, endDate: string): string {
       day: 'numeric',
       year: 'numeric',
     });
-    return `${startStr} — ${endStr}`;
+    return `${startStr}  ${endStr}`;
   } catch {
-    return `${startDate} — ${endDate}`;
+    return `${startDate}  ${endDate}`;
   }
 }
 
@@ -101,9 +101,10 @@ export default function CustomerOrdersPage() {
 
   return (
     <div className="customer-orders-page">
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
       {/* Customer Portal Banner */}
       <div className="portal-banner">
-        <span className="portal-icon">🏢</span>
+        <span className="portal-icon"></span>
         <div className="portal-content">
           <span className="portal-title">Customer Portal (Read-Only)</span>
           <span className="portal-note">View dispatch information for your orders</span>
@@ -112,7 +113,7 @@ export default function CustomerOrdersPage() {
 
       {/* Demo Warning Banner */}
       <div className="demo-banner">
-        <span className="demo-icon">⚠️</span>
+        <span className="demo-icon"></span>
         <span className="demo-text">UI Shell / Mock Data / Demo Only</span>
       </div>
 
@@ -157,11 +158,11 @@ export default function CustomerOrdersPage() {
                 </div>
                 <div className="order-details">
                   <div className="detail-row">
-                    <span className="detail-icon">📍</span>
+                    <span className="detail-icon">[i]</span>
                     <span className="detail-text">{order.site}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-icon">📅</span>
+                    <span className="detail-icon">[i]</span>
                     <span className="detail-text">{formatDateRange(order.startDate, order.endDate)}</span>
                   </div>
                 </div>
@@ -175,11 +176,11 @@ export default function CustomerOrdersPage() {
                   }}
                 >
                   <span className="action-text">Time</span>
-                  <span className="action-arrow">→</span>
+                  <span className="action-arrow">{">"}</span>
                 </button>
                 <div className="action-btn action-btn-dispatch">
                   <span className="action-text">View Dispatch</span>
-                  <span className="action-arrow">→</span>
+                  <span className="action-arrow">{">"}</span>
                 </div>
               </div>
             </div>
@@ -189,12 +190,13 @@ export default function CustomerOrdersPage() {
 
       {/* Footer Note */}
       <div className="footer-note">
-        <span className="note-icon">ℹ️</span>
+        <span className="note-icon">i</span>
         <span className="note-text">
           This view shows dispatch details for your orders. For questions or changes, please contact your account representative.
         </span>
       </div>
 
+      </div>
       <style jsx>{`
         .customer-orders-page {
           min-height: 100vh;
