@@ -11,6 +11,20 @@ export default function AdminPage() {
       </div>
 
       <div className="admin-grid">
+        {/* Trades Card - Active */}
+        <Link href="/admin/trades" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Trades</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Define and manage the skilled trades used across Jarvis Prime for orders, quotes, staffing, and compliance.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Trade Registry →</span>
+          </div>
+        </Link>
+
         {/* Commissions Card - Active */}
         <Link href="/admin/commissions" className="admin-card active">
           <div className="card-header">
@@ -25,19 +39,75 @@ export default function AdminPage() {
           </div>
         </Link>
 
-        {/* Placeholder Cards */}
-        <div className="admin-card disabled">
+        {/* User Management Card - Active */}
+        <Link href="/admin/users" className="admin-card active">
           <div className="card-header">
             <div className="card-title">User Management</div>
-            <span className="badge future">FUTURE</span>
+            <span className="badge active">ACTIVE</span>
           </div>
           <div className="card-desc">
             Manage system users, roles, and access permissions.
           </div>
           <div className="card-footer">
-            <span className="disabled-hint">UI shell planned</span>
+            <span className="link-hint">Open User Management →</span>
           </div>
-        </div>
+        </Link>
+
+        {/* Safety / Work Comp Card - Active */}
+        <Link href="/admin/safety/work-comp" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Work Comp Rates</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Configure workers&apos; compensation rates by State and Trade for burden calculations.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Work Comp Rates →</span>
+          </div>
+        </Link>
+
+        {/* Safety / Certifications Card - Active */}
+        <Link href="/admin/safety/certifications" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Certifications</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Define certification types for safety, trade, and site compliance requirements.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Certifications →</span>
+          </div>
+        </Link>
+
+        {/* Safety / Incident Types Card - Active */}
+        <Link href="/admin/safety/incidents/types" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Incident Types</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Define the categories of safety incidents for reporting and compliance.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Incident Types →</span>
+          </div>
+        </Link>
+
+        {/* Safety / Incident Records Card - Active */}
+        <Link href="/admin/safety/incidents/records" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Incident Records</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            View logged safety incidents across the system for audit and review.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Incident Records →</span>
+          </div>
+        </Link>
 
         <div className="admin-card disabled">
           <div className="card-header">

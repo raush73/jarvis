@@ -63,7 +63,7 @@ export default function AccountingPage() {
           </div>
         </Link>
 
-        <div className="moneyCard moneyCardDisabled" style={styles.cardDisabled}>
+        <Link href="/accounting/payroll" className="moneyCard">
           <div style={styles.cardHeader}>
             <div>
               <div style={styles.cardTitle}>Payroll Packet</div>
@@ -71,45 +71,45 @@ export default function AccountingPage() {
                 Jarvis Prime 1.0 does not run payroll — exports a packet.
               </div>
             </div>
-            <span style={styles.badgeFuture}>FUTURE</span>
+            <span style={styles.badgeActive}>ACTIVE</span>
           </div>
 
           <div style={styles.cardBody}>
             <ul style={styles.bullets}>
               <li>Hours + worker identifiers</li>
               <li>Deduction totals</li>
-              <li>Export/push to Innoworks</li>
+              <li>Export/push to InnoWork</li>
             </ul>
           </div>
 
           <div style={styles.cardFooter}>
-            <span style={styles.disabledHint}>UI shell planned</span>
+            <span style={styles.linkHint}>Open Payroll Packet →</span>
           </div>
-        </div>
+        </Link>
 
-        <div className="moneyCard moneyCardDisabled" style={styles.cardDisabled}>
+        <Link href="/accounting/payments" className="moneyCard">
           <div style={styles.cardHeader}>
             <div>
               <div style={styles.cardTitle}>Payments</div>
               <div style={styles.cardDesc}>
-                Recorded as audit events on invoices (no money collection).
+                Accounting audit view of all payment events across invoices.
               </div>
             </div>
-            <span style={styles.badgeInfo}>INFO</span>
+            <span style={styles.badgeActive}>ACTIVE</span>
           </div>
 
           <div style={styles.cardBody}>
             <ul style={styles.bullets}>
-              <li>Manual “Record Payment” (Path A)</li>
-              <li>Partial/multi-payment support</li>
-              <li>Status: Unpaid / Partial / Paid</li>
+              <li>Payment events hub (audit view)</li>
+              <li>Filter by status, date, customer</li>
+              <li>Link to invoice detail for entry</li>
             </ul>
           </div>
 
           <div style={styles.cardFooter}>
-            <span style={styles.disabledHint}>Handled inside Invoicing</span>
+            <span style={styles.linkHint}>Open Payments →</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       <div style={styles.note}>

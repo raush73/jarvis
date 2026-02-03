@@ -135,7 +135,6 @@ function loadConfig(): CommissionConfig {
     const stored = localStorage.getItem(CONFIG_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Validate structure
       if (
         parsed &&
         typeof parsed.defaultRatePct === "number" &&
@@ -177,7 +176,6 @@ function getRateForSalesperson(
   salesperson: string,
   config: CommissionConfig
 ): number {
-  // Check overrides (case-insensitive)
   for (const [name, pct] of Object.entries(config.salespersonOverrides)) {
     if (name.toLowerCase() === salesperson.toLowerCase()) {
       return pct;
@@ -219,42 +217,11 @@ function getWeekDisplayLabel(weekKey: string): string {
   })}`;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, React.CSSProperties> = {
-    Pending: {
-      background: "rgba(245, 158, 11, 0.15)",
-      color: "#f59e0b",
-      border: "1px solid rgba(245, 158, 11, 0.3)",
-    },
-    Paid: {
-      background: "rgba(34, 197, 94, 0.15)",
-      color: "#22c55e",
-      border: "1px solid rgba(34, 197, 94, 0.3)",
-    },
-  };
-
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "4px 10px",
-        borderRadius: "5px",
-        fontSize: "11px",
-        fontWeight: 600,
-        ...styles[status],
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-export default function AccountingCommissionsPage() {
+export default function AccountingCommissionsHubPage() {
   const [config, setConfig] = useState<CommissionConfig>(DEFAULT_CONFIG);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
-  const [salespersonFilter, setSalespersonFilter] = useState<string>("all");
-  const [weekFilter, setWeekFilter] = useState<string>("all");
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
 
   // Load config on mount
   useEffect(() => {
@@ -278,57 +245,80 @@ export default function AccountingCommissionsPage() {
         tierMultiplierPct,
         ratePct,
         earnedCommission,
+        weekKey: getWeekStartKey(evt.paymentDate),
       };
     });
   }, [config]);
 
-  // Unique salespeople
-  const salespeople = useMemo(() => {
-    const set = new Set(MOCK_EVENTS.map((e) => e.salesperson));
-    return Array.from(set).sort();
-  }, []);
-
-  // Available weeks
-  const availableWeeks = useMemo(() => {
-    const weekSet = new Set<string>();
-    MOCK_EVENTS.forEach((evt) => {
-      weekSet.add(getWeekStartKey(evt.paymentDate));
-    });
-    return Array.from(weekSet).sort().reverse();
-  }, []);
-
-  // Filtered events
+  // Filtered events by status
   const filteredEvents = useMemo(() => {
     return computedEvents.filter((evt) => {
-      const statusMatch =
-        filter === "all" || evt.status.toLowerCase() === filter;
-      const salespersonMatch =
-        salespersonFilter === "all" || evt.salesperson === salespersonFilter;
-      const weekMatch =
-        weekFilter === "all" ||
-        getWeekStartKey(evt.paymentDate) === weekFilter;
-      return statusMatch && salespersonMatch && weekMatch;
+      return filter === "all" || evt.status.toLowerCase() === filter;
     });
-  }, [computedEvents, filter, salespersonFilter, weekFilter]);
+  }, [computedEvents, filter]);
 
-  // Group by week
-  const groupedByWeek = useMemo(() => {
-    const groups: Record<string, typeof filteredEvents> = {};
-    filteredEvents.forEach((evt) => {
-      const key = getWeekStartKey(evt.paymentDate);
-      if (!groups[key]) {
-        groups[key] = [];
+  // Group by week, then by salesperson for summary
+  const weekSummaries = useMemo(() => {
+    // Group by week
+    const weekGroups: Record<
+      string,
+      {
+        weekKey: string;
+        label: string;
+        salespersonSummaries: {
+          salesperson: string;
+          earnedTotal: number;
+          eventCount: number;
+        }[];
+        weekTotal: number;
       }
-      groups[key].push(evt);
+    > = {};
+
+    filteredEvents.forEach((evt) => {
+      if (!weekGroups[evt.weekKey]) {
+        weekGroups[evt.weekKey] = {
+          weekKey: evt.weekKey,
+          label: getWeekDisplayLabel(evt.weekKey),
+          salespersonSummaries: [],
+          weekTotal: 0,
+        };
+      }
     });
-    const sortedKeys = Object.keys(groups).sort().reverse();
-    return sortedKeys.map((key) => ({
-      weekKey: key,
-      label: getWeekDisplayLabel(key),
-      events: groups[key],
-      total: groups[key].reduce((sum, e) => sum + e.earnedCommission, 0),
-    }));
+
+    // Group events within each week by salesperson
+    filteredEvents.forEach((evt) => {
+      const week = weekGroups[evt.weekKey];
+      let spSummary = week.salespersonSummaries.find(
+        (s) => s.salesperson === evt.salesperson
+      );
+      if (!spSummary) {
+        spSummary = { salesperson: evt.salesperson, earnedTotal: 0, eventCount: 0 };
+        week.salespersonSummaries.push(spSummary);
+      }
+      spSummary.earnedTotal += evt.earnedCommission;
+      spSummary.eventCount += 1;
+      week.weekTotal += evt.earnedCommission;
+    });
+
+    // Sort salespeople alphabetically within each week
+    Object.values(weekGroups).forEach((week) => {
+      week.salespersonSummaries.sort((a, b) =>
+        a.salesperson.localeCompare(b.salesperson)
+      );
+    });
+
+    // Sort weeks newest first
+    const sortedKeys = Object.keys(weekGroups).sort().reverse();
+    return sortedKeys.map((key) => weekGroups[key]);
   }, [filteredEvents]);
+
+  // Limit weeks shown if not showing all
+  const displayedWeeks = useMemo(() => {
+    if (showAllWeeks || weekSummaries.length <= 4) {
+      return weekSummaries;
+    }
+    return weekSummaries.slice(0, 4);
+  }, [weekSummaries, showAllWeeks]);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", {
@@ -336,21 +326,9 @@ export default function AccountingCommissionsPage() {
       currency: "USD",
     }).format(val);
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-  const totals = useMemo(() => {
-    const pending = filteredEvents
-      .filter((e) => e.status === "Pending")
-      .reduce((sum, e) => sum + e.earnedCommission, 0);
-    const paid = filteredEvents
-      .filter((e) => e.status === "Paid")
-      .reduce((sum, e) => sum + e.earnedCommission, 0);
-    return { pending, paid, total: pending + paid };
+  // Grand totals
+  const grandTotal = useMemo(() => {
+    return filteredEvents.reduce((sum, e) => sum + e.earnedCommission, 0);
   }, [filteredEvents]);
 
   // Format overrides for display
@@ -367,7 +345,7 @@ export default function AccountingCommissionsPage() {
         <style jsx>{`
           .commissions-container {
             padding: 24px 40px 60px;
-            max-width: 1300px;
+            max-width: 1100px;
             margin: 0 auto;
           }
           .loading {
@@ -387,9 +365,9 @@ export default function AccountingCommissionsPage() {
           <Link href="/accounting" className="back-link">
             ← Back to Money
           </Link>
-          <h1>Commission Events</h1>
+          <h1>Commissions Hub</h1>
           <p className="subtitle">
-            Weekly payable summaries computed from payment events using admin-configured rates.
+            Weekly payable summaries by salesperson. Click to view detail.
           </p>
         </div>
       </div>
@@ -415,23 +393,13 @@ export default function AccountingCommissionsPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="summary-cards">
-        <div className="summary-card">
-          <span className="card-label">Pending Commissions</span>
-          <span className="card-value pending">{formatCurrency(totals.pending)}</span>
-        </div>
-        <div className="summary-card">
-          <span className="card-label">Paid Commissions</span>
-          <span className="card-value paid">{formatCurrency(totals.paid)}</span>
-        </div>
-        <div className="summary-card">
-          <span className="card-label">Total (Filtered)</span>
-          <span className="card-value total">{formatCurrency(totals.total)}</span>
-        </div>
+      {/* Summary Card */}
+      <div className="summary-card-single">
+        <span className="card-label">Total Earned (Filtered)</span>
+        <span className="card-value">{formatCurrency(grandTotal)}</span>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Row */}
       <div className="controls-row">
         <div className="filters-left">
           <div className="filter-tabs">
@@ -449,83 +417,49 @@ export default function AccountingCommissionsPage() {
               </button>
             ))}
           </div>
-
-          <select
-            className="salesperson-select"
-            value={salespersonFilter}
-            onChange={(e) => setSalespersonFilter(e.target.value)}
-          >
-            <option value="all">All Salespeople</option>
-            {salespeople.map((sp) => (
-              <option key={sp} value={sp}>
-                {sp}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="week-select"
-            value={weekFilter}
-            onChange={(e) => setWeekFilter(e.target.value)}
-          >
-            <option value="all">All Weeks</option>
-            {availableWeeks.map((wk) => (
-              <option key={wk} value={wk}>
-                {getWeekDisplayLabel(wk)}
-              </option>
-            ))}
-          </select>
         </div>
+
+        {weekSummaries.length > 4 && (
+          <button
+            className="toggle-weeks-btn"
+            onClick={() => setShowAllWeeks(!showAllWeeks)}
+          >
+            {showAllWeeks ? "Show Last 4 Weeks" : `Show All (${weekSummaries.length})`}
+          </button>
+        )}
       </div>
 
-      {/* Commission Events Grouped by Week */}
-      {groupedByWeek.length > 0 ? (
-        groupedByWeek.map((weekGroup) => (
-          <div key={weekGroup.weekKey} className="week-section">
+      {/* Weekly Summaries */}
+      {displayedWeeks.length > 0 ? (
+        displayedWeeks.map((week) => (
+          <div key={week.weekKey} className="week-section">
             <div className="week-header">
-              <span className="week-label">{weekGroup.label}</span>
-              <span className="week-total">{formatCurrency(weekGroup.total)}</span>
+              <span className="week-label">{week.label}</span>
+              <span className="week-total">{formatCurrency(week.weekTotal)}</span>
             </div>
             <div className="table-wrap">
-              <table className="commissions-table">
+              <table className="summary-table">
                 <thead>
                   <tr>
-                    <th>Invoice #</th>
-                    <th>Customer</th>
                     <th>Salesperson</th>
-                    <th>Issue Date</th>
-                    <th>Payment Date</th>
-                    <th>Days-to-Paid</th>
-                    <th>Tier %</th>
-                    <th>Rate %</th>
-                    <th>Gross Margin</th>
-                    <th style={{ textAlign: "right" }}>Earned</th>
-                    <th>Status</th>
+                    <th style={{ textAlign: "right" }}>Earned Commission</th>
+                    <th style={{ textAlign: "center" }}>Events</th>
+                    <th style={{ textAlign: "center" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {weekGroup.events.map((evt) => (
-                    <tr key={evt.id}>
-                      <td className="cell-invoice">{evt.invoiceId}</td>
-                      <td className="cell-customer">{evt.customer}</td>
-                      <td className="cell-salesperson">{evt.salesperson}</td>
-                      <td className="cell-date">{formatDate(evt.invoiceIssueDate)}</td>
-                      <td className="cell-date">{formatDate(evt.paymentDate)}</td>
-                      <td className="cell-days">
-                        <span className="days-badge">{evt.daysToPaid} days</span>
-                      </td>
-                      <td className="cell-tier">
-                        <span className={`tier-badge ${evt.tierMultiplierPct === 0 ? "zero" : ""}`}>
-                          {evt.tierMultiplierPct}%
-                        </span>
-                      </td>
-                      <td className="cell-rate">{evt.ratePct}%</td>
-                      <td className="cell-gm">{formatCurrency(evt.grossMargin)}</td>
-                      <td className={`cell-earned ${evt.earnedCommission === 0 ? "zero" : ""}`}>
-                        {formatCurrency(evt.earnedCommission)}
-                      </td>
-                      <td className="cell-status">
-                        <StatusBadge status={evt.status} />
+                  {week.salespersonSummaries.map((sp) => (
+                    <tr key={sp.salesperson}>
+                      <td className="cell-salesperson">{sp.salesperson}</td>
+                      <td className="cell-earned">{formatCurrency(sp.earnedTotal)}</td>
+                      <td className="cell-count">{sp.eventCount}</td>
+                      <td className="cell-action">
+                        <Link
+                          href={`/accounting/commissions/${week.weekKey}/${encodeURIComponent(sp.salesperson)}`}
+                          className="view-link"
+                        >
+                          View →
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -537,7 +471,7 @@ export default function AccountingCommissionsPage() {
       ) : (
         <div className="table-wrap">
           <div className="empty-state">
-            No commission events match the selected filters.
+            No commission events match the selected filter.
           </div>
         </div>
       )}
@@ -547,14 +481,14 @@ export default function AccountingCommissionsPage() {
         <span className="explainer-icon">i</span>
         <span>
           <strong>Formula:</strong> Earned = Gross Margin × Rate% × Tier Multiplier%.
-          Tier multipliers are determined by days-to-paid. Rates come from admin settings or salesperson overrides.
+          Click "View" to see event-level detail for a salesperson's weekly packet.
         </span>
       </div>
 
       <style jsx>{`
         .commissions-container {
           padding: 24px 40px 60px;
-          max-width: 1400px;
+          max-width: 1100px;
           margin: 0 auto;
         }
 
@@ -647,15 +581,8 @@ export default function AccountingCommissionsPage() {
           color: #3b82f6;
         }
 
-        /* Summary Cards */
-        .summary-cards {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-
-        .summary-card {
-          flex: 1;
+        /* Summary Card */
+        .summary-card-single {
           padding: 20px 24px;
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
@@ -663,6 +590,7 @@ export default function AccountingCommissionsPage() {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          margin-bottom: 24px;
         }
 
         .card-label {
@@ -673,20 +601,9 @@ export default function AccountingCommissionsPage() {
         }
 
         .card-value {
-          font-size: 28px;
+          font-size: 32px;
           font-weight: 700;
           font-family: var(--font-geist-mono), monospace;
-        }
-
-        .card-value.pending {
-          color: #f59e0b;
-        }
-
-        .card-value.paid {
-          color: #22c55e;
-        }
-
-        .card-value.total {
           color: #3b82f6;
         }
 
@@ -708,37 +625,6 @@ export default function AccountingCommissionsPage() {
         .filter-tabs {
           display: flex;
           gap: 8px;
-        }
-
-        .salesperson-select,
-        .week-select {
-          padding: 8px 12px;
-          font-size: 13px;
-          font-weight: 500;
-          color: rgba(255, 255, 255, 0.85);
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 6px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          min-width: 160px;
-        }
-
-        .salesperson-select:hover,
-        .week-select:hover {
-          border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .salesperson-select:focus,
-        .week-select:focus {
-          outline: none;
-          border-color: rgba(59, 130, 246, 0.5);
-        }
-
-        .salesperson-select option,
-        .week-select option {
-          background: #1a1a1a;
-          color: rgba(255, 255, 255, 0.85);
         }
 
         .filter-tab {
@@ -763,9 +649,26 @@ export default function AccountingCommissionsPage() {
           border-color: rgba(59, 130, 246, 0.3);
         }
 
+        .toggle-weeks-btn {
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .toggle-weeks-btn:hover {
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.15);
+        }
+
         /* Week Section */
         .week-section {
-          margin-bottom: 24px;
+          margin-bottom: 20px;
         }
 
         .week-header {
@@ -801,21 +704,20 @@ export default function AccountingCommissionsPage() {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 12px;
-          overflow-x: auto;
+          overflow: hidden;
         }
 
-        .commissions-table {
+        .summary-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 1100px;
         }
 
-        .commissions-table thead {
+        .summary-table thead {
           background: rgba(255, 255, 255, 0.03);
         }
 
-        .commissions-table th {
-          padding: 14px 12px;
+        .summary-table th {
+          padding: 14px 16px;
           text-align: left;
           font-size: 11px;
           font-weight: 600;
@@ -823,73 +725,22 @@ export default function AccountingCommissionsPage() {
           text-transform: uppercase;
           letter-spacing: 0.5px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-          white-space: nowrap;
         }
 
-        .commissions-table td {
-          padding: 12px;
-          font-size: 13px;
+        .summary-table td {
+          padding: 14px 16px;
+          font-size: 14px;
           color: rgba(255, 255, 255, 0.85);
           border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         }
 
-        .commissions-table tr:last-child td {
+        .summary-table tr:last-child td {
           border-bottom: none;
         }
 
-        .cell-invoice {
-          font-family: var(--font-geist-mono), monospace;
-          color: #3b82f6;
-          font-weight: 500;
-        }
-
-        .cell-customer {
-          font-weight: 500;
-        }
-
         .cell-salesperson {
-          color: rgba(255, 255, 255, 0.75);
-        }
-
-        .cell-date {
-          color: rgba(255, 255, 255, 0.65);
-          font-size: 12px;
-        }
-
-        .days-badge {
-          font-size: 11px;
-          padding: 3px 8px;
-          background: rgba(148, 163, 184, 0.12);
-          color: rgba(148, 163, 184, 0.9);
-          border-radius: 4px;
-          font-family: var(--font-geist-mono), monospace;
-        }
-
-        .tier-badge {
-          font-size: 11px;
-          padding: 3px 8px;
-          background: rgba(34, 197, 94, 0.12);
-          color: #22c55e;
-          border-radius: 4px;
-          font-family: var(--font-geist-mono), monospace;
-          font-weight: 600;
-        }
-
-        .tier-badge.zero {
-          background: rgba(239, 68, 68, 0.12);
-          color: #ef4444;
-        }
-
-        .cell-rate {
-          font-family: var(--font-geist-mono), monospace;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.7);
-        }
-
-        .cell-gm {
-          font-family: var(--font-geist-mono), monospace;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.6);
+          font-weight: 500;
+          color: #fff;
         }
 
         .cell-earned {
@@ -899,8 +750,32 @@ export default function AccountingCommissionsPage() {
           color: #22c55e;
         }
 
-        .cell-earned.zero {
-          color: rgba(255, 255, 255, 0.3);
+        .cell-count {
+          text-align: center;
+          font-family: var(--font-geist-mono), monospace;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .cell-action {
+          text-align: center;
+        }
+
+        .view-link {
+          display: inline-block;
+          padding: 6px 14px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #3b82f6;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.25);
+          border-radius: 6px;
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+
+        .view-link:hover {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(59, 130, 246, 0.4);
         }
 
         .empty-state {
