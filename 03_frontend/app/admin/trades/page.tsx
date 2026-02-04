@@ -15,6 +15,7 @@ type Trade = {
   description: string;
   status: TradeStatus;
   notes: string;
+  wcClassCode: string; // WC Class Code (Trade metadata) — UI shell only
   createdAt: string;
   updatedAt: string;
 };
@@ -31,6 +32,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Industrial machinery installation, maintenance, and repair. Alignment and precision work.",
     status: "Active",
     notes: "Core MW4H trade. High demand across all regions.",
+    wcClassCode: "3724",
     createdAt: "2025-01-15",
     updatedAt: "2026-01-20",
   },
@@ -42,6 +44,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Metal fabrication and joining using various welding processes (MIG, TIG, Stick, Flux-Core).",
     status: "Active",
     notes: "Certifications tracked separately (6G, etc.).",
+    wcClassCode: "3620",
     createdAt: "2025-01-15",
     updatedAt: "2026-01-20",
   },
@@ -53,6 +56,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Industrial piping systems installation and maintenance. Process piping and steam systems.",
     status: "Active",
     notes: "",
+    wcClassCode: "5183",
     createdAt: "2025-01-15",
     updatedAt: "2026-01-20",
   },
@@ -64,6 +68,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Electrical systems installation, maintenance, and troubleshooting. Industrial controls.",
     status: "Active",
     notes: "Requires state licensure verification.",
+    wcClassCode: "5190",
     createdAt: "2025-01-15",
     updatedAt: "2026-01-20",
   },
@@ -75,6 +80,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Operation of mobile and overhead cranes for lifting and rigging operations.",
     status: "Active",
     notes: "NCCCO certification required.",
+    wcClassCode: "7219",
     createdAt: "2025-03-01",
     updatedAt: "2026-01-20",
   },
@@ -86,6 +92,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Structural steel erection, reinforcing steel placement, and metal decking installation.",
     status: "Active",
     notes: "",
+    wcClassCode: "5040",
     createdAt: "2025-03-01",
     updatedAt: "2026-01-20",
   },
@@ -97,6 +104,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Load calculation, rigging equipment selection, and safe lifting operations.",
     status: "Active",
     notes: "Often combined with Millwright or Ironworker skills.",
+    wcClassCode: "5057",
     createdAt: "2025-03-01",
     updatedAt: "2026-01-20",
   },
@@ -108,6 +116,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Calibration and maintenance of process control instruments and PLCs.",
     status: "Active",
     notes: "",
+    wcClassCode: "3681",
     createdAt: "2025-06-15",
     updatedAt: "2026-01-20",
   },
@@ -119,6 +128,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Fabrication, assembly, and repair of boilers, tanks, and pressure vessels.",
     status: "Active",
     notes: "",
+    wcClassCode: "3620",
     createdAt: "2025-06-15",
     updatedAt: "2026-01-20",
   },
@@ -130,6 +140,7 @@ const MOCK_TRADES: Trade[] = [
     description: "Forming, framing, and general carpentry for industrial construction.",
     status: "Inactive",
     notes: "Low demand. Kept for historical orders.",
+    wcClassCode: "5403",
     createdAt: "2025-01-15",
     updatedAt: "2025-12-01",
   },
@@ -273,6 +284,7 @@ export default function TradesPage() {
               <tr>
                 <th>Trade Name</th>
                 <th>Trade Code</th>
+                <th>WC Class Code</th>
                 <th>Category</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -283,6 +295,7 @@ export default function TradesPage() {
                 <tr key={trade.id}>
                   <td className="cell-name">{trade.name}</td>
                   <td className="cell-code">{trade.code}</td>
+                  <td className="cell-wc-code">{trade.wcClassCode || "—"}</td>
                   <td className="cell-category">
                     <span
                       className="category-badge"
@@ -325,7 +338,7 @@ export default function TradesPage() {
               ))}
               {filteredTrades.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty-row">
+                  <td colSpan={6} className="empty-row">
                     No trades match your filters
                   </td>
                 </tr>
@@ -372,6 +385,13 @@ export default function TradesPage() {
                 </div>
 
                 <div className="form-field">
+                  <label>WC Class Code (Trade metadata)</label>
+                  <input type="text" defaultValue={selectedTrade.wcClassCode} placeholder="e.g. 3724" />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-field">
                   <label>Status</label>
                   <div className="toggle-group">
                     <button
@@ -388,6 +408,7 @@ export default function TradesPage() {
                     </button>
                   </div>
                 </div>
+                <div className="form-field" />
               </div>
 
               <div className="form-field">
@@ -475,6 +496,13 @@ export default function TradesPage() {
                 </div>
 
                 <div className="form-field">
+                  <label>WC Class Code (Trade metadata)</label>
+                  <input type="text" placeholder="e.g. 3724" />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-field">
                   <label>Status</label>
                   <div className="toggle-group">
                     <button className="toggle-btn active" type="button">
@@ -485,6 +513,7 @@ export default function TradesPage() {
                     </button>
                   </div>
                 </div>
+                <div className="form-field" />
               </div>
 
               <div className="form-field">
@@ -699,6 +728,12 @@ export default function TradesPage() {
           font-family: var(--font-geist-mono), monospace;
           font-size: 12px !important;
           color: rgba(255, 255, 255, 0.6) !important;
+        }
+
+        .cell-wc-code {
+          font-family: var(--font-geist-mono), monospace;
+          font-size: 12px !important;
+          color: rgba(139, 92, 246, 0.9) !important;
         }
 
         .category-badge {

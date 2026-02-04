@@ -109,6 +109,20 @@ export default function AdminPage() {
           </div>
         </Link>
 
+        {/* Burden Settings Card - Active */}
+        <Link href="/admin/burden" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Burden Settings</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Configure employer burden components (FICA, FUTA, SUTA, Admin, GL, etc.) for cost calculations.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Burden Settings →</span>
+          </div>
+        </Link>
+
         <div className="admin-card disabled">
           <div className="card-header">
             <div className="card-title">System Settings</div>
