@@ -1,53 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const STATES = ["KY", "TX", "LA", "IN", "OH"];
-const TRADES = ["Millwright", "Pipefitter", "Welder", "Electrician"];
+const STATES = ["KY", "TX"];
+
+interface Trade {
+  id: string;
+  name: string;
+}
+
+interface CalcResult {
+  stateCode: string;
+  tradeId: string;
+  baseRate: number;
+  burdenPct: number;
+  rates: {
+    reg: number;
+    ot: number;
+    dt: number;
+  };
+}
 
 export default function LaborCostCalculator() {
-  const [state, setState] = useState("");
-  const [trade, setTrade] = useState("");
-  const [basePay, setBasePay] = useState<number | "">("");
-  const [customMultiplier, setCustomMultiplier] = useState<number | "">(1.45);
-  const [flatAdd, setFlatAdd] = useState<number | "">(7.5);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [state, setState] = useState("KY");
+  const [tradeId, setTradeId] = useState("");
+  const [baseRate, setBaseRate] = useState<number | "">(30);
 
-  const basePayNum = typeof basePay === "number" ? basePay : 0;
+  const [result, setResult] = useState<CalcResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Internal Labor Cost calculations (REG/OT/DT)
-  const internalREG = basePayNum;
-  const internalOT = basePayNum * 1.5;
-  const internalDT = basePayNum * 2.0;
+  // Fetch trades on mount
+  useEffect(() => {
+    fetch("http://localhost:3001/demo/trades")
+      .then((res) => res.json())
+      .then((data: Trade[]) => {
+        setTrades(data);
+        if (data.length > 0) setTradeId(data[0].id);
+      })
+      .catch(() => setError("Failed to load trades. Is backend running on port 3001?"));
+  }, []);
 
-  // Quick Markup Scenarios
-  const markup150 = {
-    REG: internalREG * 1.5,
-    OT: internalOT * 1.5,
-    DT: internalDT * 1.5,
-  };
-  const markup155 = {
-    REG: internalREG * 1.55,
-    OT: internalOT * 1.55,
-    DT: internalDT * 1.55,
-  };
+  const handleCalculate = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-  // Custom Scenarios
-  const customMult = typeof customMultiplier === "number" ? customMultiplier : 0;
-  const customMultScenario = {
-    REG: internalREG * customMult,
-    OT: internalOT * customMult,
-    DT: internalDT * customMult,
-  };
+    try {
+      const res = await fetch("http://localhost:3001/demo/burdened-rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stateCode: state,
+          tradeId,
+          baseRate: typeof baseRate === "number" ? baseRate : 0,
+        }),
+      });
 
-  const flatAddNum = typeof flatAdd === "number" ? flatAdd : 0;
-  const flatAddREG = internalREG + flatAddNum;
-  const flatAddScenario = {
-    REG: flatAddREG,
-    OT: flatAddREG * 1.5,
-    DT: flatAddREG * 2.0,
+      if (!res.ok) throw new Error("Calculation failed");
+      const data = await res.json();
+      setResult(data);
+    } catch {
+      setError("Calculation failed. Check backend connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (val: number) => `$${val.toFixed(2)}`;
+  const formatPercent = (val: number) => `${(val * 100).toFixed(1)}%`;
 
   return (
     <div className="calculator-container">
@@ -55,6 +77,10 @@ export default function LaborCostCalculator() {
       <div className="guardrail">
         Internal conversation support only. Not a quote. Final pricing requires a Quote.
       </div>
+
+      {error && (
+        <div className="error-banner">{error}</div>
+      )}
 
       {/* Inputs Section */}
       <div className="input-section">
@@ -67,7 +93,6 @@ export default function LaborCostCalculator() {
               value={state}
               onChange={(e) => setState(e.target.value)}
             >
-              <option value="">Select State</option>
               {STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -78,158 +103,64 @@ export default function LaborCostCalculator() {
             <label className="input-label">Trade</label>
             <select
               className="input-select"
-              value={trade}
-              onChange={(e) => setTrade(e.target.value)}
+              value={tradeId}
+              onChange={(e) => setTradeId(e.target.value)}
             >
               <option value="">Select Trade</option>
-              {TRADES.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              {trades.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
           </div>
 
           <div className="input-group">
-            <label className="input-label">Base Pay $/hr</label>
+            <label className="input-label">Base Rate $/hr</label>
             <input
               type="number"
               className="input-number"
               placeholder="0.00"
               min={0}
               step={0.01}
-              value={basePay}
-              onChange={(e) => setBasePay(e.target.value ? parseFloat(e.target.value) : "")}
+              value={baseRate}
+              onChange={(e) => setBaseRate(e.target.value ? parseFloat(e.target.value) : "")}
             />
           </div>
         </div>
+
+        <button
+          className="calc-button"
+          onClick={handleCalculate}
+          disabled={loading || !tradeId}
+        >
+          {loading ? "Calculating..." : "Calculate"}
+        </button>
       </div>
 
-      {/* Section 1: Base Internal Cost */}
-      <div className="output-section">
-        <h2 className="section-title">1. Base Internal Cost (per hour)</h2>
-        <p className="assumptions">Assumptions: OT = 1.5× base, DT = 2.0× base</p>
-        <div className="rate-row">
-          <div className="rate-card">
-            <span className="rate-label">REG</span>
-            <span className="rate-value">{formatCurrency(internalREG)}</span>
-          </div>
-          <div className="rate-card">
-            <span className="rate-label">OT</span>
-            <span className="rate-value">{formatCurrency(internalOT)}</span>
-          </div>
-          <div className="rate-card">
-            <span className="rate-label">DT</span>
-            <span className="rate-value">{formatCurrency(internalDT)}</span>
-          </div>
-        </div>
-      </div>
+      {/* Results Section */}
+      {result && (
+        <div className="output-section">
+          <h2 className="section-title">Burdened Hourly Rates</h2>
 
-      {/* Section 2: Quick Markup Scenarios */}
-      <div className="output-section">
-        <h2 className="section-title">2. Quick Markup Scenarios</h2>
-        
-        <div className="scenario-block">
-          <h3 className="scenario-label">1.50× Markup</h3>
-          <div className="rate-row">
+          <div className="rate-row-triple">
             <div className="rate-card">
               <span className="rate-label">REG</span>
-              <span className="rate-value">{formatCurrency(markup150.REG)}</span>
+              <span className="rate-value">{formatCurrency(result.rates.reg)}</span>
             </div>
             <div className="rate-card">
-              <span className="rate-label">OT</span>
-              <span className="rate-value">{formatCurrency(markup150.OT)}</span>
+              <span className="rate-label">OT (1.5×)</span>
+              <span className="rate-value">{formatCurrency(result.rates.ot)}</span>
             </div>
             <div className="rate-card">
-              <span className="rate-label">DT</span>
-              <span className="rate-value">{formatCurrency(markup150.DT)}</span>
+              <span className="rate-label">DT (2×)</span>
+              <span className="rate-value">{formatCurrency(result.rates.dt)}</span>
             </div>
+          </div>
+
+          <div className="burden-note">
+            Burden: {formatPercent(result.burdenPct)}
           </div>
         </div>
-
-        <div className="scenario-block">
-          <h3 className="scenario-label">1.55× Markup</h3>
-          <div className="rate-row">
-            <div className="rate-card">
-              <span className="rate-label">REG</span>
-              <span className="rate-value">{formatCurrency(markup155.REG)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">OT</span>
-              <span className="rate-value">{formatCurrency(markup155.OT)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">DT</span>
-              <span className="rate-value">{formatCurrency(markup155.DT)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 3: Custom Scenarios */}
-      <div className="output-section">
-        <h2 className="section-title">3. Custom Scenarios</h2>
-
-        {/* Custom Multiplier */}
-        <div className="scenario-block">
-          <div className="custom-input-row">
-            <label className="custom-label">Custom Multiplier:</label>
-            <input
-              type="number"
-              className="custom-input"
-              min={0}
-              step={0.01}
-              value={customMultiplier}
-              onChange={(e) => setCustomMultiplier(e.target.value ? parseFloat(e.target.value) : "")}
-            />
-            <span className="custom-suffix">×</span>
-          </div>
-          <div className="rate-row">
-            <div className="rate-card">
-              <span className="rate-label">REG</span>
-              <span className="rate-value">{formatCurrency(customMultScenario.REG)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">OT</span>
-              <span className="rate-value">{formatCurrency(customMultScenario.OT)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">DT</span>
-              <span className="rate-value">{formatCurrency(customMultScenario.DT)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Flat Add */}
-        <div className="scenario-block">
-          <div className="custom-input-row">
-            <label className="custom-label">Flat Add to REG:</label>
-            <span className="custom-prefix">$</span>
-            <input
-              type="number"
-              className="custom-input"
-              min={0}
-              step={0.01}
-              value={flatAdd}
-              onChange={(e) => setFlatAdd(e.target.value ? parseFloat(e.target.value) : "")}
-            />
-            <span className="custom-suffix">/hr</span>
-          </div>
-          <p className="flat-add-note">OT/DT derived from adjusted REG × 1.5/2.0</p>
-          <div className="rate-row">
-            <div className="rate-card">
-              <span className="rate-label">REG</span>
-              <span className="rate-value">{formatCurrency(flatAddScenario.REG)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">OT</span>
-              <span className="rate-value">{formatCurrency(flatAddScenario.OT)}</span>
-            </div>
-            <div className="rate-card">
-              <span className="rate-label">DT</span>
-              <span className="rate-value">{formatCurrency(flatAddScenario.DT)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       <style jsx>{`
         .calculator-container {
@@ -244,6 +175,17 @@ export default function LaborCostCalculator() {
           padding: 12px 16px;
           font-size: 13px;
           color: #f59e0b;
+          text-align: center;
+          margin-bottom: 24px;
+        }
+
+        .error-banner {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          padding: 12px 16px;
+          font-size: 13px;
+          color: #ef4444;
           text-align: center;
           margin-bottom: 24px;
         }
@@ -263,12 +205,6 @@ export default function LaborCostCalculator() {
           color: #fff;
           margin: 0 0 16px;
           letter-spacing: -0.2px;
-        }
-
-        .assumptions {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-          margin: -8px 0 16px;
         }
 
         .input-grid {
@@ -311,7 +247,30 @@ export default function LaborCostCalculator() {
           color: #fff;
         }
 
-        .rate-row {
+        .calc-button {
+          margin-top: 20px;
+          width: 100%;
+          background: #3b82f6;
+          border: none;
+          border-radius: 8px;
+          padding: 12px 24px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .calc-button:hover:not(:disabled) {
+          background: #2563eb;
+        }
+
+        .calc-button:disabled {
+          background: rgba(59, 130, 246, 0.5);
+          cursor: not-allowed;
+        }
+
+        .rate-row-triple {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 12px;
@@ -343,67 +302,18 @@ export default function LaborCostCalculator() {
           font-variant-numeric: tabular-nums;
         }
 
-        .scenario-block {
-          margin-bottom: 20px;
-        }
-
-        .scenario-block:last-child {
-          margin-bottom: 0;
-        }
-
-        .scenario-label {
-          font-size: 13px;
-          font-weight: 500;
-          color: rgba(255, 255, 255, 0.7);
-          margin: 0 0 12px;
-        }
-
-        .custom-input-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-
-        .custom-label {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.7);
-          font-weight: 500;
-        }
-
-        .custom-input {
-          width: 80px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 6px;
-          padding: 8px 10px;
-          font-size: 14px;
-          color: #fff;
-          outline: none;
-          transition: border-color 0.15s ease;
-        }
-
-        .custom-input:focus {
-          border-color: rgba(59, 130, 246, 0.5);
-        }
-
-        .custom-prefix,
-        .custom-suffix {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .flat-add-note {
-          font-size: 11px;
+        .burden-note {
+          margin-top: 12px;
+          text-align: center;
+          font-size: 12px;
           color: rgba(255, 255, 255, 0.4);
-          margin: -4px 0 12px;
         }
 
         @media (max-width: 640px) {
           .input-grid {
             grid-template-columns: 1fr;
           }
-          .rate-row {
+          .rate-row-triple {
             grid-template-columns: 1fr;
           }
         }
