@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import LockedSnapshotPanel from "@/components/LockedSnapshotPanel";
 
 // Mock invoice data (same as list page for consistency)
 const MOCK_INVOICES: Record<string, InvoiceData> = {
@@ -698,6 +699,9 @@ export default function InvoiceDetailPage() {
               Credit Note (Coming Soon)
             </button>
           </div>
+
+          {/* Locked Snapshot Panel (Slice C) */}
+          <LockedSnapshotPanel invoiceId={invoiceId} />
         </div>
       </div>
 
