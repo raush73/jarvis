@@ -1,11 +1,17 @@
 "use client";
 
+import Link from "next/link";
+
 export default function FridayPage() {
   return (
     <div className="stub-container">
       <div className="stub-content">
         <h1>Friday</h1>
         <p className="stub-description">UI shell placeholder (no logic yet)</p>
+
+        <Link href="/friday/labor-cost-calculator" className="tool-card">
+          Labor Cost Calculator
+        </Link>
         
         <div className="future-tabs">
           <span className="future-tabs-label">Planned sub-tabs:</span>
@@ -86,6 +92,25 @@ export default function FridayPage() {
           position: absolute;
           left: 0;
           color: #8b5cf6;
+        }
+
+        :global(.tool-card) {
+          display: block;
+          background: rgba(139, 92, 246, 0.1);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          border-radius: 12px;
+          padding: 20px 24px;
+          margin-bottom: 24px;
+          font-size: 16px;
+          font-weight: 600;
+          color: #a78bfa;
+          text-decoration: none;
+          transition: background 0.2s, border-color 0.2s;
+        }
+
+        :global(.tool-card:hover) {
+          background: rgba(139, 92, 246, 0.15);
+          border-color: rgba(139, 92, 246, 0.5);
         }
       `}</style>
     </div>
