@@ -466,7 +466,7 @@ export default function CustomerDetailPage() {
                                   <th>Base Pay Rate</th>
                                   <th>Burdened Pay Rate</th>
                                   <th>Bill Rate</th>
-                                  <th>$/hr Spread</th>
+                                  <th>GM $/HR</th>
                                   <th>GM %</th>
                                   <th>Health</th>
                                 </tr>
