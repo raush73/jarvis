@@ -891,15 +891,9 @@ export default function CustomerDetailPage() {
                                     />
                                   </td>
                                   <td>
-                                    <select
-                                      className="form-select-sm health-select form-input-disabled"
-                                      value={trade.health}
-                                      disabled
-                                    >
-                                      <option value="Good">Good</option>
-                                      <option value="Watch">Watch</option>
-                                      <option value="Risk">Risk</option>
-                                    </select>
+                                    <span className={`health-badge health-badge-${trade.health.toLowerCase()}`}>
+                                      {trade.health}
+                                    </span>
                                   </td>
                                   <td>
                                     <button
@@ -2176,8 +2170,30 @@ export default function CustomerDetailPage() {
           cursor: pointer;
         }
 
-        .health-select {
-          min-width: 80px;
+        .health-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          font-size: 11px;
+          font-weight: 500;
+          border-radius: 10px;
+          text-align: center;
+          min-width: 52px;
+          user-select: none;
+        }
+
+        .health-badge-good {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+        }
+
+        .health-badge-watch {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+        }
+
+        .health-badge-risk {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ef4444;
         }
 
         .add-row-btn {
