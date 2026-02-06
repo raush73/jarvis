@@ -32,6 +32,15 @@ const MOCK_CUSTOMER_DETAILS: Record<string, {
     startDate: string;
     status: string;
   }>;
+  quotes: Array<{
+    id: string;
+    title: string;
+    status: string;
+    startDate: string;
+    expiresAt: string;
+    salespersonName: string;
+    hasEconomicsSnapshot: boolean;
+  }>;
 }> = {
   "CUST-001": {
     id: "CUST-001",
@@ -91,6 +100,11 @@ const MOCK_CUSTOMER_DETAILS: Record<string, {
       { id: "ORD-2024-001", site: "Downtown Tower — Los Angeles, CA", startDate: "2024-02-15", status: "Active" },
       { id: "ORD-2024-010", site: "Westside Medical Center — Santa Monica, CA", startDate: "2024-04-01", status: "Pending" },
     ],
+    quotes: [
+      { id: "QTE-2024-003", title: "Downtown Tower Phase 2 — Millwright Services", status: "Sent", startDate: "2024-06-01", expiresAt: "2024-07-01", salespersonName: "Jordan Miles", hasEconomicsSnapshot: true },
+      { id: "QTE-2024-004", title: "Westside Medical — Equipment Install", status: "Draft", startDate: "2024-07-15", expiresAt: "2024-08-15", salespersonName: "Jordan Miles", hasEconomicsSnapshot: false },
+      { id: "QTE-2024-005", title: "LAX Terminal Expansion — Rigging Support", status: "Accepted", startDate: "2024-05-01", expiresAt: "2024-06-01", salespersonName: "Sarah Chen", hasEconomicsSnapshot: true },
+    ],
   },
 };
 
@@ -132,9 +146,12 @@ const DEFAULT_CUSTOMER = {
   orders: [
     { id: "ORD-2024-001", site: "Sample Site — City, ST", startDate: "2024-03-01", status: "Active" },
   ],
+  quotes: [
+    { id: "QTE-2024-001", title: "Sample Quote — Millwright Services", status: "Draft", startDate: "2024-04-01", expiresAt: "2024-05-01", salespersonName: "Sales Rep", hasEconomicsSnapshot: false },
+  ],
 };
 
-type TabKey = "contacts" | "tools" | "ppe" | "orders";
+type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes";
 
 export default function CustomerDetailPage() {
   const router = useRouter();
@@ -142,6 +159,7 @@ export default function CustomerDetailPage() {
   const customerId = params.id as string;
 
   const [activeTab, setActiveTab] = useState<TabKey>("contacts");
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
 
   // Get customer data or use default
   const customer = MOCK_CUSTOMER_DETAILS[customerId] || { ...DEFAULT_CUSTOMER, id: customerId };
@@ -155,6 +173,7 @@ export default function CustomerDetailPage() {
     { key: "tools", label: "Tools" },
     { key: "ppe", label: "PPE" },
     { key: "orders", label: "Orders" },
+    { key: "quotes", label: "Quote Hub" },
   ];
 
   return (
@@ -212,6 +231,9 @@ export default function CustomerDetailPage() {
             )}
             {tab.key === "orders" && (
               <span className="tab-count">{customer.orders.length}</span>
+            )}
+            {tab.key === "quotes" && (
+              <span className="tab-count">{customer.quotes.length}</span>
             )}
           </button>
         ))}
@@ -333,6 +355,102 @@ export default function CustomerDetailPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Quotes Tab */}
+        {activeTab === "quotes" && (
+          <div className="quotes-panel">
+            <div className="panel-header">
+              <h2>Quote Hub</h2>
+              <span className="panel-note">Customer quotes — select to preview details</span>
+            </div>
+            {customer.quotes.length === 0 ? (
+              <div className="placeholder-note">
+                <span className="placeholder-icon">📋</span>
+                <span>No quotes for this customer yet.</span>
+              </div>
+            ) : (
+              <div className="quotes-split">
+                <div className="quote-list">
+                  {customer.quotes.map((quote) => {
+                    const isSelected = selectedQuoteId === quote.id || (selectedQuoteId === null && quote.id === customer.quotes[0].id);
+                    return (
+                      <div
+                        key={quote.id}
+                        className={`quote-card ${isSelected ? "active" : ""}`}
+                        onClick={() => setSelectedQuoteId(quote.id)}
+                      >
+                        <div className="quote-card-header">
+                          <span className="quote-card-id">{quote.id}</span>
+                          <span className={`quote-status-badge ${quote.status.toLowerCase()}`}>{quote.status}</span>
+                        </div>
+                        <div className="quote-card-title">{quote.title}</div>
+                        <div className="quote-card-meta">
+                          <span>Expires: {new Date(quote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="quote-detail">
+                  {(() => {
+                    const selectedQuote = customer.quotes.find((q) => q.id === selectedQuoteId) || customer.quotes[0];
+                    if (!selectedQuote) return null;
+                    return (
+                      <>
+                        <div className="quote-detail-header">
+                          <h3>{selectedQuote.title}</h3>
+                          <span className="quote-detail-id">{selectedQuote.id}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Status</span>
+                          <span className={`quote-status-badge ${selectedQuote.status.toLowerCase()}`}>{selectedQuote.status}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Salesperson (Owner)</span>
+                          <span className="quote-detail-value">{selectedQuote.salespersonName}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Start Date</span>
+                          <span className="quote-detail-value">{new Date(selectedQuote.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Expiration Date</span>
+                          <span className="quote-detail-value">{new Date(selectedQuote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Economics Snapshot</span>
+                          <span className={`quote-econ-badge ${selectedQuote.hasEconomicsSnapshot ? "generated" : "not-generated"}`}>
+                            {selectedQuote.hasEconomicsSnapshot ? "Generated" : "Not generated"}
+                          </span>
+                        </div>
+                        <div className="quote-burden-panel">
+                          <div className="burden-panel-header">
+                            <span className="burden-panel-title">Burden (Estimate)</span>
+                            <span className="burden-panel-note">Mirrors Orders burden panel — UI-only shell</span>
+                          </div>
+                          <div className="burden-rows">
+                            <div className="burden-row">
+                              <span className="burden-label">WC + GL + Taxes</span>
+                              <span className="burden-value">18.5%</span>
+                            </div>
+                            <div className="burden-row">
+                              <span className="burden-label">Per Diem / Lodging</span>
+                              <span className="burden-value">$125/day</span>
+                            </div>
+                            <div className="burden-row total">
+                              <span className="burden-label">Total Burden Est.</span>
+                              <span className="burden-value">~24.2%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -752,6 +870,227 @@ export default function CustomerDetailPage() {
         .order-status.pending {
           background: rgba(245, 158, 11, 0.15);
           color: #f59e0b;
+        }
+
+        /* Quotes Panel */
+        .quotes-split {
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 24px;
+        }
+
+        .quote-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .quote-card {
+          padding: 14px 18px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .quote-card:hover {
+          background: rgba(59, 130, 246, 0.05);
+          border-color: rgba(59, 130, 246, 0.12);
+        }
+
+        .quote-card.active {
+          background: rgba(59, 130, 246, 0.1);
+          border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .quote-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        }
+
+        .quote-card-id {
+          font-family: var(--font-geist-mono), monospace;
+          font-size: 12px;
+          color: #3b82f6;
+        }
+
+        .quote-card-title {
+          font-size: 13px;
+          color: #fff;
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .quote-card-meta {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.45);
+        }
+
+        .quote-status-badge {
+          font-size: 10px;
+          font-weight: 600;
+          padding: 3px 8px;
+          border-radius: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .quote-status-badge.draft {
+          background: rgba(148, 163, 184, 0.15);
+          color: #94a3b8;
+        }
+
+        .quote-status-badge.generated {
+          background: rgba(139, 92, 246, 0.15);
+          color: #a78bfa;
+        }
+
+        .quote-status-badge.sent {
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+        }
+
+        .quote-status-badge.accepted {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+        }
+
+        .quote-status-badge.denied {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ef4444;
+        }
+
+        .quote-status-badge.expired {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+        }
+
+        .quote-detail {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+          padding: 24px;
+        }
+
+        .quote-detail-header {
+          margin-bottom: 20px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .quote-detail-header h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: #fff;
+          margin: 0 0 6px;
+        }
+
+        .quote-detail-id {
+          font-family: var(--font-geist-mono), monospace;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .quote-detail-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .quote-detail-label {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .quote-detail-value {
+          font-size: 13px;
+          color: #fff;
+        }
+
+        .quote-econ-badge {
+          font-size: 11px;
+          font-weight: 500;
+          padding: 4px 10px;
+          border-radius: 6px;
+        }
+
+        .quote-econ-badge.generated {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+        }
+
+        .quote-econ-badge.not-generated {
+          background: rgba(148, 163, 184, 0.1);
+          color: rgba(148, 163, 184, 0.7);
+        }
+
+        .quote-burden-panel {
+          margin-top: 20px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+
+        .burden-panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+
+        .burden-panel-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .burden-panel-note {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.35);
+          font-style: italic;
+        }
+
+        .burden-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .burden-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 6px;
+        }
+
+        .burden-row.total {
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .burden-label {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .burden-value {
+          font-family: var(--font-geist-mono), monospace;
+          font-size: 12px;
+          color: #fff;
+        }
+
+        .burden-row.total .burden-label,
+        .burden-row.total .burden-value {
+          font-weight: 600;
+          color: #60a5fa;
         }
       `}</style>
     </div>
