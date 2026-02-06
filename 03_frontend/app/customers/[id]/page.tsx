@@ -160,6 +160,7 @@ export default function CustomerDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("contacts");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [showInternalTotals, setShowInternalTotals] = useState(false);
 
   // Get customer data or use default
   const customer = MOCK_CUSTOMER_DETAILS[customerId] || { ...DEFAULT_CUSTOMER, id: customerId };
@@ -173,7 +174,7 @@ export default function CustomerDetailPage() {
     { key: "tools", label: "Tools" },
     { key: "ppe", label: "PPE" },
     { key: "orders", label: "Orders" },
-    { key: "quotes", label: "Quote Hub" },
+    { key: "quotes", label: "Quotes" },
   ];
 
   return (
@@ -362,7 +363,7 @@ export default function CustomerDetailPage() {
         {activeTab === "quotes" && (
           <div className="quotes-panel">
             <div className="panel-header">
-              <h2>Quote Hub</h2>
+              <h2>Quotes</h2>
               <span className="panel-note">Customer quotes — select to preview details</span>
             </div>
             {customer.quotes.length === 0 ? (
@@ -397,6 +398,11 @@ export default function CustomerDetailPage() {
                   {(() => {
                     const selectedQuote = customer.quotes.find((q) => q.id === selectedQuoteId) || customer.quotes[0];
                     if (!selectedQuote) return null;
+                    const quoteHealth: "green" | "yellow" | "red" = selectedQuote.hasEconomicsSnapshot ? "green" : "yellow";
+                    const laborRows = [
+                      { trade: "Millwright", headcount: 2, plannedHours: 80, hoursPerWeek: 40, otRule: "1.5x after 40", otMultiplier: "1.5", basePay: 32, burdenedPay: 38, billRate: 58, spread: 20, gmPct: 34.5 },
+                      { trade: "Electrician", headcount: 1, plannedHours: 40, hoursPerWeek: 40, otRule: null, otMultiplier: null, basePay: 36, burdenedPay: 42.5, billRate: 62, spread: 19.5, gmPct: 31.5 },
+                    ];
                     return (
                       <>
                         <div className="quote-detail-header">
@@ -406,6 +412,13 @@ export default function CustomerDetailPage() {
                         <div className="quote-detail-row">
                           <span className="quote-detail-label">Status</span>
                           <span className={`quote-status-badge ${selectedQuote.status.toLowerCase()}`}>{selectedQuote.status}</span>
+                        </div>
+                        <div className="quote-detail-row">
+                          <span className="quote-detail-label">Quote Health</span>
+                          <span className="quote-detail-value quote-health-cell">
+                            <span className={`quote-health-dot ${quoteHealth}`} title={quoteHealth} />
+                            {quoteHealth}
+                          </span>
                         </div>
                         <div className="quote-detail-row">
                           <span className="quote-detail-label">Salesperson (Owner)</span>
@@ -425,6 +438,63 @@ export default function CustomerDetailPage() {
                             {selectedQuote.hasEconomicsSnapshot ? "Generated" : "Not generated"}
                           </span>
                         </div>
+
+                        <div className="labor-plan-section">
+                          <h4 className="labor-plan-title">Labor Plan (Trades)</h4>
+                          <div className="labor-plan-table-wrap">
+                            <table className="labor-plan-table">
+                              <thead>
+                                <tr>
+                                  <th>Trade</th>
+                                  <th>Headcount</th>
+                                  <th>Planned hrs / Hrs per week</th>
+                                  <th>OT Rule</th>
+                                  <th>OT Multiplier</th>
+                                  <th>Base Pay Rate</th>
+                                  <th>Burdened Pay Rate</th>
+                                  <th>Bill Rate</th>
+                                  <th>$/hr Spread</th>
+                                  <th>GM %</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {laborRows.map((row, idx) => (
+                                  <tr key={idx}>
+                                    <td>{row.trade}</td>
+                                    <td>{row.headcount}</td>
+                                    <td>{row.plannedHours} / {row.hoursPerWeek}</td>
+                                    <td>{row.otRule ?? "—"}</td>
+                                    <td>{row.otMultiplier ?? "—"}</td>
+                                    <td>${row.basePay}</td>
+                                    <td>${row.burdenedPay}</td>
+                                    <td>${row.billRate}</td>
+                                    <td>${row.spread}</td>
+                                    <td>{row.gmPct}%</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div className="pay-modifiers-section">
+                          <h4 className="pay-modifiers-title">Pay Modifiers</h4>
+                          <div className="pay-modifiers-list">
+                            <div className="pay-modifier-row">
+                              <span className="pay-modifier-label">Per diem</span>
+                              <span className="pay-modifier-value">$125/day (read-only)</span>
+                            </div>
+                            <div className="pay-modifier-row">
+                              <span className="pay-modifier-label">Travel</span>
+                              <span className="pay-modifier-value">$0.58/mi (read-only)</span>
+                            </div>
+                            <div className="pay-modifier-row">
+                              <span className="pay-modifier-label">Bonuses / Premiums</span>
+                              <span className="pay-modifier-value">Shift diff +$2/hr (read-only)</span>
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="quote-burden-panel">
                           <div className="burden-panel-header">
                             <span className="burden-panel-title">Burden (Estimate)</span>
@@ -444,6 +514,34 @@ export default function CustomerDetailPage() {
                               <span className="burden-value">~24.2%</span>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="internal-totals-toggle-row">
+                          <label className="toggle-label">
+                            <input
+                              type="checkbox"
+                              checked={showInternalTotals}
+                              onChange={(e) => setShowInternalTotals(e.target.checked)}
+                            />
+                            <span>Show internal totals</span>
+                          </label>
+                          {!showInternalTotals && (
+                            <span className="totals-hidden-note">Totals hidden (Internal).</span>
+                          )}
+                        </div>
+                        {showInternalTotals && (
+                          <div className="internal-totals-mock">
+                            <div className="burden-row"><span className="burden-label">Weekly total (mock)</span><span className="burden-value">$4,640</span></div>
+                            <div className="burden-row"><span className="burden-label">Line total (mock)</span><span className="burden-value">$18,560</span></div>
+                            <div className="burden-row total"><span className="burden-label">Grand total (mock)</span><span className="burden-value">$18,560</span></div>
+                          </div>
+                        )}
+
+                        <div className="generate-order-row">
+                          <button type="button" className="generate-order-btn" disabled title="Coming soon">
+                            Generate Order
+                          </button>
+                          <span className="generate-order-placeholder">Coming soon</span>
                         </div>
                       </>
                     );
@@ -1029,6 +1127,110 @@ export default function CustomerDetailPage() {
           color: rgba(148, 163, 184, 0.7);
         }
 
+        .quote-health-cell {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .quote-health-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+        }
+
+        .quote-health-dot.green {
+          background: #22c55e;
+        }
+
+        .quote-health-dot.yellow {
+          background: #f59e0b;
+        }
+
+        .quote-health-dot.red {
+          background: #ef4444;
+        }
+
+        .labor-plan-section {
+          margin-top: 20px;
+        }
+
+        .labor-plan-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+          margin: 0 0 10px;
+        }
+
+        .labor-plan-table-wrap {
+          overflow-x: auto;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 8px;
+        }
+
+        .labor-plan-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+
+        .labor-plan-table th {
+          padding: 10px 12px;
+          text-align: left;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .labor-plan-table td {
+          padding: 10px 12px;
+          color: rgba(255, 255, 255, 0.85);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .labor-plan-table tr:last-child td {
+          border-bottom: none;
+        }
+
+        .pay-modifiers-section {
+          margin-top: 20px;
+        }
+
+        .pay-modifiers-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+          margin: 0 0 10px;
+        }
+
+        .pay-modifiers-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .pay-modifier-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 6px;
+          font-size: 12px;
+        }
+
+        .pay-modifier-label {
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .pay-modifier-value {
+          color: rgba(255, 255, 255, 0.7);
+          font-family: var(--font-geist-mono), monospace;
+        }
+
         .quote-burden-panel {
           margin-top: 20px;
           padding: 16px;
@@ -1091,6 +1293,66 @@ export default function CustomerDetailPage() {
         .burden-row.total .burden-value {
           font-weight: 600;
           color: #60a5fa;
+        }
+
+        .internal-totals-toggle-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-top: 20px;
+          padding: 12px 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .toggle-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.8);
+          cursor: pointer;
+        }
+
+        .toggle-label input {
+          cursor: pointer;
+        }
+
+        .totals-hidden-note {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.4);
+          font-style: italic;
+        }
+
+        .internal-totals-mock {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .generate-order-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 24px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .generate-order-btn {
+          padding: 10px 20px;
+          font-size: 14px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.4);
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          cursor: not-allowed;
+        }
+
+        .generate-order-placeholder {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.4);
         }
       `}</style>
     </div>
