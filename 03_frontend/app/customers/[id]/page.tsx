@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 // Trade row type for labor plan
@@ -274,6 +274,13 @@ function generateQuoteId(): string {
   return `QTE-${year}-${num}`;
 }
 
+// Helper to generate a new order ID
+function generateOrderId(): string {
+  const year = new Date().getFullYear();
+  const num = Math.floor(Math.random() * 900) + 100;
+  return `ORD-${year}-${num}`;
+}
+
 // Helper to get today's date in YYYY-MM-DD format
 function getTodayDate(): string {
   return new Date().toISOString().split("T")[0];
@@ -339,6 +346,40 @@ export default function CustomerDetailPage() {
 
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
+
+  // Collect UI-only draft orders from sessionStorage
+  const draftOrders = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const drafts: Array<{
+      id: string;
+      orderName: string;
+      site: string | null;
+      status: string;
+      __isDraft: true;
+    }> = [];
+    const prefix = `jp.orderDraft.${customerId}.`;
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        try {
+          const raw = sessionStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            drafts.push({
+              id: parsed.orderId || key.replace(prefix, ""),
+              orderName: parsed.orderName || "Untitled Order",
+              site: parsed.site || null,
+              status: "Draft (UI-only)",
+              __isDraft: true,
+            });
+          }
+        } catch {
+          // skip malformed entries
+        }
+      }
+    }
+    return drafts;
+  }, [customerId]);
 
   const handleBackToCustomers = () => {
     router.push("/customers");
@@ -610,32 +651,42 @@ export default function CustomerDetailPage() {
             <div className="panel-header">
               <h2>Order History</h2>
               <span className="panel-note">All job orders associated with this customer</span>
+              <button className="create-order-btn" onClick={() => router.push(`/customers/${customerId}/orders/new`)}>
+                + Create Order
+              </button>
             </div>
             <div className="orders-list">
-              {customer.orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="order-card"
-                  onClick={() => router.push(`/orders/${order.id}`)}
-                >
-                  <div className="order-info">
-                    <span className="order-id">{order.id}</span>
-                    <span className="order-site">{order.site}</span>
+              {[...draftOrders, ...customer.orders].map((order) => {
+                const isDraft = "__isDraft" in order && order.__isDraft === true;
+                return (
+                  <div
+                    key={order.id}
+                    className="order-card"
+                    onClick={() => {
+                      router.push(`/orders/${order.id}`);
+                    }}
+                  >
+                    <div className="order-info">
+                      <span className="order-id">{order.id}</span>
+                      <span className="order-site">{isDraft ? ((order as typeof draftOrders[number]).orderName || (order as typeof draftOrders[number]).site || "—") : (order as typeof customer.orders[number]).site}</span>
+                    </div>
+                    <div className="order-meta">
+                      {!isDraft && (
+                        <span className="order-date">
+                          Start: {new Date((order as typeof customer.orders[number]).startDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                      <span className={`order-status ${order.status.toLowerCase().replace(/[^a-z]/g, "-")}`}>
+                        {order.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="order-meta">
-                    <span className="order-date">
-                      Start: {new Date(order.startDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <span className={`order-status ${order.status.toLowerCase()}`}>
-                      {order.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1131,10 +1182,61 @@ export default function CustomerDetailPage() {
                           )}
 
                           <div className="generate-order-row">
-                            <button type="button" className="generate-order-btn" disabled title="Coming soon">
+                            <button
+                              type="button"
+                              className="generate-order-btn-active"
+                              onClick={() => {
+                                const newOrderId = generateOrderId();
+                                const payload = {
+                                  orderId: newOrderId,
+                                  customerId,
+                                  orderName: selectedQuote.title || "Untitled Order",
+                                  projectDescription: selectedQuote.notes || "",
+                                  site: null,
+                                  startDate: null,
+                                  endDate: null,
+                                  status: "Draft",
+                                  tradeLines: selectedQuote.trades.map((t) => ({
+                                    trade: t.trade,
+                                    project: selectedQuote.title,
+                                    headcount: t.headcount,
+                                    hours: t.hours,
+                                    basePay: t.basePay,
+                                    billRate: t.billRate,
+                                    otMultiplier: t.otMultiplier ?? 1.5,
+                                    burdenedPay: t.burdenedPay,
+                                    gmPerHr: t.gmPerHr,
+                                    gmPct: t.gmPct,
+                                    health: t.health,
+                                  })),
+                                  modifiers: {
+                                    perDiem: selectedQuote.modifiers.perDiem,
+                                    travel: selectedQuote.modifiers.travel,
+                                    bonuses: selectedQuote.modifiers.bonuses,
+                                  },
+                                  jobRequirements: {
+                                    tools: [],
+                                    certifications: [],
+                                    ppe: [],
+                                    useCustomerToolList: false,
+                                    useMW4HStandardToolList: false,
+                                  },
+                                  commissionSplits: [
+                                    {
+                                      person: customer.ownerSalespersonName,
+                                      role: "Sales",
+                                      splitPct: 100,
+                                    },
+                                  ],
+                                  origin: { type: "quote", quoteId: selectedQuote.id },
+                                };
+                                const storageKey = `jp.orderDraft.${customerId}.${newOrderId}`;
+                                sessionStorage.setItem(storageKey, JSON.stringify(payload));
+                                router.push(`/customers/${customerId}/orders/new?orderId=${newOrderId}`);
+                              }}
+                            >
                               Generate Order
                             </button>
-                            <span className="generate-order-placeholder">Coming soon</span>
                           </div>
                         </>
                       );
@@ -1607,6 +1709,11 @@ export default function CustomerDetailPage() {
           color: #f59e0b;
         }
 
+        .order-status.draft--ui-only- {
+          background: rgba(148, 163, 184, 0.15);
+          color: #94a3b8;
+        }
+
         /* Quotes Panel */
         .quotes-split {
           display: grid;
@@ -2006,9 +2113,42 @@ export default function CustomerDetailPage() {
           cursor: not-allowed;
         }
 
+        .generate-order-btn-active {
+          padding: 10px 20px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #fff;
+          background: #22c55e;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .generate-order-btn-active:hover {
+          background: #16a34a;
+        }
+
         .generate-order-placeholder {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.4);
+        }
+
+        .create-order-btn {
+          margin-left: auto;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .create-order-btn:hover {
+          background: #2563eb;
         }
 
         /* Quote Form Styles */
