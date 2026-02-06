@@ -663,7 +663,7 @@ export default function CustomerDetailPage() {
                     key={order.id}
                     className="order-card"
                     onClick={() => {
-                      router.push(`/orders/${order.id}`);
+                      router.push(`/customers/${customerId}/orders/${order.id}`);
                     }}
                   >
                     <div className="order-info">
