@@ -398,11 +398,26 @@ export default function CustomerDetailPage() {
                   {(() => {
                     const selectedQuote = customer.quotes.find((q) => q.id === selectedQuoteId) || customer.quotes[0];
                     if (!selectedQuote) return null;
-                    const quoteHealth: "green" | "yellow" | "red" = selectedQuote.hasEconomicsSnapshot ? "green" : "yellow";
-                    const laborRows = [
-                      { trade: "Millwright", headcount: 2, plannedHours: 80, hoursPerWeek: 40, otRule: "1.5x after 40", otMultiplier: "1.5", basePay: 32, burdenedPay: 38, billRate: 58, spread: 20, gmPct: 34.5 },
-                      { trade: "Electrician", headcount: 1, plannedHours: 40, hoursPerWeek: 40, otRule: null, otMultiplier: null, basePay: 36, burdenedPay: 42.5, billRate: 62, spread: 19.5, gmPct: 31.5 },
+                    const laborRows: Array<{
+                      trade: string;
+                      headcount: number;
+                      hours: number;
+                      basePay: number;
+                      burdenedPay: number;
+                      billRate: number;
+                      spread: number;
+                      gmPct: number;
+                      health: "green" | "yellow" | "red";
+                    }> = [
+                      { trade: "Millwright", headcount: 2, hours: 80, basePay: 32, burdenedPay: 38, billRate: 58, spread: 20, gmPct: 34.5, health: "green" },
+                      { trade: "Electrician", headcount: 1, hours: 40, basePay: 36, burdenedPay: 42.5, billRate: 62, spread: 19.5, gmPct: 31.5, health: "yellow" },
                     ];
+                    // Overall quote health = worst-of trade health (any red → red, else any yellow → yellow, else green)
+                    const quoteHealth: "green" | "yellow" | "red" = laborRows.some((r) => r.health === "red")
+                      ? "red"
+                      : laborRows.some((r) => r.health === "yellow")
+                        ? "yellow"
+                        : "green";
                     return (
                       <>
                         <div className="quote-detail-header">
@@ -425,7 +440,7 @@ export default function CustomerDetailPage() {
                           <span className="quote-detail-value">{selectedQuote.salespersonName}</span>
                         </div>
                         <div className="quote-detail-row">
-                          <span className="quote-detail-label">Start Date</span>
+                          <span className="quote-detail-label">Quote Date</span>
                           <span className="quote-detail-value">{new Date(selectedQuote.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                         </div>
                         <div className="quote-detail-row">
@@ -447,14 +462,13 @@ export default function CustomerDetailPage() {
                                 <tr>
                                   <th>Trade</th>
                                   <th>Headcount</th>
-                                  <th>Planned hrs / Hrs per week</th>
-                                  <th>OT Rule</th>
-                                  <th>OT Multiplier</th>
+                                  <th>Hours</th>
                                   <th>Base Pay Rate</th>
                                   <th>Burdened Pay Rate</th>
                                   <th>Bill Rate</th>
                                   <th>$/hr Spread</th>
                                   <th>GM %</th>
+                                  <th>Health</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -462,14 +476,13 @@ export default function CustomerDetailPage() {
                                   <tr key={idx}>
                                     <td>{row.trade}</td>
                                     <td>{row.headcount}</td>
-                                    <td>{row.plannedHours} / {row.hoursPerWeek}</td>
-                                    <td>{row.otRule ?? "—"}</td>
-                                    <td>{row.otMultiplier ?? "—"}</td>
+                                    <td>{row.hours}</td>
                                     <td>${row.basePay}</td>
                                     <td>${row.burdenedPay}</td>
                                     <td>${row.billRate}</td>
                                     <td>${row.spread}</td>
                                     <td>{row.gmPct}%</td>
+                                    <td><span className={`trade-health-dot ${row.health}`} title={row.health} /></td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1193,6 +1206,25 @@ export default function CustomerDetailPage() {
 
         .labor-plan-table tr:last-child td {
           border-bottom: none;
+        }
+
+        .trade-health-dot {
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+        }
+
+        .trade-health-dot.green {
+          background: #22c55e;
+        }
+
+        .trade-health-dot.yellow {
+          background: #f59e0b;
+        }
+
+        .trade-health-dot.red {
+          background: #ef4444;
         }
 
         .pay-modifiers-section {
