@@ -3,6 +3,55 @@
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 
+// Trade row type for labor plan
+type TradeRow = {
+  trade: string;
+  headcount: number;
+  hours: number;
+  basePay: number;
+  burdenedPay: number;
+  billRate: number;
+  gmPerHr: number;
+  gmPct: number;
+  health: "Good" | "Watch" | "Risk";
+  otMultiplier?: number;
+};
+
+// Quote type with full data
+type Quote = {
+  id: string;
+  title: string;
+  status: string;
+  startDate: string;
+  expiresAt: string;
+  salespersonName: string;
+  hasEconomicsSnapshot: boolean;
+  notes: string;
+  trades: TradeRow[];
+  modifiers: {
+    perDiem: number;
+    travel: number;
+    bonuses: number;
+  };
+};
+
+// Draft quote for form editing
+type DraftQuote = {
+  id: string;
+  title: string;
+  status: string;
+  startDate: string;
+  expiresAt: string;
+  salespersonName: string;
+  notes: string;
+  trades: TradeRow[];
+  modifiers: {
+    perDiem: number;
+    travel: number;
+    bonuses: number;
+  };
+};
+
 // Mock customer details data
 const MOCK_CUSTOMER_DETAILS: Record<string, {
   id: string;
@@ -32,15 +81,7 @@ const MOCK_CUSTOMER_DETAILS: Record<string, {
     startDate: string;
     status: string;
   }>;
-  quotes: Array<{
-    id: string;
-    title: string;
-    status: string;
-    startDate: string;
-    expiresAt: string;
-    salespersonName: string;
-    hasEconomicsSnapshot: boolean;
-  }>;
+  quotes: Quote[];
 }> = {
   "CUST-001": {
     id: "CUST-001",
@@ -101,9 +142,50 @@ const MOCK_CUSTOMER_DETAILS: Record<string, {
       { id: "ORD-2024-010", site: "Westside Medical Center — Santa Monica, CA", startDate: "2024-04-01", status: "Pending" },
     ],
     quotes: [
-      { id: "QTE-2024-003", title: "Downtown Tower Phase 2 — Millwright Services", status: "Sent", startDate: "2024-06-01", expiresAt: "2024-07-01", salespersonName: "Jordan Miles", hasEconomicsSnapshot: true },
-      { id: "QTE-2024-004", title: "Westside Medical — Equipment Install", status: "Draft", startDate: "2024-07-15", expiresAt: "2024-08-15", salespersonName: "Jordan Miles", hasEconomicsSnapshot: false },
-      { id: "QTE-2024-005", title: "LAX Terminal Expansion — Rigging Support", status: "Accepted", startDate: "2024-05-01", expiresAt: "2024-06-01", salespersonName: "Sarah Chen", hasEconomicsSnapshot: true },
+      {
+        id: "QTE-2024-003",
+        title: "Downtown Tower Phase 2 — Millwright Services",
+        status: "Sent",
+        startDate: "2024-06-01",
+        expiresAt: "2024-07-01",
+        salespersonName: "Jordan Miles",
+        hasEconomicsSnapshot: true,
+        notes: "Priority project for Q2",
+        trades: [
+          { trade: "Millwright", headcount: 2, hours: 80, basePay: 32, burdenedPay: 38, billRate: 58, gmPerHr: 20, gmPct: 34.5, health: "Good", otMultiplier: 1.5 },
+          { trade: "Electrician", headcount: 1, hours: 40, basePay: 36, burdenedPay: 42.5, billRate: 62, gmPerHr: 19.5, gmPct: 31.5, health: "Watch", otMultiplier: 1.5 },
+        ],
+        modifiers: { perDiem: 125, travel: 0.58, bonuses: 2 },
+      },
+      {
+        id: "QTE-2024-004",
+        title: "Westside Medical — Equipment Install",
+        status: "Draft",
+        startDate: "2024-07-15",
+        expiresAt: "2024-08-15",
+        salespersonName: "Jordan Miles",
+        hasEconomicsSnapshot: false,
+        notes: "",
+        trades: [
+          { trade: "Millwright", headcount: 3, hours: 120, basePay: 32, burdenedPay: 38, billRate: 58, gmPerHr: 20, gmPct: 34.5, health: "Good", otMultiplier: 1.5 },
+        ],
+        modifiers: { perDiem: 100, travel: 0.58, bonuses: 0 },
+      },
+      {
+        id: "QTE-2024-005",
+        title: "LAX Terminal Expansion — Rigging Support",
+        status: "Accepted",
+        startDate: "2024-05-01",
+        expiresAt: "2024-06-01",
+        salespersonName: "Sarah Chen",
+        hasEconomicsSnapshot: true,
+        notes: "Long-term engagement potential",
+        trades: [
+          { trade: "Rigger", headcount: 4, hours: 160, basePay: 30, burdenedPay: 36, billRate: 55, gmPerHr: 19, gmPct: 34.5, health: "Good", otMultiplier: 1.5 },
+          { trade: "Crane Operator", headcount: 2, hours: 80, basePay: 40, burdenedPay: 48, billRate: 72, gmPerHr: 24, gmPct: 33.3, health: "Good", otMultiplier: 1.5 },
+        ],
+        modifiers: { perDiem: 150, travel: 0.65, bonuses: 5 },
+      },
     ],
   },
 };
@@ -147,11 +229,94 @@ const DEFAULT_CUSTOMER = {
     { id: "ORD-2024-001", site: "Sample Site — City, ST", startDate: "2024-03-01", status: "Active" },
   ],
   quotes: [
-    { id: "QTE-2024-001", title: "Sample Quote — Millwright Services", status: "Draft", startDate: "2024-04-01", expiresAt: "2024-05-01", salespersonName: "Sales Rep", hasEconomicsSnapshot: false },
+    {
+      id: "QTE-2024-001",
+      title: "Sample Quote — Millwright Services",
+      status: "Draft",
+      startDate: "2024-04-01",
+      expiresAt: "2024-05-01",
+      salespersonName: "Sales Rep",
+      hasEconomicsSnapshot: false,
+      notes: "",
+      trades: [
+        { trade: "Millwright", headcount: 1, hours: 40, basePay: 30, burdenedPay: 36, billRate: 55, gmPerHr: 19, gmPct: 34.5, health: "Good" as const, otMultiplier: 1.5 },
+      ],
+      modifiers: { perDiem: 100, travel: 0.58, bonuses: 0 },
+    },
   ],
 };
 
+// Available trades for dropdown
+const AVAILABLE_TRADES = [
+  "Millwright",
+  "Electrician",
+  "Pipefitter",
+  "Welder",
+  "Rigger",
+  "Crane Operator",
+  "HVAC Technician",
+  "Ironworker",
+  "Carpenter",
+  "Plumber",
+];
+
+// OT Multiplier minimum value
+const OT_MULTIPLIER_MIN = 1.47;
+const OT_MULTIPLIER_DEFAULT = 1.5;
+
 type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes";
+type QuoteMode = "view" | "create" | "edit";
+
+// Helper to generate a new quote ID
+function generateQuoteId(): string {
+  const year = new Date().getFullYear();
+  const num = Math.floor(Math.random() * 900) + 100;
+  return `QTE-${year}-${num}`;
+}
+
+// Helper to get today's date in YYYY-MM-DD format
+function getTodayDate(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+// Helper to get date 30 days from now
+function getExpirationDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().split("T")[0];
+}
+
+// Create empty draft quote
+function createEmptyDraft(salesperson: string): DraftQuote {
+  return {
+    id: generateQuoteId(),
+    title: "",
+    status: "Draft",
+    startDate: getTodayDate(),
+    expiresAt: getExpirationDate(),
+    salespersonName: salesperson,
+    notes: "",
+    trades: [
+      { trade: "Millwright", headcount: 1, hours: 40, basePay: 30, burdenedPay: 36, billRate: 55, gmPerHr: 19, gmPct: 34.5, health: "Good", otMultiplier: OT_MULTIPLIER_DEFAULT },
+    ],
+    modifiers: { perDiem: 100, travel: 0.58, bonuses: 0 },
+  };
+}
+
+// Create draft from existing quote
+function createDraftFromQuote(quote: Quote): DraftQuote {
+  return {
+    id: quote.id,
+    title: quote.title,
+    status: quote.status,
+    startDate: quote.startDate,
+    expiresAt: quote.expiresAt,
+    salespersonName: quote.salespersonName,
+    notes: quote.notes,
+    trades: quote.trades.map((t) => ({ ...t, otMultiplier: t.otMultiplier ?? OT_MULTIPLIER_DEFAULT })),
+    modifiers: { ...quote.modifiers },
+  };
+}
 
 export default function CustomerDetailPage() {
   const router = useRouter();
@@ -162,8 +327,18 @@ export default function CustomerDetailPage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [showInternalTotals, setShowInternalTotals] = useState(false);
 
-  // Get customer data or use default
-  const customer = MOCK_CUSTOMER_DETAILS[customerId] || { ...DEFAULT_CUSTOMER, id: customerId };
+  // Get base customer data
+  const baseCustomer = MOCK_CUSTOMER_DETAILS[customerId] || { ...DEFAULT_CUSTOMER, id: customerId };
+
+  // In-memory quotes state (initialized from mock data)
+  const [quotes, setQuotes] = useState<Quote[]>(baseCustomer.quotes);
+
+  // Quote form mode and draft
+  const [mode, setMode] = useState<QuoteMode>("view");
+  const [draftQuote, setDraftQuote] = useState<DraftQuote | null>(null);
+
+  // Merge customer with in-memory quotes
+  const customer = { ...baseCustomer, quotes };
 
   const handleBackToCustomers = () => {
     router.push("/customers");
@@ -176,6 +351,112 @@ export default function CustomerDetailPage() {
     { key: "orders", label: "Orders" },
     { key: "quotes", label: "Quotes" },
   ];
+
+  // Quote form handlers
+  const handleCreateQuote = () => {
+    setDraftQuote(createEmptyDraft(customer.ownerSalespersonName));
+    setMode("create");
+    setSelectedQuoteId(null);
+  };
+
+  const handleEditQuote = (quote: Quote) => {
+    setDraftQuote(createDraftFromQuote(quote));
+    setMode("edit");
+  };
+
+  const handleCancelForm = () => {
+    setDraftQuote(null);
+    setMode("view");
+  };
+
+  const handleSaveQuote = () => {
+    if (!draftQuote) return;
+
+    const newQuote: Quote = {
+      id: draftQuote.id,
+      title: draftQuote.title || "Untitled Quote",
+      // On create, always set status to Draft; on edit, preserve existing status
+      status: mode === "create" ? "Draft" : draftQuote.status,
+      startDate: draftQuote.startDate,
+      expiresAt: draftQuote.expiresAt,
+      salespersonName: draftQuote.salespersonName,
+      hasEconomicsSnapshot: false,
+      notes: draftQuote.notes,
+      trades: draftQuote.trades,
+      modifiers: draftQuote.modifiers,
+    };
+
+    if (mode === "create") {
+      setQuotes([...quotes, newQuote]);
+      setSelectedQuoteId(newQuote.id);
+    } else {
+      setQuotes(quotes.map((q) => (q.id === newQuote.id ? newQuote : q)));
+      setSelectedQuoteId(newQuote.id);
+    }
+
+    setDraftQuote(null);
+    setMode("view");
+  };
+
+  // Draft update helpers
+  const updateDraftField = (field: keyof DraftQuote, value: string) => {
+    if (!draftQuote) return;
+    setDraftQuote({ ...draftQuote, [field]: value });
+  };
+
+  const updateDraftModifier = (field: keyof DraftQuote["modifiers"], value: number) => {
+    if (!draftQuote) return;
+    setDraftQuote({
+      ...draftQuote,
+      modifiers: { ...draftQuote.modifiers, [field]: value },
+    });
+  };
+
+  const updateTradeRow = (index: number, field: keyof TradeRow, value: string | number) => {
+    if (!draftQuote) return;
+    const newTrades = [...draftQuote.trades];
+    newTrades[index] = { ...newTrades[index], [field]: value };
+    setDraftQuote({ ...draftQuote, trades: newTrades });
+  };
+
+  // Handler for OT Multiplier with clamping
+  const handleOtMultiplierChange = (index: number, inputValue: string) => {
+    if (!draftQuote) return;
+    const parsed = parseFloat(inputValue);
+    let finalValue: number;
+    if (isNaN(parsed) || inputValue.trim() === "") {
+      // If blank or NaN, fall back to prior value or default, but never below min
+      const prior = draftQuote.trades[index].otMultiplier ?? OT_MULTIPLIER_DEFAULT;
+      finalValue = Math.max(OT_MULTIPLIER_MIN, prior);
+    } else {
+      // Clamp to minimum
+      finalValue = Math.max(OT_MULTIPLIER_MIN, parsed);
+    }
+    updateTradeRow(index, "otMultiplier", finalValue);
+  };
+
+  const addTradeRow = () => {
+    if (!draftQuote) return;
+    const newTrade: TradeRow = {
+      trade: "Millwright",
+      headcount: 1,
+      hours: 40,
+      basePay: 30,
+      burdenedPay: 36,
+      billRate: 55,
+      gmPerHr: 19,
+      gmPct: 34.5,
+      health: "Good",
+      otMultiplier: OT_MULTIPLIER_DEFAULT,
+    };
+    setDraftQuote({ ...draftQuote, trades: [...draftQuote.trades, newTrade] });
+  };
+
+  const removeTradeRow = (index: number) => {
+    if (!draftQuote || draftQuote.trades.length <= 1) return;
+    const newTrades = draftQuote.trades.filter((_, i) => i !== index);
+    setDraftQuote({ ...draftQuote, trades: newTrades });
+  };
 
   return (
     <div className="customer-detail-container">
@@ -365,8 +646,11 @@ export default function CustomerDetailPage() {
             <div className="panel-header">
               <h2>Quotes</h2>
               <span className="panel-note">Customer quotes — select to preview details</span>
+              <button className="create-quote-btn" onClick={handleCreateQuote}>
+                + Create Quote
+              </button>
             </div>
-            {customer.quotes.length === 0 ? (
+            {customer.quotes.length === 0 && mode === "view" ? (
               <div className="placeholder-note">
                 <span className="placeholder-icon">📋</span>
                 <span>No quotes for this customer yet.</span>
@@ -375,12 +659,16 @@ export default function CustomerDetailPage() {
               <div className="quotes-split">
                 <div className="quote-list">
                   {customer.quotes.map((quote) => {
-                    const isSelected = selectedQuoteId === quote.id || (selectedQuoteId === null && quote.id === customer.quotes[0].id);
+                    const isSelected = mode === "view" && (selectedQuoteId === quote.id || (selectedQuoteId === null && quote.id === customer.quotes[0]?.id));
                     return (
                       <div
                         key={quote.id}
                         className={`quote-card ${isSelected ? "active" : ""}`}
-                        onClick={() => setSelectedQuoteId(quote.id)}
+                        onClick={() => {
+                          setSelectedQuoteId(quote.id);
+                          setMode("view");
+                          setDraftQuote(null);
+                        }}
                       >
                         <div className="quote-card-header">
                           <span className="quote-card-id">{quote.id}</span>
@@ -395,170 +683,469 @@ export default function CustomerDetailPage() {
                   })}
                 </div>
                 <div className="quote-detail">
-                  {(() => {
-                    const selectedQuote = customer.quotes.find((q) => q.id === selectedQuoteId) || customer.quotes[0];
-                    if (!selectedQuote) return null;
-                    const laborRows: Array<{
-                      trade: string;
-                      headcount: number;
-                      hours: number;
-                      basePay: number;
-                      burdenedPay: number;
-                      billRate: number;
-                      spread: number;
-                      gmPct: number;
-                      health: "green" | "yellow" | "red";
-                    }> = [
-                      { trade: "Millwright", headcount: 2, hours: 80, basePay: 32, burdenedPay: 38, billRate: 58, spread: 20, gmPct: 34.5, health: "green" },
-                      { trade: "Electrician", headcount: 1, hours: 40, basePay: 36, burdenedPay: 42.5, billRate: 62, spread: 19.5, gmPct: 31.5, health: "yellow" },
-                    ];
-                    // Overall quote health = worst-of trade health (any red → red, else any yellow → yellow, else green)
-                    const quoteHealth: "green" | "yellow" | "red" = laborRows.some((r) => r.health === "red")
-                      ? "red"
-                      : laborRows.some((r) => r.health === "yellow")
-                        ? "yellow"
-                        : "green";
-                    return (
-                      <>
-                        <div className="quote-detail-header">
-                          <h3>{selectedQuote.title}</h3>
-                          <span className="quote-detail-id">{selectedQuote.id}</span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Status</span>
-                          <span className={`quote-status-badge ${selectedQuote.status.toLowerCase()}`}>{selectedQuote.status}</span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Quote Health</span>
-                          <span className="quote-detail-value quote-health-cell">
-                            <span className={`quote-health-dot ${quoteHealth}`} title={quoteHealth} />
-                            {quoteHealth}
-                          </span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Salesperson (Owner)</span>
-                          <span className="quote-detail-value">{selectedQuote.salespersonName}</span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Quote Date</span>
-                          <span className="quote-detail-value">{new Date(selectedQuote.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Expiration Date</span>
-                          <span className="quote-detail-value">{new Date(selectedQuote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                        </div>
-                        <div className="quote-detail-row">
-                          <span className="quote-detail-label">Economics Snapshot</span>
-                          <span className={`quote-econ-badge ${selectedQuote.hasEconomicsSnapshot ? "generated" : "not-generated"}`}>
-                            {selectedQuote.hasEconomicsSnapshot ? "Generated" : "Not generated"}
-                          </span>
-                        </div>
+                  {/* CREATE / EDIT FORM */}
+                  {(mode === "create" || mode === "edit") && draftQuote ? (
+                    <div className="quote-form">
+                      <div className="quote-detail-header">
+                        <h3>{mode === "create" ? "Create New Quote" : "Edit Quote"}</h3>
+                        <span className="quote-detail-id">{draftQuote.id}</span>
+                      </div>
 
-                        <div className="labor-plan-section">
-                          <h4 className="labor-plan-title">Labor Plan (Trades)</h4>
-                          <div className="labor-plan-table-wrap">
-                            <table className="labor-plan-table">
-                              <thead>
-                                <tr>
-                                  <th>Trade</th>
-                                  <th>Headcount</th>
-                                  <th>Hours</th>
-                                  <th>Base Pay Rate</th>
-                                  <th>Burdened Pay Rate</th>
-                                  <th>Bill Rate</th>
-                                  <th>GM $/HR</th>
-                                  <th>GM %</th>
-                                  <th>Health</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {laborRows.map((row, idx) => (
-                                  <tr key={idx}>
-                                    <td>{row.trade}</td>
-                                    <td>{row.headcount}</td>
-                                    <td>{row.hours}</td>
-                                    <td>${row.basePay}</td>
-                                    <td>${row.burdenedPay}</td>
-                                    <td>${row.billRate}</td>
-                                    <td>${row.spread}</td>
-                                    <td>{row.gmPct}%</td>
-                                    <td><span className={`trade-health-dot ${row.health}`} title={row.health} /></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
+                      {/* Metadata Fields */}
+                      <div className="form-section">
+                        <div className="form-row">
+                          <label className="form-label">Quote Name</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={draftQuote.title}
+                            onChange={(e) => updateDraftField("title", e.target.value)}
+                            placeholder="e.g., Downtown Tower — Millwright Services"
+                          />
                         </div>
-
-                        <div className="pay-modifiers-section">
-                          <h4 className="pay-modifiers-title">Pay Modifiers</h4>
-                          <div className="pay-modifiers-list">
-                            <div className="pay-modifier-row">
-                              <span className="pay-modifier-label">Per diem</span>
-                              <span className="pay-modifier-value">$125/day (read-only)</span>
-                            </div>
-                            <div className="pay-modifier-row">
-                              <span className="pay-modifier-label">Travel</span>
-                              <span className="pay-modifier-value">$0.58/mi (read-only)</span>
-                            </div>
-                            <div className="pay-modifier-row">
-                              <span className="pay-modifier-label">Bonuses / Premiums</span>
-                              <span className="pay-modifier-value">Shift diff +$2/hr (read-only)</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="quote-burden-panel">
-                          <div className="burden-panel-header">
-                            <span className="burden-panel-title">Burden (Estimate)</span>
-                            <span className="burden-panel-note">Mirrors Orders burden panel — UI-only shell</span>
-                          </div>
-                          <div className="burden-rows">
-                            <div className="burden-row">
-                              <span className="burden-label">WC + GL + Taxes</span>
-                              <span className="burden-value">18.5%</span>
-                            </div>
-                            <div className="burden-row">
-                              <span className="burden-label">Per Diem / Lodging</span>
-                              <span className="burden-value">$125/day</span>
-                            </div>
-                            <div className="burden-row total">
-                              <span className="burden-label">Total Burden Est.</span>
-                              <span className="burden-value">~24.2%</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="internal-totals-toggle-row">
-                          <label className="toggle-label">
+                        <div className="form-row-group">
+                          <div className="form-row">
+                            <label className="form-label">Quote Date</label>
                             <input
-                              type="checkbox"
-                              checked={showInternalTotals}
-                              onChange={(e) => setShowInternalTotals(e.target.checked)}
+                              type="date"
+                              className="form-input"
+                              value={draftQuote.startDate}
+                              onChange={(e) => updateDraftField("startDate", e.target.value)}
                             />
-                            <span>Show internal totals</span>
-                          </label>
-                          {!showInternalTotals && (
-                            <span className="totals-hidden-note">Totals hidden (Internal).</span>
-                          )}
-                        </div>
-                        {showInternalTotals && (
-                          <div className="internal-totals-mock">
-                            <div className="burden-row"><span className="burden-label">Weekly total (mock)</span><span className="burden-value">$4,640</span></div>
-                            <div className="burden-row"><span className="burden-label">Line total (mock)</span><span className="burden-value">$18,560</span></div>
-                            <div className="burden-row total"><span className="burden-label">Grand total (mock)</span><span className="burden-value">$18,560</span></div>
                           </div>
-                        )}
-
-                        <div className="generate-order-row">
-                          <button type="button" className="generate-order-btn" disabled title="Coming soon">
-                            Generate Order
-                          </button>
-                          <span className="generate-order-placeholder">Coming soon</span>
+                          <div className="form-row">
+                            <label className="form-label">Expiration Date</label>
+                            <input
+                              type="date"
+                              className="form-input"
+                              value={draftQuote.expiresAt}
+                              onChange={(e) => updateDraftField("expiresAt", e.target.value)}
+                            />
+                          </div>
                         </div>
-                      </>
-                    );
-                  })()}
+                        <div className="form-row">
+                          <label className="form-label">Salesperson</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={draftQuote.salespersonName}
+                            onChange={(e) => updateDraftField("salespersonName", e.target.value)}
+                          />
+                        </div>
+                        <div className="form-row">
+                          <label className="form-label">Notes (optional)</label>
+                          <textarea
+                            className="form-textarea"
+                            value={draftQuote.notes}
+                            onChange={(e) => updateDraftField("notes", e.target.value)}
+                            placeholder="Internal notes about this quote..."
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Trades Table */}
+                      <div className="form-section">
+                        <div className="form-section-header">
+                          <h4>Labor Plan (Trades)</h4>
+                          <button type="button" className="add-row-btn" onClick={addTradeRow}>
+                            + Add Trade
+                          </button>
+                        </div>
+                        <div className="trades-table-wrap">
+                          <table className="trades-form-table">
+                            <thead>
+                              <tr>
+                                <th>Trade</th>
+                                <th>Headcount</th>
+                                <th>Hours</th>
+                                <th>Base Pay</th>
+                                <th>
+                                  <span className="th-with-hint">
+                                    Burdened Pay
+                                    <span className="auto-calc-hint">Auto-calculated</span>
+                                  </span>
+                                </th>
+                                <th>Bill Rate</th>
+                                <th>OT Mult</th>
+                                <th>
+                                  <span className="th-with-hint">
+                                    GM $/HR
+                                    <span className="auto-calc-hint">Auto-calculated</span>
+                                  </span>
+                                </th>
+                                <th>
+                                  <span className="th-with-hint">
+                                    GM %
+                                    <span className="auto-calc-hint">Auto-calculated</span>
+                                  </span>
+                                </th>
+                                <th>
+                                  <span className="th-with-hint">
+                                    Health
+                                    <span className="auto-calc-hint">Auto-calculated</span>
+                                  </span>
+                                </th>
+                                <th></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {draftQuote.trades.map((trade, idx) => (
+                                <tr key={idx}>
+                                  <td>
+                                    <select
+                                      className="form-select-sm"
+                                      value={trade.trade}
+                                      onChange={(e) => updateTradeRow(idx, "trade", e.target.value)}
+                                    >
+                                      {AVAILABLE_TRADES.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm"
+                                      value={trade.headcount}
+                                      onChange={(e) => updateTradeRow(idx, "headcount", parseFloat(e.target.value) || 0)}
+                                      min={1}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm"
+                                      value={trade.hours}
+                                      onChange={(e) => updateTradeRow(idx, "hours", parseFloat(e.target.value) || 0)}
+                                      min={0}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm"
+                                      value={trade.basePay}
+                                      onChange={(e) => updateTradeRow(idx, "basePay", parseFloat(e.target.value) || 0)}
+                                      min={0}
+                                      step={0.01}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm form-input-disabled"
+                                      value={trade.burdenedPay}
+                                      disabled
+                                      readOnly
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm"
+                                      value={trade.billRate}
+                                      onChange={(e) => updateTradeRow(idx, "billRate", parseFloat(e.target.value) || 0)}
+                                      min={0}
+                                      step={0.01}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm"
+                                      value={trade.otMultiplier ?? OT_MULTIPLIER_DEFAULT}
+                                      onChange={(e) => {
+                                        // Allow typing freely, clamp on blur
+                                        const val = e.target.value;
+                                        const parsed = parseFloat(val);
+                                        if (val === "" || isNaN(parsed)) {
+                                          // Temporarily allow empty for typing
+                                          updateTradeRow(idx, "otMultiplier", OT_MULTIPLIER_DEFAULT);
+                                        } else {
+                                          updateTradeRow(idx, "otMultiplier", parsed);
+                                        }
+                                      }}
+                                      onBlur={(e) => handleOtMultiplierChange(idx, e.target.value)}
+                                      min={OT_MULTIPLIER_MIN}
+                                      step={0.001}
+                                      title={`Minimum: ${OT_MULTIPLIER_MIN}`}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm form-input-disabled"
+                                      value={trade.gmPerHr}
+                                      disabled
+                                      readOnly
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-input-sm form-input-disabled"
+                                      value={trade.gmPct}
+                                      disabled
+                                      readOnly
+                                    />
+                                  </td>
+                                  <td>
+                                    <select
+                                      className="form-select-sm health-select form-input-disabled"
+                                      value={trade.health}
+                                      disabled
+                                    >
+                                      <option value="Good">Good</option>
+                                      <option value="Watch">Watch</option>
+                                      <option value="Risk">Risk</option>
+                                    </select>
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="remove-row-btn"
+                                      onClick={() => removeTradeRow(idx)}
+                                      disabled={draftQuote.trades.length <= 1}
+                                      title="Remove trade"
+                                    >
+                                      ×
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Modifiers */}
+                      <div className="form-section">
+                        <h4>Pay Modifiers</h4>
+                        <div className="modifiers-grid">
+                          <div className="form-row">
+                            <label className="form-label">Per Diem ($/day)</label>
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={draftQuote.modifiers.perDiem}
+                              onChange={(e) => updateDraftModifier("perDiem", parseFloat(e.target.value) || 0)}
+                              min={0}
+                              step={0.01}
+                            />
+                          </div>
+                          <div className="form-row">
+                            <label className="form-label">Travel ($/mi)</label>
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={draftQuote.modifiers.travel}
+                              onChange={(e) => updateDraftModifier("travel", parseFloat(e.target.value) || 0)}
+                              min={0}
+                              step={0.01}
+                            />
+                          </div>
+                          <div className="form-row">
+                            <label className="form-label">Bonuses / Premiums ($/hr)</label>
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={draftQuote.modifiers.bonuses}
+                              onChange={(e) => updateDraftModifier("bonuses", parseFloat(e.target.value) || 0)}
+                              min={0}
+                              step={0.01}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Form Actions */}
+                      <div className="form-actions">
+                        <button type="button" className="cancel-btn" onClick={handleCancelForm}>
+                          Cancel
+                        </button>
+                        <button type="button" className="save-btn" onClick={handleSaveQuote}>
+                          {mode === "create" ? "Create Quote" : "Save Changes"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* VIEW MODE */
+                    (() => {
+                      const selectedQuote = customer.quotes.find((q) => q.id === selectedQuoteId) || customer.quotes[0];
+                      if (!selectedQuote) return null;
+                      const laborRows = selectedQuote.trades;
+                      // Map health values for display
+                      const healthMap: Record<string, "green" | "yellow" | "red"> = {
+                        Good: "green",
+                        Watch: "yellow",
+                        Risk: "red",
+                      };
+                      // Overall quote health = worst-of trade health (any red → red, else any yellow → yellow, else green)
+                      const quoteHealth: "green" | "yellow" | "red" = laborRows.some((r) => r.health === "Risk")
+                        ? "red"
+                        : laborRows.some((r) => r.health === "Watch")
+                          ? "yellow"
+                          : "green";
+                      return (
+                        <>
+                          <div className="quote-detail-header">
+                            <div className="quote-detail-header-top">
+                              <div>
+                                <h3>{selectedQuote.title}</h3>
+                                <span className="quote-detail-id">{selectedQuote.id}</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="edit-quote-btn"
+                                onClick={() => handleEditQuote(selectedQuote)}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Status</span>
+                            <span className={`quote-status-badge ${selectedQuote.status.toLowerCase()}`}>{selectedQuote.status}</span>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Quote Health</span>
+                            <span className="quote-detail-value quote-health-cell">
+                              <span className={`quote-health-dot ${quoteHealth}`} title={quoteHealth} />
+                              {quoteHealth}
+                            </span>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Salesperson (Owner)</span>
+                            <span className="quote-detail-value">{selectedQuote.salespersonName}</span>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Quote Date</span>
+                            <span className="quote-detail-value">{new Date(selectedQuote.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Expiration Date</span>
+                            <span className="quote-detail-value">{new Date(selectedQuote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          </div>
+                          <div className="quote-detail-row">
+                            <span className="quote-detail-label">Economics Snapshot</span>
+                            <span className={`quote-econ-badge ${selectedQuote.hasEconomicsSnapshot ? "generated" : "not-generated"}`}>
+                              {selectedQuote.hasEconomicsSnapshot ? "Generated" : "Not generated"}
+                            </span>
+                          </div>
+                          {selectedQuote.notes && (
+                            <div className="quote-detail-row">
+                              <span className="quote-detail-label">Notes</span>
+                              <span className="quote-detail-value">{selectedQuote.notes}</span>
+                            </div>
+                          )}
+
+                          <div className="labor-plan-section">
+                            <h4 className="labor-plan-title">Labor Plan (Trades)</h4>
+                            <div className="labor-plan-table-wrap">
+                              <table className="labor-plan-table">
+                                <thead>
+                                  <tr>
+                                    <th>Trade</th>
+                                    <th>Headcount</th>
+                                    <th>Hours</th>
+                                    <th>Base Pay Rate</th>
+                                    <th>Burdened Pay Rate</th>
+                                    <th>Bill Rate</th>
+                                    <th>GM $/HR</th>
+                                    <th>GM %</th>
+                                    <th>Health</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {laborRows.map((row, idx) => (
+                                    <tr key={idx}>
+                                      <td>{row.trade}</td>
+                                      <td>{row.headcount}</td>
+                                      <td>{row.hours}</td>
+                                      <td>${row.basePay}</td>
+                                      <td>${row.burdenedPay}</td>
+                                      <td>${row.billRate}</td>
+                                      <td>${row.gmPerHr}</td>
+                                      <td>{row.gmPct}%</td>
+                                      <td><span className={`trade-health-dot ${healthMap[row.health]}`} title={row.health} /></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div className="pay-modifiers-section">
+                            <h4 className="pay-modifiers-title">Pay Modifiers</h4>
+                            <div className="pay-modifiers-list">
+                              <div className="pay-modifier-row">
+                                <span className="pay-modifier-label">Per diem</span>
+                                <span className="pay-modifier-value">${selectedQuote.modifiers.perDiem}/day</span>
+                              </div>
+                              <div className="pay-modifier-row">
+                                <span className="pay-modifier-label">Travel</span>
+                                <span className="pay-modifier-value">${selectedQuote.modifiers.travel}/mi</span>
+                              </div>
+                              <div className="pay-modifier-row">
+                                <span className="pay-modifier-label">Bonuses / Premiums</span>
+                                <span className="pay-modifier-value">${selectedQuote.modifiers.bonuses}/hr</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="quote-burden-panel">
+                            <div className="burden-panel-header">
+                              <span className="burden-panel-title">Burden (Estimate)</span>
+                              <span className="burden-panel-note">Mirrors Orders burden panel — UI-only shell</span>
+                            </div>
+                            <div className="burden-rows">
+                              <div className="burden-row">
+                                <span className="burden-label">WC + GL + Taxes</span>
+                                <span className="burden-value">18.5%</span>
+                              </div>
+                              <div className="burden-row">
+                                <span className="burden-label">Per Diem / Lodging</span>
+                                <span className="burden-value">${selectedQuote.modifiers.perDiem}/day</span>
+                              </div>
+                              <div className="burden-row total">
+                                <span className="burden-label">Total Burden Est.</span>
+                                <span className="burden-value">~24.2%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="internal-totals-toggle-row">
+                            <label className="toggle-label">
+                              <input
+                                type="checkbox"
+                                checked={showInternalTotals}
+                                onChange={(e) => setShowInternalTotals(e.target.checked)}
+                              />
+                              <span>Show internal totals</span>
+                            </label>
+                            {!showInternalTotals && (
+                              <span className="totals-hidden-note">Totals hidden (Internal).</span>
+                            )}
+                          </div>
+                          {showInternalTotals && (
+                            <div className="internal-totals-mock">
+                              <div className="burden-row"><span className="burden-label">Weekly total (mock)</span><span className="burden-value">$4,640</span></div>
+                              <div className="burden-row"><span className="burden-label">Line total (mock)</span><span className="burden-value">$18,560</span></div>
+                              <div className="burden-row total"><span className="burden-label">Grand total (mock)</span><span className="burden-value">$18,560</span></div>
+                            </div>
+                          )}
+
+                          <div className="generate-order-row">
+                            <button type="button" className="generate-order-btn" disabled title="Coming soon">
+                              Generate Order
+                            </button>
+                            <span className="generate-order-placeholder">Coming soon</span>
+                          </div>
+                        </>
+                      );
+                    })()
+                  )}
                 </div>
               </div>
             )}
@@ -775,6 +1362,49 @@ export default function CustomerDetailPage() {
         .panel-note {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Create Quote Button */
+        .create-quote-btn {
+          margin-left: auto;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .create-quote-btn:hover {
+          background: #2563eb;
+        }
+
+        /* Edit Quote Button */
+        .edit-quote-btn {
+          padding: 6px 14px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #3b82f6;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .edit-quote-btn:hover {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .quote-detail-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
         }
 
         /* Contacts Table */
@@ -1386,8 +2016,260 @@ export default function CustomerDetailPage() {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.4);
         }
+
+        /* Quote Form Styles */
+        .quote-form {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .form-section {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .form-section h4 {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+          margin: 0;
+        }
+
+        .form-section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .form-row {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-row-group {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        .form-label {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+          padding: 10px 12px;
+          font-size: 13px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          transition: border-color 0.15s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .form-input::placeholder,
+        .form-textarea::placeholder {
+          color: rgba(255, 255, 255, 0.3);
+        }
+
+        .form-select {
+          cursor: pointer;
+        }
+
+        .form-textarea {
+          resize: vertical;
+          min-height: 60px;
+        }
+
+        /* Trades Form Table */
+        .trades-table-wrap {
+          overflow-x: auto;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 8px;
+        }
+
+        .trades-form-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+
+        .trades-form-table th {
+          padding: 10px 8px;
+          text-align: left;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          white-space: nowrap;
+        }
+
+        .trades-form-table td {
+          padding: 8px 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .trades-form-table tr:last-child td {
+          border-bottom: none;
+        }
+
+        .th-with-hint {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .auto-calc-hint {
+          font-size: 9px;
+          font-weight: 400;
+          color: rgba(245, 158, 11, 0.8);
+          text-transform: none;
+          letter-spacing: 0;
+        }
+
+        .form-input-sm,
+        .form-select-sm {
+          width: 100%;
+          padding: 6px 8px;
+          font-size: 12px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 4px;
+        }
+
+        .form-input-sm:focus,
+        .form-select-sm:focus {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .form-input-sm {
+          min-width: 60px;
+        }
+
+        .form-input-sm.form-input-disabled {
+          background: rgba(255, 255, 255, 0.02);
+          color: rgba(255, 255, 255, 0.4);
+          cursor: not-allowed;
+          border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .form-select-sm {
+          min-width: 100px;
+          cursor: pointer;
+        }
+
+        .health-select {
+          min-width: 80px;
+        }
+
+        .add-row-btn {
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #3b82f6;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .add-row-btn:hover {
+          background: rgba(59, 130, 246, 0.2);
+        }
+
+        .remove-row-btn {
+          width: 24px;
+          height: 24px;
+          padding: 0;
+          font-size: 16px;
+          font-weight: 500;
+          color: rgba(239, 68, 68, 0.7);
+          background: transparent;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .remove-row-btn:hover:not(:disabled) {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.1);
+          border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .remove-row-btn:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        /* Modifiers Grid */
+        .modifiers-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        /* Form Actions */
+        .form-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .cancel-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .cancel-btn:hover {
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .save-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .save-btn:hover {
+          background: #2563eb;
+        }
       `}</style>
     </div>
   );
 }
-
