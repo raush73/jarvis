@@ -540,6 +540,17 @@ export default function CustomerDetailPage() {
         </div>
       </div>
 
+      {/* Internal Actions Row */}
+      <div className="internal-actions-row">
+        <button
+          className="internal-action-btn"
+          onClick={() => router.push(`/customers/${customerId}/approval-package`)}
+        >
+          <span className="internal-action-label">Approval Package</span>
+          <span className="internal-action-helper">Defines what this customer requires before approving workers.</span>
+        </button>
+      </div>
+
       {/* Tabs Navigation */}
       <div className="tabs-nav">
         {tabs.map((tab) => (
@@ -1386,6 +1397,42 @@ export default function CustomerDetailPage() {
         .summary-link:hover {
           color: #60a5fa;
           text-decoration: underline;
+        }
+
+        /* Internal Actions Row */
+        .internal-actions-row {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .internal-action-btn {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 14px 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+        }
+
+        .internal-action-btn:hover {
+          background: rgba(59, 130, 246, 0.08);
+          border-color: rgba(59, 130, 246, 0.15);
+        }
+
+        .internal-action-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: #3b82f6;
+        }
+
+        .internal-action-helper {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
         }
 
         /* Tabs Navigation */
