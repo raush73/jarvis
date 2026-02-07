@@ -11,23 +11,33 @@ import {
   getOpenSlots,
 } from '@/data/mockRecruitingData';
 import { BucketTradeSummary } from '@/components/BucketTradeSummary';
-import { RecruitingSourcingPanel } from '@/components/RecruitingSourcingPanel';
 import { useAuth } from "@/lib/auth/useAuth";
+
 /**
- * Vetting Page — Canonical Flow
+ * Vetting Page — Structure Lock Implementation
  * 
- * Implements the vetting pipeline with conditional Customer-Held gate:
- * - Vetting (Identified/Interested/Vetted combined view)
- * - Customer-Held (conditional gate - only when pre-approval required)
- * - Pre-Dispatch
- * - Dispatched
- * - No-Show (distinct bucket for workers who no-showed)
+ * LOCKED LANE NAMES:
+ * 1. Opted-In (This Job)
+ * 2. Awaiting Candidate Action
+ * 3. MW4H Approved (Candidate Pool)
+ * 4. Pre-Dispatch
+ * 5. Dispatched
+ * 6. Exceptions (No-Show)
  * 
- * Trade counts show Open / Total Required.
- * Open only changes at Dispatch.
+ * Discovery is a compact utility strip, not the main work surface.
+ * Customer Approval is a gate (side panel), not a lane.
  */
 
-// Mock PPE list (FULL list always shown per spec)
+// Lane name mapping per lock specification
+const LANE_NAMES: Record<string, { name: string; description: string }> = {
+  identified: { name: 'Opted-In (This Job)', description: 'Candidates who opted in for this specific job' },
+  interested: { name: 'Awaiting Candidate Action', description: 'Worker-blocked: docs, certs, reconfirm needed' },
+  vetted: { name: 'MW4H Approved (Candidate Pool)', description: 'Approved candidates ready for assignment' },
+  pre_dispatch: { name: 'Pre-Dispatch', description: 'Ready for dispatch assignment' },
+  dispatched: { name: 'Dispatched', description: 'Actively dispatched to job site' },
+};
+
+// Mock PPE list
 const REQUIRED_PPE = [
   'Hard hat',
   'Safety glasses',
@@ -37,7 +47,7 @@ const REQUIRED_PPE = [
   'FR clothing',
 ];
 
-// Mock tools list (required for job, but only missing shown to workers)
+// Mock tools list
 const REQUIRED_TOOLS = [
   'Torque Wrenches',
   'Dial Indicators',
@@ -53,7 +63,6 @@ const REQUIRED_CERTS = [
   'First Aid/CPR',
   'Confined Space Entry',
 ];
-
 
 // Mock No-Show candidates
 const MOCK_NO_SHOWS: Candidate[] = [
@@ -74,14 +83,39 @@ const MOCK_NO_SHOWS: Candidate[] = [
   },
 ];
 
+// Source type labels for badges
+const SOURCE_LABELS: Record<string, { label: string; icon: string }> = {
+  system: { label: 'Jarvis Match', icon: '🤖' },
+  recruiter: { label: 'Manual', icon: '👤' },
+  roadtechs: { label: 'Roadtechs', icon: '🛣️' },
+};
+
+// Mock readiness calculation (placeholder)
+function getReadinessSignal(candidate: Candidate): { color: 'green' | 'yellow' | 'red'; label: string } {
+  const certCount = candidate.certifications.filter(c => c.verified).length;
+  if (certCount >= 2 && candidate.availability === 'available') {
+    return { color: 'green', label: 'Ready' };
+  } else if (certCount >= 1) {
+    return { color: 'yellow', label: 'Pending' };
+  }
+  return { color: 'red', label: 'Blocked' };
+}
+
+// Mock eligibility calculation (placeholder)
+function getEligibilitySummary(candidate: Candidate): { met: number; total: number; blockers: number } {
+  // Mock: 7 total requirements, calculate based on certs
+  const total = 7;
+  const met = Math.min(candidate.certifications.filter(c => c.verified).length + 3, total);
+  const blockers = total - met;
+  return { met, total, blockers };
+}
+
 export default function VettingPage() {
   const params = useParams();
   const orderId = params?.id as string;
-  
-
   const router = useRouter();
   const { isAuthenticated, demoTitle } = useAuth();
-  // Use mock data
+  
   const order = mockOrder;
   
   // State for customer pre-approval toggle (UI-only)
@@ -92,29 +126,19 @@ export default function VettingPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [dispatchDate, setDispatchDate] = useState('');
   
-  // State for Dispatch Order Preview panel
-  const [showDispatchPreview, setShowDispatchPreview] = useState(false);
-  const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
+  // State for split-view panel (card click drill-down)
+  const [splitViewCandidate, setSplitViewCandidate] = useState<Candidate | null>(null);
   
   // State for No-Show candidates (UI-only mock)
   const [noShowCandidates, setNoShowCandidates] = useState<Candidate[]>(MOCK_NO_SHOWS);
 
-  // Filter buckets: show Customer-Held only if requiresPreApproval toggle is ON
-  const visibleBuckets = order.buckets.filter(bucket => {
-    if (bucket.id === 'customer_held') {
-      return requiresPreApproval;
-    }
-    return true;
-  });
-
-  // Separate primary pipeline from conditional gate
-  const primaryBuckets = visibleBuckets.filter(b => b.id !== 'customer_held');
-  const customerHeldBucket = visibleBuckets.find(b => b.id === 'customer_held');
+  // Filter buckets: exclude customer_held from main pipeline (it's a gate, not a lane)
+  const pipelineBuckets = order.buckets.filter(bucket => bucket.id !== 'customer_held');
+  const customerHeldBucket = order.buckets.find(b => b.id === 'customer_held');
 
   // Handler for adding to Identified (mock)
   const handleAddToIdentified = (candidate: Candidate) => {
-    console.log('Adding to Identified:', candidate.name);
-    // UI-only: no actual state change
+    console.log('Adding to Opted-In:', candidate.name);
   };
 
   // Handler for dispatch
@@ -123,26 +147,28 @@ export default function VettingPage() {
     setShowDispatchModal(true);
   };
 
-  // Handler for viewing Dispatch Order Preview
-  const handleViewDispatchOrder = (candidate: Candidate) => {
-    setPreviewCandidate(candidate);
-    setShowDispatchPreview(true);
+  // Handler for card click - opens split view
+  const handleCardClick = (candidate: Candidate) => {
+    setSplitViewCandidate(candidate);
   };
   
   // Handler for redispatching a no-show
   const handleRedispatch = (candidate: Candidate) => {
-    // UI-only: remove from no-show list (mock behavior)
     setNoShowCandidates(prev => prev.filter(c => c.id !== candidate.id));
-    console.log('Redispatching:', candidate.name, 'back to Vetting/Pre-Dispatch');
+    console.log('Redispatching:', candidate.name);
   };
 
-  // Calculate total candidates and dispatched
+  // Calculate totals
   const totalCandidates = order.buckets.reduce((sum, b) => sum + b.candidates.length, 0);
   const dispatchedCount = order.buckets.find(b => b.id === 'dispatched')?.candidates.length || 0;
   const totalRequired = order.trades.reduce((sum, t) => sum + t.totalRequired, 0);
 
+  // Mock discovery counts
+  const jarvisMatchCount = 3;
+  const manualSearchCount = 4;
+
   return (
-    <div className="vetting-page">
+    <div className={`vetting-page ${splitViewCandidate ? 'split-view-active' : ''}`}>
       {/* Order Context Header */}
       <header className="order-header">
         <div className="header-left">
@@ -166,11 +192,9 @@ export default function VettingPage() {
           </div>
         </div>
         <div className="header-right">
-          {/* Trade Chips showing Open/Total */}
           <div className="trade-chips">
             {order.trades.map(trade => {
               const open = getOpenSlots(trade);
-              // Create short trade code
               const code = trade.name.split(' ').map(w => w[0]).join('').toUpperCase();
               return (
                 <span key={trade.id} className="trade-chip">
@@ -180,91 +204,95 @@ export default function VettingPage() {
               );
             })}
           </div>
-          
-          {/* Customer Pre-Approval Toggle */}
-          <div className="preapproval-toggle">
-            <label className="toggle-label">
-              <span className="toggle-text">Customer requires pre-approval</span>
-              <div className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={requiresPreApproval}
-                  onChange={(e) => setRequiresPreApproval(e.target.checked)}
-                />
-                <span className="toggle-slider"></span>
-              </div>
-              <span className={`toggle-state ${requiresPreApproval ? 'on' : 'off'}`}>
-                {requiresPreApproval ? 'ON' : 'OFF'}
-              </span>
-            </label>
-          </div>
         </div>
       </header>
 
-      {/* Customer Visibility Reminder */}
-      <div className="customer-visibility-note">
-        <span className="note-icon">👁️</span>
-        <span className="note-text">Customer view includes only workers who worked (no vetting activity or no-shows).</span>
-      </div>
-
-      {/* Sourcing Section */}
-      <section className="sourcing-section">
-        <h2 className="section-title">Candidate Sourcing</h2>
-        <RecruitingSourcingPanel onAddToIdentified={handleAddToIdentified} />
+      {/* Zone 1: Discovery Strip (Compressed) */}
+      <section className="discovery-strip">
+        <div className="discovery-item jarvis-discovery">
+          <div className="discovery-icon">🤖</div>
+          <div className="discovery-info">
+            <span className="discovery-label">Jarvis Matches</span>
+            <span className="discovery-count">{jarvisMatchCount} candidates</span>
+          </div>
+          <button className="discovery-btn" disabled title={demoTitle}>
+            View Matches
+          </button>
+        </div>
+        <div className="discovery-item manual-discovery">
+          <div className="discovery-icon">🔍</div>
+          <div className="discovery-info">
+            <span className="discovery-label">Recruiting Search</span>
+            <span className="discovery-count">{manualSearchCount} results</span>
+          </div>
+          <button className="discovery-btn" disabled title={demoTitle}>
+            Search Employees
+          </button>
+        </div>
       </section>
 
-      {/* Vetting Pipeline */}
-      <section className="pipeline-section">
-        <h2 className="section-title">Vetting Pipeline</h2>
-        <p className="section-desc">
-          {totalCandidates} candidates in pipeline • {dispatchedCount} dispatched / {totalRequired} required
-        </p>
-
-        <div className="pipeline-container">
-          {/* Primary Pipeline Buckets */}
-          <div className="primary-pipeline">
-            {primaryBuckets.map((bucket, index) => (
-              <BucketColumn
-                key={bucket.id}
-                bucket={bucket}
-                trades={order.trades}
-                isLast={index === primaryBuckets.length - 1}
-                onDispatch={handleDispatch}
-                onViewDispatchOrder={handleViewDispatchOrder}
-                isAuthenticated={isAuthenticated}
-                demoTitle={demoTitle}
-              />
-            ))}
-            
-            {/* No-Show Bucket */}
-            <NoShowBucket
-              candidates={noShowCandidates}
-              onRedispatch={handleRedispatch}
-              isAuthenticated={isAuthenticated}
-              demoTitle={demoTitle}
-            />
+      {/* Main Content Area */}
+      <div className="main-content">
+        {/* Vetting Pipeline */}
+        <section className="pipeline-section">
+          <div className="pipeline-header">
+            <h2 className="section-title">Vetting Pipeline</h2>
+            <p className="section-desc">
+              {totalCandidates} candidates in pipeline • {dispatchedCount} dispatched / {totalRequired} required
+            </p>
           </div>
 
-          {/* Customer-Held Side Rail (conditional) */}
-          {customerHeldBucket && (
-            <div className="conditional-rail">
-              <div className="rail-label">
-                <span className="rail-icon">🔒</span>
-                Conditional Gate
-              </div>
-              <BucketColumn
-                bucket={customerHeldBucket}
-                trades={order.trades}
-                isConditional
-                onDispatch={handleDispatch}
-                onViewDispatchOrder={handleViewDispatchOrder}
+          <div className="pipeline-container">
+            {/* Primary Pipeline Lanes */}
+            <div className="primary-pipeline">
+              {pipelineBuckets.map((bucket, index) => (
+                <LaneColumn
+                  key={bucket.id}
+                  bucket={bucket}
+                  trades={order.trades}
+                  laneName={LANE_NAMES[bucket.id]?.name || bucket.name}
+                  laneDescription={LANE_NAMES[bucket.id]?.description || bucket.description}
+                  isLast={index === pipelineBuckets.length - 1}
+                  onDispatch={handleDispatch}
+                  onCardClick={handleCardClick}
+                  isAuthenticated={isAuthenticated}
+                  demoTitle={demoTitle}
+                />
+              ))}
+              
+              {/* Exceptions Lane (No-Show) */}
+              <ExceptionsLane
+                candidates={noShowCandidates}
+                onRedispatch={handleRedispatch}
+                onCardClick={handleCardClick}
                 isAuthenticated={isAuthenticated}
                 demoTitle={demoTitle}
               />
             </div>
-          )}
-        </div>
-      </section>
+
+            {/* Customer Approval Gate (Side Panel) */}
+            <CustomerApprovalGate
+              bucket={customerHeldBucket}
+              requiresPreApproval={requiresPreApproval}
+              onToggle={setRequiresPreApproval}
+              onCardClick={handleCardClick}
+              isAuthenticated={isAuthenticated}
+              demoTitle={demoTitle}
+            />
+          </div>
+        </section>
+
+        {/* Split View Panel (Card Drill-Down) */}
+        {splitViewCandidate && (
+          <SplitViewPanel
+            candidate={splitViewCandidate}
+            requiredPPE={REQUIRED_PPE}
+            requiredTools={REQUIRED_TOOLS}
+            requiredCerts={REQUIRED_CERTS}
+            onClose={() => setSplitViewCandidate(null)}
+          />
+        )}
+      </div>
 
       {/* Trade Requirements Summary Table */}
       <section className="trade-summary-section">
@@ -298,7 +326,6 @@ export default function VettingPage() {
             </tr>
           </tbody>
         </table>
-        <p className="summary-note">Open count changes only when a worker is dispatched.</p>
       </section>
 
       {/* Dispatch Modal */}
@@ -322,20 +349,6 @@ export default function VettingPage() {
           demoTitle={demoTitle}
         />
       )}
-      
-      {/* Dispatch Order Preview Panel */}
-      {showDispatchPreview && previewCandidate && (
-        <DispatchOrderPreview
-          candidate={previewCandidate}
-          requiredPPE={REQUIRED_PPE}
-          requiredTools={REQUIRED_TOOLS}
-          requiredCerts={REQUIRED_CERTS}
-          onClose={() => {
-            setShowDispatchPreview(false);
-            setPreviewCandidate(null);
-          }}
-        />
-      )}
 
       <style jsx>{`
         .vetting-page {
@@ -346,30 +359,35 @@ export default function VettingPage() {
           font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
+        .vetting-page.split-view-active .main-content {
+          display: grid;
+          grid-template-columns: 1fr 420px;
+          gap: 20px;
+        }
+
         /* Order Header */
         .order-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          padding: 20px 24px;
+          padding: 16px 20px;
           background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          margin-bottom: 16px;
+          margin-bottom: 12px;
         }
 
         .breadcrumb {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .breadcrumb-item {
           font-size: 13px;
           color: rgba(255, 255, 255, 0.5);
         }
-
 
         .breadcrumb-link {
           background: transparent;
@@ -381,6 +399,7 @@ export default function VettingPage() {
         .breadcrumb-link:hover {
           text-decoration: underline;
         }
+
         .breadcrumb-item.active {
           color: rgba(255, 255, 255, 0.8);
         }
@@ -390,8 +409,8 @@ export default function VettingPage() {
         }
 
         .order-title {
-          margin: 0 0 12px 0;
-          font-size: 24px;
+          margin: 0 0 8px 0;
+          font-size: 20px;
           font-weight: 700;
           background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
           -webkit-background-clip: text;
@@ -402,44 +421,43 @@ export default function VettingPage() {
         .order-meta {
           display: flex;
           flex-wrap: wrap;
-          gap: 20px;
+          gap: 16px;
         }
 
         .meta-item {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 13px;
+          font-size: 12px;
           color: rgba(255, 255, 255, 0.7);
         }
 
         .meta-icon {
-          font-size: 14px;
+          font-size: 12px;
         }
 
         .header-right {
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 14px;
+          gap: 10px;
         }
 
-        /* Trade Chips */
         .trade-chips {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
         }
 
         .trade-chip {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
+          gap: 4px;
+          padding: 4px 8px;
           background: rgba(59, 130, 246, 0.15);
           border: 1px solid rgba(59, 130, 246, 0.3);
-          border-radius: 6px;
-          font-size: 12px;
+          border-radius: 4px;
+          font-size: 11px;
         }
 
         .chip-code {
@@ -452,199 +470,130 @@ export default function VettingPage() {
           font-family: 'SF Mono', monospace;
         }
 
-        /* Pre-Approval Toggle */
-        .preapproval-toggle {
+        /* Discovery Strip (Zone 1 - Compressed) */
+        .discovery-strip {
+          display: flex;
+          gap: 12px;
+          padding: 12px 16px;
           background: rgba(0, 0, 0, 0.3);
-          padding: 10px 14px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          margin-bottom: 16px;
         }
 
-        .toggle-label {
+        .discovery-item {
           display: flex;
           align-items: center;
           gap: 12px;
-          cursor: pointer;
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 6px;
+          flex: 1;
         }
 
-        .toggle-text {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.8);
+        .jarvis-discovery {
+          border-left: 3px solid #3b82f6;
         }
 
-        .toggle-switch {
-          position: relative;
-          width: 44px;
-          height: 24px;
+        .manual-discovery {
+          border-left: 3px solid #10b981;
         }
 
-        .toggle-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
+        .discovery-icon {
+          font-size: 20px;
         }
 
-        .toggle-slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(255, 255, 255, 0.15);
-          transition: 0.3s;
-          border-radius: 24px;
-        }
-
-        .toggle-slider:before {
-          position: absolute;
-          content: "";
-          height: 18px;
-          width: 18px;
-          left: 3px;
-          bottom: 3px;
-          background-color: white;
-          transition: 0.3s;
-          border-radius: 50%;
-        }
-
-        .toggle-switch input:checked + .toggle-slider {
-          background-color: #f59e0b;
-        }
-
-        .toggle-switch input:checked + .toggle-slider:before {
-          transform: translateX(20px);
-        }
-
-        .toggle-state {
-          font-size: 11px;
-          font-weight: 600;
-          padding: 2px 8px;
-          border-radius: 4px;
-        }
-
-        .toggle-state.on {
-          background: rgba(245, 158, 11, 0.2);
-          color: #fbbf24;
-        }
-
-        .toggle-state.off {
-          background: rgba(255, 255, 255, 0.1);
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        /* Customer Visibility Note */
-        .customer-visibility-note {
+        .discovery-info {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px 16px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.2);
-          border-radius: 8px;
-          margin-bottom: 24px;
+          flex-direction: column;
+          flex: 1;
         }
 
-        .note-icon {
-          font-size: 16px;
-        }
-
-        .note-text {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Section Styles */
-        .section-title {
-          font-size: 16px;
+        .discovery-label {
+          font-size: 12px;
           font-weight: 600;
           color: rgba(255, 255, 255, 0.9);
-          margin: 0 0 16px 0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
         }
 
-        .section-desc {
-          font-size: 13px;
+        .discovery-count {
+          font-size: 11px;
           color: rgba(255, 255, 255, 0.5);
-          margin: -8px 0 16px 0;
         }
 
-        /* Sourcing Section */
-        .sourcing-section {
-          margin-bottom: 24px;
+        .discovery-btn {
+          padding: 6px 12px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 4px;
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 11px;
+          font-weight: 500;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        /* Main Content */
+        .main-content {
+          margin-bottom: 20px;
         }
 
         /* Pipeline Section */
         .pipeline-section {
-          margin-bottom: 24px;
+          flex: 1;
+        }
+
+        .pipeline-header {
+          margin-bottom: 12px;
+        }
+
+        .section-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+          margin: 0 0 4px 0;
+        }
+
+        .section-desc {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          margin: 0;
         }
 
         .pipeline-container {
           display: flex;
-          gap: 20px;
+          gap: 16px;
         }
 
         .primary-pipeline {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           flex: 1;
           overflow-x: auto;
-          padding-bottom: 12px;
-        }
-
-        .conditional-rail {
-          min-width: 280px;
-          max-width: 300px;
-          background: rgba(245, 158, 11, 0.05);
-          border: 1px dashed rgba(245, 158, 11, 0.3);
-          border-radius: 12px;
-          padding: 12px;
-        }
-
-        .rail-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #fbbf24;
-          margin-bottom: 12px;
           padding-bottom: 8px;
-          border-bottom: 1px solid rgba(245, 158, 11, 0.2);
-        }
-
-        .rail-icon {
-          font-size: 14px;
         }
 
         /* Trade Summary Section */
         .trade-summary-section {
-          margin-bottom: 24px;
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 12px;
-          padding: 20px;
+          border-radius: 10px;
+          padding: 16px;
         }
 
         .trade-summary-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 12px;
         }
 
         .trade-summary-table th,
         .trade-summary-table td {
-          padding: 12px 16px;
+          padding: 10px 14px;
           text-align: left;
           border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .trade-summary-table th {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -653,12 +602,12 @@ export default function VettingPage() {
         }
 
         .trade-name-cell {
-          font-size: 14px;
+          font-size: 13px;
           color: rgba(255, 255, 255, 0.9);
         }
 
         .count-cell {
-          font-size: 14px;
+          font-size: 13px;
           font-family: 'SF Mono', monospace;
           color: rgba(255, 255, 255, 0.7);
           text-align: center;
@@ -679,344 +628,74 @@ export default function VettingPage() {
         .totals-row td {
           border-bottom: none;
         }
-
-        .summary-note {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-          font-style: italic;
-          margin: 0;
-        }
       `}</style>
     </div>
   );
 }
 
-// Trade Requirement Card
-function TradeRequirementCard({ trade }: { trade: Trade }) {
-  const openSlots = getOpenSlots(trade);
-  const fillPercentage = (trade.dispatched / trade.totalRequired) * 100;
-
-  return (
-    <div className="trade-card">
-      <div className="trade-header">
-        <span className="trade-name">{trade.name}</span>
-        <span className="trade-count">
-          {openSlots} <span className="count-label">open</span> / {trade.totalRequired}
-        </span>
-      </div>
-      <div className="progress-bar">
-        <div
-          className="progress-fill"
-          style={{ width: `${Math.min(fillPercentage, 100)}%` }}
-        />
-      </div>
-      <div className="trade-footer">
-        <span className="dispatched-count">{trade.dispatched} dispatched</span>
-      </div>
-
-      <style jsx>{`
-        .trade-card {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 10px;
-          padding: 14px;
-        }
-
-        .trade-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
-        }
-
-        .trade-name {
-          font-size: 14px;
-          font-weight: 600;
-          color: #fff;
-        }
-
-        .trade-count {
-          font-size: 14px;
-          font-weight: 700;
-          color: #60a5fa;
-        }
-
-        .count-label {
-          font-weight: 400;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .progress-bar {
-          height: 6px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-          overflow: hidden;
-          margin-bottom: 8px;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
-          border-radius: 3px;
-          transition: width 0.3s ease;
-        }
-
-        .trade-footer {
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .dispatched-count {
-          font-size: 11px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// No-Show Bucket Component
-function NoShowBucket({
-  candidates,
-  onRedispatch,
-  isAuthenticated,
-  demoTitle,
-}: {
-  candidates: Candidate[];
-  onRedispatch: (candidate: Candidate) => void;
-  isAuthenticated: boolean;
-  demoTitle: string;
-}) {
-  return (
-    <div className="noshow-bucket">
-      <div className="bucket-header">
-        <div className="bucket-title-row">
-          <h3 className="bucket-name">No-Show</h3>
-          <span className="bucket-count">{candidates.length}</span>
-        </div>
-        <span className="bucket-desc">Dispatched workers who did not report</span>
-      </div>
-
-      <div className="bucket-candidates">
-        {candidates.length === 0 ? (
-          <div className="empty-state">No no-shows</div>
-        ) : (
-          candidates.map(candidate => (
-            <div key={candidate.id} className="noshow-card">
-              <div className="card-header">
-                <span className="candidate-name">{candidate.name}</span>
-                <span className="noshow-badge">No-Show (0 hrs)</span>
-              </div>
-              <div className="card-details">
-                <span className="trade-badge">{candidate.tradeName}</span>
-                <span className="dispatch-date">Was: {candidate.dispatchStartDate}</span>
-              </div>
-              <button className="redispatch-btn" disabled={!isAuthenticated} title={!isAuthenticated ? demoTitle : undefined} onClick={() => { if (!isAuthenticated) return; onRedispatch(candidate); }}>
-                ↩ Redispatch
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      <style jsx>{`
-        .noshow-bucket {
-          min-width: 260px;
-          max-width: 280px;
-          flex-shrink: 0;
-          background: rgba(239, 68, 68, 0.08);
-          border-radius: 12px;
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .bucket-header {
-          padding: 14px;
-          border-bottom: 2px solid #ef4444;
-          background: rgba(239, 68, 68, 0.1);
-          border-radius: 12px 12px 0 0;
-        }
-
-        .bucket-title-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .bucket-name {
-          margin: 0;
-          font-size: 14px;
-          font-weight: 600;
-          color: #f87171;
-        }
-
-        .bucket-count {
-          font-size: 13px;
-          font-weight: 700;
-          color: #fff;
-          padding: 2px 10px;
-          border-radius: 12px;
-          background: #ef4444;
-        }
-
-        .bucket-desc {
-          display: block;
-          margin-top: 4px;
-          font-size: 11px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .bucket-candidates {
-          flex: 1;
-          padding: 12px;
-          overflow-y: auto;
-          max-height: 400px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 24px;
-          color: rgba(255, 255, 255, 0.4);
-          font-size: 13px;
-          font-style: italic;
-        }
-
-        .noshow-card {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          border-radius: 8px;
-          padding: 12px;
-        }
-
-        .card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 8px;
-        }
-
-        .candidate-name {
-          font-size: 13px;
-          font-weight: 600;
-          color: #fff;
-        }
-
-        .noshow-badge {
-          font-size: 10px;
-          font-weight: 600;
-          padding: 3px 8px;
-          background: rgba(239, 68, 68, 0.3);
-          color: #fca5a5;
-          border-radius: 4px;
-        }
-
-        .card-details {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-
-        .trade-badge {
-          font-size: 10px;
-          padding: 2px 6px;
-          background: rgba(99, 102, 241, 0.2);
-          color: #a5b4fc;
-          border-radius: 4px;
-        }
-
-        .dispatch-date {
-          font-size: 11px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .redispatch-btn {
-          width: 100%;
-          padding: 8px;
-          background: rgba(59, 130, 246, 0.2);
-          border: 1px solid rgba(59, 130, 246, 0.3);
-          border-radius: 6px;
-          color: #60a5fa;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .redispatch-btn:hover {
-          background: rgba(59, 130, 246, 0.3);
-          border-color: rgba(59, 130, 246, 0.5);
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// Bucket Column Component
-function BucketColumn({
+// Lane Column Component (replaces BucketColumn)
+function LaneColumn({
   bucket,
   trades,
+  laneName,
+  laneDescription,
   isLast,
-  isConditional,
   onDispatch,
-  onViewDispatchOrder,
+  onCardClick,
   isAuthenticated,
   demoTitle,
 }: {
   bucket: Bucket;
   trades: Trade[];
+  laneName: string;
+  laneDescription: string;
   isLast?: boolean;
-  isConditional?: boolean;
   onDispatch: (candidate: Candidate) => void;
-  onViewDispatchOrder: (candidate: Candidate) => void;
+  onCardClick: (candidate: Candidate) => void;
   isAuthenticated: boolean;
   demoTitle: string;
 }) {
   const tradeBreakdown = getBucketTradeBreakdown(bucket, trades);
   const isDispatchedBucket = bucket.id === 'dispatched';
   const isPreDispatchBucket = bucket.id === 'pre_dispatch';
+  const showSemantics = bucket.id === 'identified' || bucket.id === 'interested';
 
-  // Bucket color mapping
-  const bucketColors: Record<string, string> = {
+  const laneColors: Record<string, string> = {
     identified: '#6366f1',
-    interested: '#8b5cf6',
+    interested: '#f59e0b',
     vetted: '#a855f7',
-    customer_held: '#f59e0b',
     pre_dispatch: '#22c55e',
     dispatched: '#10b981',
   };
 
-  const accentColor = bucketColors[bucket.id] || '#6366f1';
+  const accentColor = laneColors[bucket.id] || '#6366f1';
 
   return (
-    <div className={`bucket-column ${isConditional ? 'conditional' : ''}`}>
-      <div className="bucket-header" style={{ borderColor: accentColor }}>
-        <div className="bucket-title-row">
-          <h3 className="bucket-name">{bucket.name}</h3>
-          <span className="bucket-count" style={{ background: accentColor }}>
+    <div className="lane-column">
+      <div className="lane-header" style={{ borderColor: accentColor }}>
+        <div className="lane-title-row">
+          <h3 className="lane-name">{laneName}</h3>
+          <span className="lane-count" style={{ background: accentColor }}>
             {bucket.candidates.length}
           </span>
         </div>
+        <span className="lane-desc">{laneDescription}</span>
         <BucketTradeSummary tradeCounts={tradeBreakdown} />
       </div>
 
-      <div className="bucket-candidates">
+      <div className="lane-candidates">
         {bucket.candidates.length === 0 ? (
           <div className="empty-state">No candidates</div>
         ) : (
           bucket.candidates.map(candidate => (
-            <CandidateCard
+            <VettingCandidateCard
               key={candidate.id}
               candidate={candidate}
-              bucketId={bucket.id}
+              showSemantics={showSemantics}
               showDispatchButton={isPreDispatchBucket}
               showDispatchDate={isDispatchedBucket}
               onDispatch={() => onDispatch(candidate)}
-              onViewDispatchOrder={() => onViewDispatchOrder(candidate)}
+              onClick={() => onCardClick(candidate)}
               isAuthenticated={isAuthenticated}
               demoTitle={demoTitle}
             />
@@ -1024,8 +703,8 @@ function BucketColumn({
         )}
       </div>
 
-      {!isLast && !isConditional && !isDispatchedBucket && (
-        <div className="bucket-actions">
+      {!isLast && !isDispatchedBucket && (
+        <div className="lane-actions">
           <button className="action-btn" disabled title={demoTitle}>
             Move Selected →
           </button>
@@ -1033,94 +712,97 @@ function BucketColumn({
       )}
 
       <style jsx>{`
-        .bucket-column {
-          min-width: 280px;
-          max-width: 320px;
+        .lane-column {
+          min-width: 240px;
+          max-width: 280px;
           flex-shrink: 0;
           background: rgba(0, 0, 0, 0.2);
-          border-radius: 12px;
+          border-radius: 10px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           flex-direction: column;
         }
 
-        .bucket-column.conditional {
-          border-color: rgba(245, 158, 11, 0.3);
-        }
-
-        .bucket-header {
-          padding: 14px;
+        .lane-header {
+          padding: 12px;
           border-bottom: 2px solid;
           background: rgba(255, 255, 255, 0.02);
-          border-radius: 12px 12px 0 0;
+          border-radius: 10px 10px 0 0;
         }
 
-        .bucket-title-row {
+        .lane-title-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          margin-bottom: 4px;
         }
 
-        .bucket-name {
+        .lane-name {
           margin: 0;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 600;
           color: #fff;
         }
 
-        .bucket-count {
-          font-size: 13px;
+        .lane-count {
+          font-size: 11px;
           font-weight: 700;
           color: #fff;
-          padding: 2px 10px;
-          border-radius: 12px;
+          padding: 2px 8px;
+          border-radius: 10px;
         }
 
-        .bucket-candidates {
+        .lane-desc {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+          display: block;
+        }
+
+        .lane-candidates {
           flex: 1;
-          padding: 12px;
+          padding: 10px;
           overflow-y: auto;
-          max-height: 400px;
+          max-height: 380px;
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
         }
 
-        .bucket-candidates::-webkit-scrollbar {
-          width: 6px;
+        .lane-candidates::-webkit-scrollbar {
+          width: 5px;
         }
 
-        .bucket-candidates::-webkit-scrollbar-track {
+        .lane-candidates::-webkit-scrollbar-track {
           background: rgba(0, 0, 0, 0.2);
           border-radius: 3px;
         }
 
-        .bucket-candidates::-webkit-scrollbar-thumb {
+        .lane-candidates::-webkit-scrollbar-thumb {
           background: rgba(255, 255, 255, 0.15);
           border-radius: 3px;
         }
 
         .empty-state {
           text-align: center;
-          padding: 24px;
+          padding: 20px;
           color: rgba(255, 255, 255, 0.4);
-          font-size: 13px;
+          font-size: 12px;
           font-style: italic;
         }
 
-        .bucket-actions {
-          padding: 12px;
+        .lane-actions {
+          padding: 10px;
           border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .action-btn {
           width: 100%;
-          padding: 10px;
+          padding: 8px;
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 6px;
+          border-radius: 5px;
           color: rgba(255, 255, 255, 0.6);
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
           cursor: not-allowed;
           opacity: 0.6;
@@ -1130,45 +812,65 @@ function BucketColumn({
   );
 }
 
-// Candidate Card Component
-function CandidateCard({
+// Vetting Candidate Card with Semantics
+function VettingCandidateCard({
   candidate,
-  bucketId,
+  showSemantics,
   showDispatchButton,
   showDispatchDate,
   onDispatch,
-  onViewDispatchOrder,
+  onClick,
   isAuthenticated,
   demoTitle,
 }: {
   candidate: Candidate;
-  bucketId: string;
+  showSemantics: boolean;
   showDispatchButton?: boolean;
   showDispatchDate?: boolean;
   onDispatch: () => void;
-  onViewDispatchOrder: () => void;
+  onClick: () => void;
   isAuthenticated: boolean;
   demoTitle: string;
 }) {
-  // State for editable dispatch date (UI-only)
   const [editableDate, setEditableDate] = useState(candidate.dispatchStartDate || '');
+  const source = SOURCE_LABELS[candidate.sourceType] || SOURCE_LABELS.recruiter;
+  const readiness = getReadinessSignal(candidate);
+  const eligibility = getEligibilitySummary(candidate);
+
+  const readinessColors = {
+    green: '#22c55e',
+    yellow: '#f59e0b',
+    red: '#ef4444',
+  };
 
   return (
-    <div className="candidate-card" onClick={onViewDispatchOrder}>
+    <div className="candidate-card" onClick={onClick}>
       <div className="card-header">
         <div className="candidate-info">
           <span className="candidate-name">{candidate.name}</span>
-          <div className="candidate-meta">
-            <span className="trade-badge">{candidate.tradeName}</span>
-            <span className={`source-badge source-${candidate.sourceType}`}>
-              {candidate.sourceType === 'system' ? '🤖' : '👤'}
-            </span>
-          </div>
+          <span className="candidate-trade">{candidate.tradeName}</span>
         </div>
         {candidate.matchConfidence && (
           <span className="confidence">{candidate.matchConfidence}%</span>
         )}
       </div>
+
+      {/* Source Badge + Readiness + Eligibility (Semantics) */}
+      {showSemantics && (
+        <div className="card-semantics">
+          <span className="source-badge">
+            <span className="source-icon">{source.icon}</span>
+            {source.label}
+          </span>
+          <span className="readiness-badge" style={{ background: `${readinessColors[readiness.color]}20`, color: readinessColors[readiness.color] }}>
+            {readiness.label}
+          </span>
+          <span className="eligibility-badge">
+            {eligibility.met}/{eligibility.total}
+            {eligibility.blockers > 0 && <span className="blockers"> • {eligibility.blockers} blockers</span>}
+          </span>
+        </div>
+      )}
 
       <div className="card-details">
         <span className="detail">📍 {candidate.distance} mi</span>
@@ -1185,21 +887,16 @@ function CandidateCard({
             </span>
           ))}
           {candidate.certifications.length > 2 && (
-            <span className="cert more">+{candidate.certifications.length - 2} more</span>
+            <span className="cert more">+{candidate.certifications.length - 2}</span>
           )}
         </div>
       )}
 
-      {candidate.notes && (
-        <div className="notes">{candidate.notes}</div>
-      )}
-
       {showDispatchDate && (
         <div className="dispatch-date-edit">
-          <label className="date-label">Official Start Date:</label>
+          <label className="date-label">Start Date:</label>
           <input
             type="date"
-
             className="date-input"
             disabled={!isAuthenticated}
             title={!isAuthenticated ? demoTitle : undefined}
@@ -1211,7 +908,12 @@ function CandidateCard({
       )}
 
       {showDispatchButton && (
-        <button className="dispatch-btn" disabled={!isAuthenticated} title={!isAuthenticated ? demoTitle : undefined} onClick={(e) => { e.stopPropagation(); if (!isAuthenticated) return; onDispatch(); }}>
+        <button 
+          className="dispatch-btn" 
+          disabled={!isAuthenticated} 
+          title={!isAuthenticated ? demoTitle : undefined} 
+          onClick={(e) => { e.stopPropagation(); if (!isAuthenticated) return; onDispatch(); }}
+        >
           🚀 Dispatch
         </button>
       )}
@@ -1220,76 +922,103 @@ function CandidateCard({
         .candidate-card {
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 8px;
-          padding: 10px;
+          border-radius: 6px;
+          padding: 8px;
           transition: all 0.2s ease;
           cursor: pointer;
         }
 
         .candidate-card:hover {
           background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.12);
+          border-color: rgba(99, 102, 241, 0.4);
         }
 
         .card-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
 
         .candidate-info {
           display: flex;
           flex-direction: column;
-          gap: 4px;
         }
 
         .candidate-name {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: #fff;
         }
 
-        .candidate-meta {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .trade-badge {
+        .candidate-trade {
           font-size: 10px;
-          padding: 2px 6px;
-          background: rgba(99, 102, 241, 0.2);
-          color: #a5b4fc;
-          border-radius: 4px;
-        }
-
-        .source-badge {
-          font-size: 10px;
+          color: rgba(255, 255, 255, 0.6);
         }
 
         .confidence {
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 700;
           color: #60a5fa;
           background: rgba(59, 130, 246, 0.15);
-          padding: 2px 8px;
-          border-radius: 4px;
+          padding: 2px 6px;
+          border-radius: 3px;
+        }
+
+        .card-semantics {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 6px;
+        }
+
+        .source-badge {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 9px;
+          padding: 2px 6px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 3px;
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .source-icon {
+          font-size: 10px;
+        }
+
+        .readiness-badge {
+          font-size: 9px;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 3px;
+        }
+
+        .eligibility-badge {
+          font-size: 9px;
+          padding: 2px 6px;
+          background: rgba(139, 92, 246, 0.15);
+          color: #a78bfa;
+          border-radius: 3px;
+        }
+
+        .blockers {
+          color: #f87171;
         }
 
         .card-details {
           display: flex;
-          gap: 10px;
-          margin-bottom: 6px;
+          gap: 8px;
+          margin-bottom: 4px;
         }
 
         .detail {
-          font-size: 11px;
+          font-size: 10px;
           color: rgba(255, 255, 255, 0.6);
         }
 
         .availability {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 500;
         }
 
@@ -1301,22 +1030,17 @@ function CandidateCard({
           color: #fbbf24;
         }
 
-        .avail-unavailable {
-          color: #f87171;
-        }
-
         .certs {
           display: flex;
           flex-wrap: wrap;
-          gap: 4px;
-          margin-bottom: 6px;
+          gap: 3px;
         }
 
         .cert {
-          font-size: 9px;
-          padding: 2px 6px;
+          font-size: 8px;
+          padding: 2px 4px;
           background: rgba(255, 255, 255, 0.06);
-          border-radius: 3px;
+          border-radius: 2px;
           color: rgba(255, 255, 255, 0.7);
         }
 
@@ -1325,71 +1049,505 @@ function CandidateCard({
           color: rgba(255, 255, 255, 0.5);
         }
 
-        .notes {
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.5);
-          font-style: italic;
-          padding: 4px 6px;
-          background: rgba(255, 255, 255, 0.03);
-          border-radius: 4px;
-          margin-bottom: 6px;
-        }
-
         .dispatch-date-edit {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
-          padding: 8px;
+          align-items: center;
+          gap: 6px;
+          padding: 6px;
           background: rgba(16, 185, 129, 0.1);
-          border-radius: 6px;
+          border-radius: 4px;
           margin-top: 6px;
         }
 
         .date-label {
-          font-size: 10px;
+          font-size: 9px;
           color: rgba(255, 255, 255, 0.6);
         }
 
         .date-input {
-          padding: 6px 8px;
+          flex: 1;
+          padding: 4px 6px;
           background: rgba(0, 0, 0, 0.3);
           border: 1px solid rgba(16, 185, 129, 0.3);
-          border-radius: 4px;
+          border-radius: 3px;
           color: #34d399;
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 600;
-        }
-
-        .date-input:focus {
-          outline: none;
-          border-color: #34d399;
         }
 
         .dispatch-btn {
           width: 100%;
-          padding: 8px;
+          padding: 6px;
           margin-top: 6px;
           background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
           border: none;
-          border-radius: 6px;
+          border-radius: 4px;
           color: #fff;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
         }
 
-        .dispatch-btn:hover {
+        .dispatch-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        .dispatch-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       `}</style>
     </div>
   );
 }
 
-// Dispatch Order Preview Panel
-function DispatchOrderPreview({
+// Exceptions Lane (No-Show)
+function ExceptionsLane({
+  candidates,
+  onRedispatch,
+  onCardClick,
+  isAuthenticated,
+  demoTitle,
+}: {
+  candidates: Candidate[];
+  onRedispatch: (candidate: Candidate) => void;
+  onCardClick: (candidate: Candidate) => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
+}) {
+  return (
+    <div className="exceptions-lane">
+      <div className="lane-header">
+        <div className="lane-title-row">
+          <h3 className="lane-name">Exceptions (No-Show)</h3>
+          <span className="lane-count">{candidates.length}</span>
+        </div>
+        <span className="lane-desc">Workers who did not report</span>
+      </div>
+
+      <div className="lane-candidates">
+        {candidates.length === 0 ? (
+          <div className="empty-state">No exceptions</div>
+        ) : (
+          candidates.map(candidate => (
+            <div key={candidate.id} className="exception-card" onClick={() => onCardClick(candidate)}>
+              <div className="card-header">
+                <span className="candidate-name">{candidate.name}</span>
+                <span className="noshow-badge">No-Show</span>
+              </div>
+              <div className="card-details">
+                <span className="trade-badge">{candidate.tradeName}</span>
+                <span className="dispatch-date">Was: {candidate.dispatchStartDate}</span>
+              </div>
+              <button 
+                className="redispatch-btn" 
+                disabled={!isAuthenticated} 
+                title={!isAuthenticated ? demoTitle : undefined} 
+                onClick={(e) => { e.stopPropagation(); if (!isAuthenticated) return; onRedispatch(candidate); }}
+              >
+                ↩ Redispatch
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <style jsx>{`
+        .exceptions-lane {
+          min-width: 220px;
+          max-width: 240px;
+          flex-shrink: 0;
+          background: rgba(239, 68, 68, 0.08);
+          border-radius: 10px;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .lane-header {
+          padding: 12px;
+          border-bottom: 2px solid #ef4444;
+          background: rgba(239, 68, 68, 0.1);
+          border-radius: 10px 10px 0 0;
+        }
+
+        .lane-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+
+        .lane-name {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #f87171;
+        }
+
+        .lane-count {
+          font-size: 11px;
+          font-weight: 700;
+          color: #fff;
+          padding: 2px 8px;
+          border-radius: 10px;
+          background: #ef4444;
+        }
+
+        .lane-desc {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .lane-candidates {
+          flex: 1;
+          padding: 10px;
+          overflow-y: auto;
+          max-height: 380px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 20px;
+          color: rgba(255, 255, 255, 0.4);
+          font-size: 12px;
+          font-style: italic;
+        }
+
+        .exception-card {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          border-radius: 6px;
+          padding: 8px;
+          cursor: pointer;
+        }
+
+        .exception-card:hover {
+          background: rgba(239, 68, 68, 0.15);
+        }
+
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 6px;
+        }
+
+        .candidate-name {
+          font-size: 12px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .noshow-badge {
+          font-size: 9px;
+          font-weight: 600;
+          padding: 2px 6px;
+          background: rgba(239, 68, 68, 0.3);
+          color: #fca5a5;
+          border-radius: 3px;
+        }
+
+        .card-details {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .trade-badge {
+          font-size: 9px;
+          padding: 2px 5px;
+          background: rgba(99, 102, 241, 0.2);
+          color: #a5b4fc;
+          border-radius: 3px;
+        }
+
+        .dispatch-date {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .redispatch-btn {
+          width: 100%;
+          padding: 6px;
+          background: rgba(59, 130, 246, 0.2);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 4px;
+          color: #60a5fa;
+          font-size: 10px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .redispatch-btn:hover:not(:disabled) {
+          background: rgba(59, 130, 246, 0.3);
+        }
+
+        .redispatch-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Customer Approval Gate (Side Panel - NOT a lane)
+function CustomerApprovalGate({
+  bucket,
+  requiresPreApproval,
+  onToggle,
+  onCardClick,
+  isAuthenticated,
+  demoTitle,
+}: {
+  bucket: Bucket | undefined;
+  requiresPreApproval: boolean;
+  onToggle: (value: boolean) => void;
+  onCardClick: (candidate: Candidate) => void;
+  isAuthenticated: boolean;
+  demoTitle: string;
+}) {
+  const pendingCount = bucket?.candidates.length || 0;
+
+  return (
+    <div className="approval-gate">
+      <div className="gate-header">
+        <div className="gate-title">
+          <span className="gate-icon">🔒</span>
+          <h3>Customer Approval Gate</h3>
+        </div>
+        <label className="gate-toggle">
+          <input
+            type="checkbox"
+            checked={requiresPreApproval}
+            onChange={(e) => onToggle(e.target.checked)}
+          />
+          <span className="toggle-slider"></span>
+          <span className={`toggle-label ${requiresPreApproval ? 'active' : ''}`}>
+            {requiresPreApproval ? 'Required' : 'Not Required'}
+          </span>
+        </label>
+      </div>
+
+      {requiresPreApproval && (
+        <>
+          <div className="gate-status">
+            <span className="status-indicator pending"></span>
+            <span className="status-text">Pending customer approval</span>
+            <span className="status-count">{pendingCount}</span>
+          </div>
+
+          {bucket && bucket.candidates.length > 0 && (
+            <div className="gate-candidates">
+              {bucket.candidates.map(candidate => (
+                <div key={candidate.id} className="gate-card" onClick={() => onCardClick(candidate)}>
+                  <span className="candidate-name">{candidate.name}</span>
+                  <span className="candidate-trade">{candidate.tradeName}</span>
+                  <span className="pending-badge">Awaiting</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="approve-btn" disabled title={demoTitle}>
+            Request Customer Approval
+          </button>
+        </>
+      )}
+
+      <style jsx>{`
+        .approval-gate {
+          min-width: 200px;
+          max-width: 220px;
+          background: rgba(245, 158, 11, 0.05);
+          border: 1px dashed rgba(245, 158, 11, 0.3);
+          border-radius: 10px;
+          padding: 12px;
+          flex-shrink: 0;
+        }
+
+        .gate-header {
+          margin-bottom: 12px;
+        }
+
+        .gate-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .gate-icon {
+          font-size: 14px;
+        }
+
+        .gate-title h3 {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #fbbf24;
+        }
+
+        .gate-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+
+        .gate-toggle input {
+          display: none;
+        }
+
+        .toggle-slider {
+          position: relative;
+          width: 32px;
+          height: 18px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 9px;
+          transition: 0.3s;
+        }
+
+        .toggle-slider::before {
+          content: "";
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          left: 2px;
+          top: 2px;
+          background: white;
+          border-radius: 50%;
+          transition: 0.3s;
+        }
+
+        .gate-toggle input:checked + .toggle-slider {
+          background: #f59e0b;
+        }
+
+        .gate-toggle input:checked + .toggle-slider::before {
+          transform: translateX(14px);
+        }
+
+        .toggle-label {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .toggle-label.active {
+          color: #fbbf24;
+          font-weight: 600;
+        }
+
+        .gate-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 10px;
+          background: rgba(245, 158, 11, 0.1);
+          border-radius: 6px;
+          margin-bottom: 10px;
+        }
+
+        .status-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+
+        .status-indicator.pending {
+          background: #f59e0b;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+
+        .status-text {
+          flex: 1;
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .status-count {
+          font-size: 11px;
+          font-weight: 700;
+          color: #fbbf24;
+        }
+
+        .gate-candidates {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 10px;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+
+        .gate-card {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          padding: 8px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(245, 158, 11, 0.2);
+          border-radius: 5px;
+          cursor: pointer;
+        }
+
+        .gate-card:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .gate-card .candidate-name {
+          font-size: 11px;
+          font-weight: 600;
+          color: #fff;
+          flex: 1;
+        }
+
+        .gate-card .candidate-trade {
+          font-size: 9px;
+          color: rgba(255, 255, 255, 0.5);
+          width: 100%;
+        }
+
+        .pending-badge {
+          font-size: 8px;
+          padding: 2px 5px;
+          background: rgba(245, 158, 11, 0.2);
+          color: #fbbf24;
+          border-radius: 3px;
+        }
+
+        .approve-btn {
+          width: 100%;
+          padding: 8px;
+          background: rgba(245, 158, 11, 0.15);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          border-radius: 5px;
+          color: #fbbf24;
+          font-size: 10px;
+          font-weight: 600;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Split View Panel (Card Drill-Down Scaffold)
+function SplitViewPanel({
   candidate,
   requiredPPE,
   requiredTools,
@@ -1402,300 +1560,393 @@ function DispatchOrderPreview({
   requiredCerts: string[];
   onClose: () => void;
 }) {
-  // Mock: determine which PPE is missing (UI-only)
-  const workerPPE = ['Hard hat', 'Safety glasses', 'Steel-toe boots']; // mock worker has these
-  const missingPPE = requiredPPE.filter(item => !workerPPE.includes(item));
-  
-  // Mock: determine which tools are missing (only show missing)
-  const workerTools = ['Torque Wrenches', 'Multimeter', 'Pipe Wrenches']; // mock worker has these
-  const missingTools = requiredTools.filter(tool => !workerTools.includes(tool));
-  
-  // Mock: determine which certs are missing
+  // Mock data for employee profile
+  const workerPPE = ['Hard hat', 'Safety glasses', 'Steel-toe boots'];
+  const workerTools = ['Torque Wrenches', 'Multimeter', 'Pipe Wrenches'];
   const workerCertNames = candidate.certifications.map(c => c.name);
+  
+  const missingPPE = requiredPPE.filter(item => !workerPPE.includes(item));
+  const missingTools = requiredTools.filter(tool => !workerTools.includes(tool));
   const missingCerts = requiredCerts.filter(cert => !workerCertNames.includes(cert));
 
   return (
-    <div className="preview-overlay" onClick={onClose}>
-      <div className="preview-panel" onClick={e => e.stopPropagation()}>
-        <div className="panel-header">
-          <h2>📋 Dispatch Order Preview</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
+    <div className="split-view-panel">
+      <div className="panel-header">
+        <h2>Candidate Details</h2>
+        <button className="close-btn" onClick={onClose}>×</button>
+      </div>
 
-        <div className="panel-body">
-          {/* Worker Info */}
-          <div className="worker-info">
-            <span className="worker-name">{candidate.name}</span>
-            <span className="worker-trade">{candidate.tradeName}</span>
+      <div className="panel-content">
+        {/* Left: Employee Profile (Global Truth) */}
+        <div className="profile-section">
+          <div className="section-header">
+            <h3>Employee Profile</h3>
+            <span className="section-badge">Global Truth</span>
           </div>
 
-          {/* PPE Section - ALWAYS show FULL list */}
-          <div className="requirement-section">
-            <h3 className="section-label">
-              🦺 PPE Requirements
-              <span className="section-hint">(Full list always shown for safety)</span>
-            </h3>
-            <ul className="requirement-list ppe-list">
-              {requiredPPE.map(item => {
-                const isMissing = missingPPE.includes(item);
+          <div className="profile-card">
+            <div className="profile-name">{candidate.name}</div>
+            <div className="profile-trade">{candidate.tradeName}</div>
+          </div>
+
+          <div className="profile-group">
+            <h4>MW4H Job History</h4>
+            <div className="placeholder-content">
+              <span className="placeholder-item">12 jobs completed</span>
+              <span className="placeholder-item">4.8 avg rating</span>
+            </div>
+          </div>
+
+          <div className="profile-group">
+            <h4>Customers / Sites</h4>
+            <div className="placeholder-content">
+              <span className="placeholder-item">Apex Construction (3 jobs)</span>
+              <span className="placeholder-item">Metro Builders (2 jobs)</span>
+            </div>
+          </div>
+
+          <div className="profile-group">
+            <h4>Pay & Per Diem History</h4>
+            <div className="placeholder-content">
+              <span className="placeholder-item">Avg Rate: $42/hr</span>
+              <span className="placeholder-item">Per Diem: $65/day</span>
+            </div>
+          </div>
+
+          <div className="profile-group">
+            <h4>Safety Incidents</h4>
+            <div className="placeholder-content safe">
+              <span className="placeholder-item">✓ No incidents on record</span>
+            </div>
+          </div>
+
+          <div className="profile-group">
+            <h4>Certifications</h4>
+            <div className="cert-list">
+              {candidate.certifications.map(cert => (
+                <span key={cert.id} className={`cert-item ${cert.verified ? 'verified' : 'pending'}`}>
+                  {cert.verified ? '✓' : '○'} {cert.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="profile-group">
+            <h4>Resume</h4>
+            <button className="placeholder-btn" disabled>View Resume (PDF)</button>
+          </div>
+        </div>
+
+        {/* Right: Job Eligibility Checklist (Order-Specific) */}
+        <div className="eligibility-section">
+          <div className="section-header">
+            <h3>Job Eligibility Checklist</h3>
+            <span className="section-badge order">This Order</span>
+          </div>
+
+          <div className="checklist-group">
+            <h4>Required Certifications</h4>
+            <ul className="checklist">
+              {requiredCerts.map(cert => {
+                const isMissing = missingCerts.includes(cert);
                 return (
-                  <li key={item} className={isMissing ? 'missing' : 'satisfied'}>
-                    <span className="item-icon">{isMissing ? '⚠️' : '✓'}</span>
-                    <span className="item-name">{item}</span>
-                    {isMissing && <span className="missing-label">MISSING</span>}
+                  <li key={cert} className={isMissing ? 'missing' : 'satisfied'}>
+                    <span className="check-icon">{isMissing ? '⚠️' : '✓'}</span>
+                    {cert}
+                    {isMissing && <span className="missing-tag">MISSING</span>}
                   </li>
                 );
               })}
             </ul>
           </div>
 
-          {/* Tools Section - Show ONLY missing */}
-          <div className="requirement-section">
-            <h3 className="section-label">
-              🔧 Tools
-              <span className="section-hint">(Missing only)</span>
-            </h3>
-            {missingTools.length === 0 ? (
-              <div className="all-satisfied">
-                <span className="satisfied-icon">✓</span>
-                All required tools are satisfied.
-              </div>
-            ) : (
-              <ul className="requirement-list tools-list">
-                {missingTools.map(tool => (
+          <div className="checklist-group">
+            <h4>Required Tools</h4>
+            <ul className="checklist">
+              {missingTools.length === 0 ? (
+                <li className="all-good">✓ All required tools available</li>
+              ) : (
+                missingTools.map(tool => (
                   <li key={tool} className="missing">
-                    <span className="item-icon">⚠️</span>
-                    <span className="item-name">{tool}</span>
-                    <span className="missing-label">MISSING</span>
+                    <span className="check-icon">⚠️</span>
+                    {tool}
+                    <span className="missing-tag">MISSING</span>
                   </li>
-                ))}
-              </ul>
-            )}
+                ))
+              )}
+            </ul>
           </div>
 
-          {/* Certs Section - Show ONLY missing */}
-          <div className="requirement-section">
-            <h3 className="section-label">
-              📜 Certifications
-              <span className="section-hint">(Missing only)</span>
-            </h3>
-            {missingCerts.length === 0 ? (
-              <div className="all-satisfied">
-                <span className="satisfied-icon">✓</span>
-                All required certifications verified.
-              </div>
-            ) : (
-              <ul className="requirement-list certs-list">
-                {missingCerts.map(cert => (
-                  <li key={cert} className="missing">
-                    <span className="item-icon">⚠️</span>
-                    <span className="item-name">{cert}</span>
-                    <span className="missing-label">MISSING</span>
+          <div className="checklist-group">
+            <h4>Required PPE</h4>
+            <ul className="checklist">
+              {requiredPPE.map(item => {
+                const isMissing = missingPPE.includes(item);
+                return (
+                  <li key={item} className={isMissing ? 'missing' : 'satisfied'}>
+                    <span className="check-icon">{isMissing ? '⚠️' : '✓'}</span>
+                    {item}
+                    {isMissing && <span className="missing-tag">MISSING</span>}
                   </li>
-                ))}
-              </ul>
-            )}
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="checklist-group">
+            <h4>Distance / Travel</h4>
+            <div className="travel-info">
+              <span className="travel-item">📍 {candidate.distance} miles from site</span>
+              <span className="travel-item">🚗 Est. 25 min commute</span>
+            </div>
+          </div>
+
+          <div className="checklist-group">
+            <h4>Customer Constraints</h4>
+            <div className="placeholder-content">
+              <span className="placeholder-item">✓ No customer restrictions</span>
+            </div>
           </div>
         </div>
-
-        <div className="panel-footer">
-          <button className="close-action" onClick={onClose}>Close</button>
-        </div>
-
-        <style jsx>{`
-          .preview-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-          }
-
-          .preview-panel {
-            width: 100%;
-            max-width: 520px;
-            max-height: 80vh;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
-
-          .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(0, 0, 0, 0.2);
-          }
-
-          .panel-header h2 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-          }
-
-          .close-btn {
-            width: 32px;
-            height: 32px;
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            border-radius: 8px;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-          }
-
-          .close-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: #fff;
-          }
-
-          .panel-body {
-            padding: 20px;
-            overflow-y: auto;
-            flex: 1;
-          }
-
-          .worker-info {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 16px;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 10px;
-            margin-bottom: 20px;
-          }
-
-          .worker-name {
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-          }
-
-          .worker-trade {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-          }
-
-          .requirement-section {
-            margin-bottom: 20px;
-          }
-
-          .section-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 0 0 12px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-          }
-
-          .section-hint {
-            font-size: 11px;
-            font-weight: 400;
-            color: rgba(255, 255, 255, 0.4);
-          }
-
-          .requirement-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          }
-
-          .requirement-list li {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-          }
-
-          .requirement-list li.satisfied {
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            color: #34d399;
-          }
-
-          .requirement-list li.missing {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.25);
-            color: #f87171;
-          }
-
-          .item-icon {
-            font-size: 14px;
-          }
-
-          .item-name {
-            flex: 1;
-            color: rgba(255, 255, 255, 0.9);
-          }
-
-          .missing-label {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 6px;
-            background: rgba(239, 68, 68, 0.3);
-            color: #fca5a5;
-            border-radius: 3px;
-          }
-
-          .all-satisfied {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 16px;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            border-radius: 8px;
-            font-size: 13px;
-            color: #34d399;
-          }
-
-          .satisfied-icon {
-            font-size: 16px;
-          }
-
-          .panel-footer {
-            padding: 16px 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: flex-end;
-          }
-
-          .close-action {
-            padding: 10px 24px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-          }
-
-          .close-action:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: #fff;
-          }
-        `}</style>
       </div>
+
+      <style jsx>{`
+        .split-view-panel {
+          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 200px);
+        }
+
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 16px;
+          background: rgba(0, 0, 0, 0.3);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .panel-header h2 {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .close-btn {
+          width: 28px;
+          height: 28px;
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          border-radius: 6px;
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 18px;
+          cursor: pointer;
+        }
+
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.15);
+          color: #fff;
+        }
+
+        .panel-content {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1px;
+          background: rgba(255, 255, 255, 0.06);
+          flex: 1;
+          overflow-y: auto;
+        }
+
+        .profile-section,
+        .eligibility-section {
+          padding: 14px;
+          background: #0f172a;
+          overflow-y: auto;
+        }
+
+        .section-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .section-header h3 {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .section-badge {
+          font-size: 8px;
+          font-weight: 600;
+          text-transform: uppercase;
+          padding: 2px 6px;
+          border-radius: 3px;
+          background: rgba(59, 130, 246, 0.2);
+          color: #60a5fa;
+        }
+
+        .section-badge.order {
+          background: rgba(139, 92, 246, 0.2);
+          color: #a78bfa;
+        }
+
+        .profile-card {
+          padding: 12px;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          border-radius: 8px;
+          margin-bottom: 12px;
+          text-align: center;
+        }
+
+        .profile-name {
+          font-size: 14px;
+          font-weight: 700;
+          color: #fff;
+        }
+
+        .profile-trade {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .profile-group,
+        .checklist-group {
+          margin-bottom: 12px;
+        }
+
+        .profile-group h4,
+        .checklist-group h4 {
+          margin: 0 0 6px 0;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .placeholder-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .placeholder-content.safe {
+          color: #34d399;
+        }
+
+        .placeholder-item {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.7);
+          padding: 4px 8px;
+          background: rgba(255, 255, 255, 0.04);
+          border-radius: 4px;
+        }
+
+        .cert-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .cert-item {
+          font-size: 10px;
+          padding: 4px 8px;
+          border-radius: 4px;
+        }
+
+        .cert-item.verified {
+          background: rgba(34, 197, 94, 0.1);
+          color: #34d399;
+        }
+
+        .cert-item.pending {
+          background: rgba(245, 158, 11, 0.1);
+          color: #fbbf24;
+        }
+
+        .placeholder-btn {
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 5px;
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 10px;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        .checklist {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .checklist li {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+        }
+
+        .checklist li.satisfied {
+          background: rgba(34, 197, 94, 0.1);
+          color: #34d399;
+        }
+
+        .checklist li.missing {
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+        }
+
+        .checklist li.all-good {
+          background: rgba(34, 197, 94, 0.1);
+          color: #34d399;
+        }
+
+        .check-icon {
+          font-size: 11px;
+        }
+
+        .missing-tag {
+          margin-left: auto;
+          font-size: 8px;
+          font-weight: 700;
+          padding: 2px 4px;
+          background: rgba(239, 68, 68, 0.3);
+          color: #fca5a5;
+          border-radius: 2px;
+        }
+
+        .travel-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .travel-item {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.7);
+          padding: 4px 8px;
+          background: rgba(255, 255, 255, 0.04);
+          border-radius: 4px;
+        }
+      `}</style>
     </div>
   );
 }
@@ -1740,7 +1991,6 @@ function DispatchModal({
             </label>
             <input
               type="date"
-
               className="date-input"
               disabled={!isAuthenticated}
               title={!isAuthenticated ? demoTitle : undefined}
@@ -1748,7 +1998,6 @@ function DispatchModal({
               onChange={e => onDateChange(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
             />
-            <span className="form-hint">Per-worker dispatch date is mandatory</span>
           </div>
 
           <div className="dispatch-preview">
@@ -1765,14 +2014,6 @@ function DispatchModal({
               <span className="preview-label">Start Date:</span>
               <span className="preview-value">{dispatchDate || '—'}</span>
             </div>
-          </div>
-
-          <div className="cert-gate">
-            <div className="gate-status enabled">
-              <span className="gate-icon">✓</span>
-              Cert Gate: Passed
-            </div>
-            <span className="gate-hint">All required certifications verified</span>
           </div>
         </div>
 
@@ -1801,9 +2042,9 @@ function DispatchModal({
 
           .modal-content {
             width: 100%;
-            max-width: 480px;
+            max-width: 420px;
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 16px;
+            border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             overflow: hidden;
           }
@@ -1812,27 +2053,26 @@ function DispatchModal({
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 20px;
+            padding: 14px 18px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           }
 
           .modal-header h2 {
             margin: 0;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: #fff;
           }
 
           .close-btn {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             background: rgba(255, 255, 255, 0.1);
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             color: rgba(255, 255, 255, 0.7);
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
-            transition: all 0.2s ease;
           }
 
           .close-btn:hover {
@@ -1841,41 +2081,41 @@ function DispatchModal({
           }
 
           .modal-body {
-            padding: 20px;
+            padding: 18px;
           }
 
           .worker-preview {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 16px;
+            padding: 14px;
             background: rgba(34, 197, 94, 0.1);
             border: 1px solid rgba(34, 197, 94, 0.2);
-            border-radius: 10px;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
           }
 
           .worker-name {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: #fff;
           }
 
           .worker-trade {
-            font-size: 13px;
+            font-size: 12px;
             color: rgba(255, 255, 255, 0.6);
           }
 
           .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
           }
 
           .form-label {
             display: block;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
           }
 
           .required {
@@ -1884,12 +2124,12 @@ function DispatchModal({
 
           .date-input {
             width: 100%;
-            padding: 12px 14px;
+            padding: 10px 12px;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
+            border-radius: 6px;
             color: #fff;
-            font-size: 14px;
+            font-size: 13px;
           }
 
           .date-input:focus {
@@ -1897,23 +2137,15 @@ function DispatchModal({
             border-color: #22c55e;
           }
 
-          .form-hint {
-            display: block;
-            margin-top: 6px;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-          }
-
           .dispatch-preview {
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 16px;
+            border-radius: 6px;
+            padding: 12px;
           }
 
           .dispatch-preview h4 {
-            margin: 0 0 12px 0;
-            font-size: 12px;
+            margin: 0 0 10px 0;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1923,7 +2155,7 @@ function DispatchModal({
           .preview-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 5px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
           }
 
@@ -1932,66 +2164,33 @@ function DispatchModal({
           }
 
           .preview-label {
-            font-size: 13px;
+            font-size: 12px;
             color: rgba(255, 255, 255, 0.6);
           }
 
           .preview-value {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             color: #fff;
-          }
-
-          .cert-gate {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-          }
-
-          .gate-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            font-weight: 500;
-          }
-
-          .gate-status.enabled {
-            color: #34d399;
-          }
-
-          .gate-status.disabled {
-            color: #f87171;
-          }
-
-          .gate-icon {
-            font-size: 14px;
-          }
-
-          .gate-hint {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-            margin-left: 22px;
           }
 
           .modal-footer {
             display: flex;
             justify-content: flex-end;
-            gap: 12px;
-            padding: 16px 20px;
+            gap: 10px;
+            padding: 14px 18px;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
           }
 
           .cancel-btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: transparent;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
+            border-radius: 6px;
             color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
           }
 
           .cancel-btn:hover {
@@ -2000,15 +2199,14 @@ function DispatchModal({
           }
 
           .confirm-btn {
-            padding: 10px 24px;
+            padding: 8px 20px;
             background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             color: #fff;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
           }
 
           .confirm-btn:hover:not(:disabled) {
@@ -2025,4 +2223,3 @@ function DispatchModal({
     </div>
   );
 }
-
