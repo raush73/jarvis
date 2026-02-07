@@ -334,6 +334,9 @@ export default function CustomerDetailPage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [showInternalTotals, setShowInternalTotals] = useState(false);
 
+  // Customer-level approval toggle (UI-only, non-persistent)
+  const [customerApprovalRequired, setCustomerApprovalRequired] = useState(true);
+
   // Get base customer data
   const baseCustomer = MOCK_CUSTOMER_DETAILS[customerId] || { ...DEFAULT_CUSTOMER, id: customerId };
 
@@ -549,6 +552,26 @@ export default function CustomerDetailPage() {
           <span className="internal-action-label">Approval Package</span>
           <span className="internal-action-helper">Defines what this customer requires before approving workers.</span>
         </button>
+
+        {/* Customer Approval Required Toggle (UI-only) */}
+        <div className="customer-approval-toggle-card">
+          <div className="customer-approval-toggle-row">
+            <label className="customer-approval-toggle-label">
+              <input
+                type="checkbox"
+                checked={customerApprovalRequired}
+                onChange={(e) => setCustomerApprovalRequired(e.target.checked)}
+              />
+              <span className="customer-approval-toggle-text">Customer Approval Required</span>
+            </label>
+          </div>
+          <span className="customer-approval-helper">
+            When enabled, workers must be approved by the customer before dispatch unless overridden per order.
+          </span>
+          <span className="customer-approval-note">
+            This sets the default approval behavior for new orders.
+          </span>
+        </div>
       </div>
 
       {/* Tabs Navigation */}
@@ -1433,6 +1456,54 @@ export default function CustomerDetailPage() {
         .internal-action-helper {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.45);
+        }
+
+        /* Customer Approval Toggle Card */
+        .customer-approval-toggle-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 14px 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px;
+        }
+
+        .customer-approval-toggle-row {
+          display: flex;
+          align-items: center;
+        }
+
+        .customer-approval-toggle-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+        }
+
+        .customer-approval-toggle-label input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: #3b82f6;
+        }
+
+        .customer-approval-toggle-text {
+          font-size: 14px;
+          font-weight: 500;
+          color: #fff;
+        }
+
+        .customer-approval-helper {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
+          line-height: 1.4;
+        }
+
+        .customer-approval-note {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.35);
+          font-style: italic;
         }
 
         /* Tabs Navigation */
