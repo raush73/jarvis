@@ -167,6 +167,14 @@ export default function EmployeeDetailPage() {
         <div className="mock-banner">
           UI Shell (Mock Data) — No backend connected.
         </div>
+
+        {/* Tab Navigation */}
+        <div className="tab-nav">
+          <button className="tab-item tab-active">Overview</button>
+          <Link href="/my/timeline" className="tab-item">
+            Timeline
+          </Link>
+        </div>
       </div>
 
       {/* SUMMARY CARDS */}
@@ -390,6 +398,38 @@ export default function EmployeeDetailPage() {
           font-weight: 500;
           color: #f59e0b;
           text-align: center;
+        }
+
+        /* TAB NAVIGATION */
+        .tab-nav {
+          display: flex;
+          gap: 4px;
+          margin-top: 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          padding-bottom: 0;
+        }
+
+        .tab-item {
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.5);
+          background: transparent;
+          border: none;
+          border-bottom: 2px solid transparent;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-decoration: none;
+          margin-bottom: -1px;
+        }
+
+        .tab-item:hover {
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tab-active {
+          color: #3b82f6;
+          border-bottom-color: #3b82f6;
         }
 
         /* SUMMARY CARDS */
