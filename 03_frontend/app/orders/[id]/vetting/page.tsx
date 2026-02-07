@@ -168,7 +168,7 @@ export default function VettingPage() {
   const manualSearchCount = 4;
 
   return (
-    <div className={`vetting-page ${splitViewCandidate ? 'split-view-active' : ''}`}>
+    <div className="vetting-page">
       {/* Order Context Header */}
       <header className="order-header">
         <div className="header-left">
@@ -281,9 +281,11 @@ export default function VettingPage() {
             />
           </div>
         </section>
+      </div>
 
-        {/* Split View Panel (Card Drill-Down) */}
-        {splitViewCandidate && (
+      {/* Split View Panel (Card Drill-Down) - Rendered BELOW Zone 2 */}
+      {splitViewCandidate && (
+        <section className="split-view-section">
           <SplitViewPanel
             candidate={splitViewCandidate}
             requiredPPE={REQUIRED_PPE}
@@ -291,8 +293,8 @@ export default function VettingPage() {
             requiredCerts={REQUIRED_CERTS}
             onClose={() => setSplitViewCandidate(null)}
           />
-        )}
-      </div>
+        </section>
+      )}
 
       {/* Trade Requirements Summary Table */}
       <section className="trade-summary-section">
@@ -359,10 +361,9 @@ export default function VettingPage() {
           font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        .vetting-page.split-view-active .main-content {
-          display: grid;
-          grid-template-columns: 1fr 420px;
-          gap: 20px;
+        /* Split view section below lanes */
+        .split-view-section {
+          margin-bottom: 20px;
         }
 
         /* Order Header */
@@ -1723,7 +1724,8 @@ function SplitViewPanel({
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          max-height: calc(100vh - 200px);
+          max-height: 500px;
+          width: 100%;
         }
 
         .panel-header {
