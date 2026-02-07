@@ -8,6 +8,7 @@ const DOMAINS = [
   { key: "orders", label: "Orders" },
   { key: "customers", label: "Customers" },
   { key: "employees", label: "Employees" },
+  { key: "time-entry", label: "Time Entry" },
   { key: "accounting", label: "Accounting" },
   { key: "admin", label: "Admin" },
 ];
