@@ -1320,6 +1320,10 @@ function CustomerApprovalGate({
 }) {
   const pendingCount = bucket?.candidates.length || 0;
 
+  // Mock approval context values (UI-only, read-only)
+  const mockApprovalRequired = true; // Default to YES per spec
+  const mockApprovalPackage = 'Tier 2 — Standard';
+
   return (
     <div className="approval-gate">
       <div className="gate-header">
@@ -1338,6 +1342,28 @@ function CustomerApprovalGate({
             {requiresPreApproval ? 'Required' : 'Not Required'}
           </span>
         </label>
+      </div>
+
+      {/* Approval Context Block (Read-only, Informational) */}
+      <div className="approval-context">
+        <div className="context-header">
+          <span className="context-label">Approval Context</span>
+        </div>
+        <div className="context-rows">
+          <div className="context-row">
+            <span className="context-key">Customer Approval Required:</span>
+            <span className={`context-value ${mockApprovalRequired ? 'yes' : 'no'}`}>
+              {mockApprovalRequired ? 'YES' : 'NO'}
+            </span>
+          </div>
+          <div className="context-row">
+            <span className="context-key">Approval Package:</span>
+            <span className="context-value package">{mockApprovalPackage}</span>
+          </div>
+        </div>
+        <p className="context-helper">
+          Approval requirements are defined at the customer level and may be overridden per order.
+        </p>
       </div>
 
       {requiresPreApproval && (
@@ -1546,6 +1572,74 @@ function CustomerApprovalGate({
           font-weight: 600;
           cursor: not-allowed;
           opacity: 0.7;
+        }
+
+        /* Approval Context Block (Read-only, Informational) */
+        .approval-context {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 6px;
+          padding: 10px;
+          margin-bottom: 12px;
+        }
+
+        .context-header {
+          margin-bottom: 8px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .context-label {
+          font-size: 9px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .context-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .context-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .context-key {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .context-value {
+          font-size: 10px;
+          font-weight: 600;
+        }
+
+        .context-value.yes {
+          color: #fbbf24;
+        }
+
+        .context-value.no {
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .context-value.package {
+          color: rgba(255, 255, 255, 0.8);
+          font-style: italic;
+        }
+
+        .context-helper {
+          margin: 0;
+          font-size: 9px;
+          color: rgba(255, 255, 255, 0.4);
+          line-height: 1.4;
+          font-style: italic;
         }
       `}</style>
     </div>
