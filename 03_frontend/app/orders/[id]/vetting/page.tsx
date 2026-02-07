@@ -215,7 +215,7 @@ export default function VettingPage() {
             <span className="discovery-label">Jarvis Matches</span>
             <span className="discovery-count">{jarvisMatchCount} candidates</span>
           </div>
-          <button className="discovery-btn" disabled title={demoTitle}>
+          <button className="discovery-btn" onClick={() => router.push(`/orders/${orderId}/vetting/jarvis-matches`)}>
             View Matches
           </button>
         </div>
@@ -225,7 +225,7 @@ export default function VettingPage() {
             <span className="discovery-label">Recruiting Search</span>
             <span className="discovery-count">{manualSearchCount} results</span>
           </div>
-          <button className="discovery-btn" disabled title={demoTitle}>
+          <button className="discovery-btn" onClick={() => router.push(`/orders/${orderId}/vetting/manual-search`)}>
             Search Employees
           </button>
         </div>
@@ -525,11 +525,16 @@ export default function VettingPage() {
           background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 4px;
-          color: rgba(255, 255, 255, 0.6);
+          color: rgba(255, 255, 255, 0.9);
           font-size: 11px;
           font-weight: 500;
-          cursor: not-allowed;
-          opacity: 0.7;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .discovery-btn:hover {
+          background: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.2);
         }
 
         /* Main Content */
