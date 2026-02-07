@@ -12,6 +12,7 @@ import {
 } from '@/data/mockRecruitingData';
 import { BucketTradeSummary } from '@/components/BucketTradeSummary';
 import { useAuth } from "@/lib/auth/useAuth";
+import { EventSpineTimelineSnapshot } from "@/components/EventSpineTimelineSnapshot";
 
 /**
  * Vetting Page — Structure Lock Implementation
@@ -296,6 +297,16 @@ export default function VettingPage() {
         </section>
       )}
 
+      {/* Worker Timeline — Read Only (Event Spine) */}
+      <section className="worker-timeline-section">
+        <EventSpineTimelineSnapshot
+          mode="compact"
+          contextLabel="Worker Timeline — Read Only"
+          workerName="Mock Worker"
+          orderRef={order.id}
+        />
+      </section>
+
       {/* Trade Requirements Summary Table */}
       <section className="trade-summary-section">
         <h2 className="section-title">Trade Requirements Summary</h2>
@@ -363,6 +374,11 @@ export default function VettingPage() {
 
         /* Split view section below lanes */
         .split-view-section {
+          margin-bottom: 20px;
+        }
+
+        /* Worker Timeline Section (Event Spine) */
+        .worker-timeline-section {
           margin-bottom: 20px;
         }
 

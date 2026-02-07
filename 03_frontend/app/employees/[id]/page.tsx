@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MOCK_EMPLOYEES, Employee } from "@/data/mockEmployeeData";
+import { EventSpineTimelineSnapshot } from "@/components/EventSpineTimelineSnapshot";
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -292,6 +293,16 @@ export default function EmployeeDetailPage() {
           <span className="empty-icon">—</span>
           <span className="empty-text">No assignments yet</span>
         </div>
+      </div>
+
+      {/* EVENT SPINE TIMELINE (UI-Only) */}
+      <div className="timeline-section">
+        <EventSpineTimelineSnapshot
+          mode="full"
+          contextLabel="Timeline (Event Spine — UI Only)"
+          workerName={`${employee.firstName} ${employee.lastName}`}
+          orderRef="ORD-2026-0042"
+        />
       </div>
 
       <style jsx>{`
@@ -599,6 +610,11 @@ export default function EmployeeDetailPage() {
         .empty-icon {
           font-size: 24px;
           color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* TIMELINE SECTION */
+        .timeline-section {
+          margin-top: 24px;
         }
 
         /* RESPONSIVE */
