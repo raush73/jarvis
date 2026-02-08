@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { CommercialMarginPanel } from "@/components/CommercialMarginPanel";
 
@@ -33,6 +33,9 @@ type ChangeOrder = {
   fullSummary: string;
   // Sent for Approval tracking
   sentForApprovalAt?: string;
+  // Email Authorization approval tracking
+  approvedAt?: string;
+  approvalConfirmationText?: string;
 };
 
 // Mock employees for dropdown
@@ -228,6 +231,25 @@ export default function OrderDetailPage() {
     emailProof: "",
   });
 
+  // Email Authorization Upload Panel state
+  const [showEmailAuthPanel, setShowEmailAuthPanel] = useState(false);
+  const [emailAuthForm, setEmailAuthForm] = useState({
+    approvalConfirmation: "",
+    proofFilename: "",
+  });
+
+  // Editable Approval Method state for Pending RCOs in detail panel
+  const [detailApprovalMethod, setDetailApprovalMethod] = useState<ApprovalMethod | null>(null);
+
+  // Sync detailApprovalMethod when selectedChangeOrder changes
+  useEffect(() => {
+    if (selectedChangeOrder && selectedChangeOrder.status === "Pending") {
+      setDetailApprovalMethod(selectedChangeOrder.approvalMethod);
+    } else {
+      setDetailApprovalMethod(null);
+    }
+  }, [selectedChangeOrder]);
+
   // Reset form helper
   const resetCreateForm = () => {
     setCreateForm({
@@ -352,6 +374,64 @@ export default function OrderDetailPage() {
           : co
       )
     );
+  };
+
+  // Handle Email Authorization Upload Panel open
+  const handleOpenEmailAuthPanel = () => {
+    setEmailAuthForm({
+      approvalConfirmation: "",
+      proofFilename: "",
+    });
+    setShowEmailAuthPanel(true);
+  };
+
+  // Handle Email Authorization file input (mock - stores filename only)
+  const handleEmailAuthFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEmailAuthForm((prev) => ({ ...prev, proofFilename: file.name }));
+    }
+  };
+
+  // Handle Confirm Approval via Email Authorization
+  const handleConfirmEmailAuth = () => {
+    if (!selectedChangeOrder || !emailAuthForm.approvalConfirmation) {
+      return; // Required field check
+    }
+    const approvedAt = new Date().toLocaleString();
+    setChangeOrders((prev) =>
+      prev.map((co) =>
+        co.id === selectedChangeOrder.id
+          ? {
+              ...co,
+              status: "Approved" as ChangeOrderStatus,
+              proof: emailAuthForm.proofFilename || "Email Authorization",
+              approvedAt,
+              approvalConfirmationText: emailAuthForm.approvalConfirmation,
+            }
+          : co
+      )
+    );
+    // Update selected change order to reflect new state
+    setSelectedChangeOrder((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "Approved" as ChangeOrderStatus,
+            proof: emailAuthForm.proofFilename || "Email Authorization",
+            approvedAt,
+            approvalConfirmationText: emailAuthForm.approvalConfirmation,
+          }
+        : null
+    );
+    setShowEmailAuthPanel(false);
+    setEmailAuthForm({ approvalConfirmation: "", proofFilename: "" });
+  };
+
+  // Handle Cancel Email Auth Panel
+  const handleCancelEmailAuth = () => {
+    setShowEmailAuthPanel(false);
+    setEmailAuthForm({ approvalConfirmation: "", proofFilename: "" });
   };
 
   return (
@@ -706,16 +786,63 @@ export default function OrderDetailPage() {
               {/* Approval Info */}
               <div className="co-detail-section">
                 <h4>Approval Information</h4>
-                <div className="co-detail-grid">
-                  <div className="co-detail-item">
+                {/* Editable Approval Method when Pending */}
+                {selectedChangeOrder.status === "Pending" && detailApprovalMethod && (
+                  <div className="co-approval-method-edit">
                     <span className="co-detail-label">Approval Method</span>
-                    <span className="co-detail-value">{selectedChangeOrder.approvalMethod}</span>
+                    <div className="co-approval-method-radios">
+                      <label className="co-approval-method-radio">
+                        <input
+                          type="radio"
+                          name="detailApprovalMethod"
+                          checked={detailApprovalMethod === "Portal"}
+                          onChange={() => setDetailApprovalMethod("Portal")}
+                        />
+                        <span>Portal Approval</span>
+                      </label>
+                      <label className="co-approval-method-radio">
+                        <input
+                          type="radio"
+                          name="detailApprovalMethod"
+                          checked={detailApprovalMethod === "Email Authorization"}
+                          onChange={() => setDetailApprovalMethod("Email Authorization")}
+                        />
+                        <span>Email Authorization</span>
+                      </label>
+                    </div>
+                    <span className="co-approval-method-hint">
+                      Approval method may be changed until approval is captured.
+                    </span>
                   </div>
-                  <div className="co-detail-item">
-                    <span className="co-detail-label">Proof</span>
-                    <span className="co-detail-value">{selectedChangeOrder.proof}</span>
+                )}
+                {/* Read-only Approval Method when Sent for Approval or Approved */}
+                {(selectedChangeOrder.status === "Sent for Approval" || selectedChangeOrder.status === "Approved") && (
+                  <div className="co-detail-grid">
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Approval Method</span>
+                      <span className="co-detail-value co-approval-method-locked">
+                        {selectedChangeOrder.approvalMethod}
+                      </span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Proof</span>
+                      <span className="co-detail-value">{selectedChangeOrder.proof}</span>
+                    </div>
                   </div>
-                </div>
+                )}
+                {/* Default grid for Draft/Rejected (non-editable, non-locked) */}
+                {selectedChangeOrder.status !== "Pending" && selectedChangeOrder.status !== "Sent for Approval" && selectedChangeOrder.status !== "Approved" && (
+                  <div className="co-detail-grid">
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Approval Method</span>
+                      <span className="co-detail-value">{selectedChangeOrder.approvalMethod}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Proof</span>
+                      <span className="co-detail-value">{selectedChangeOrder.proof}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Dispatch Amendment */}
@@ -728,9 +855,9 @@ export default function OrderDetailPage() {
                 </div>
               )}
 
-              {/* Send for Customer Approval Action */}
+              {/* Send for Customer Approval Action (Portal) — uses detailApprovalMethod for dynamic swap */}
               {selectedChangeOrder.status === "Pending" &&
-                selectedChangeOrder.approvalMethod === "Portal" && (
+                detailApprovalMethod === "Portal" && (
                   <div className="co-detail-section co-action-section">
                     <button
                       type="button"
@@ -739,6 +866,48 @@ export default function OrderDetailPage() {
                     >
                       Send for Customer Approval
                     </button>
+                  </div>
+                )}
+
+              {/* Upload Customer Approval Email Action (Email Authorization) — uses detailApprovalMethod for dynamic swap */}
+              {selectedChangeOrder.status === "Pending" &&
+                detailApprovalMethod === "Email Authorization" && (
+                  <div className="co-detail-section co-action-section">
+                    <button
+                      type="button"
+                      className="co-email-auth-btn"
+                      onClick={handleOpenEmailAuthPanel}
+                    >
+                      Upload Customer Approval Email
+                    </button>
+                  </div>
+                )}
+
+              {/* Approved via Email Authorization Info */}
+              {selectedChangeOrder.status === "Approved" &&
+                selectedChangeOrder.approvalMethod === "Email Authorization" && (
+                  <div className="co-detail-section">
+                    <div className="co-email-auth-approved-banner">
+                      <div className="co-email-auth-approved-icon">✓</div>
+                      <div className="co-email-auth-approved-text">
+                        <span className="co-email-auth-approved-title">Approved via Email Authorization</span>
+                        {selectedChangeOrder.approvedAt && (
+                          <span className="co-email-auth-approved-timestamp">
+                            Approved: {selectedChangeOrder.approvedAt}
+                          </span>
+                        )}
+                        {selectedChangeOrder.approvalConfirmationText && (
+                          <span className="co-email-auth-approved-by">
+                            {selectedChangeOrder.approvalConfirmationText}
+                          </span>
+                        )}
+                        {selectedChangeOrder.proof && selectedChangeOrder.proof !== "Email Authorization" && (
+                          <span className="co-email-auth-proof-file">
+                            Proof: {selectedChangeOrder.proof}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
             </div>
@@ -908,6 +1077,111 @@ export default function OrderDetailPage() {
                   onClick={handleMarkPending}
                 >
                   Mark Pending
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Authorization Upload Panel */}
+      {showEmailAuthPanel && selectedChangeOrder && (
+        <div className="co-detail-overlay" onClick={handleCancelEmailAuth}>
+          <div className="co-detail-panel email-auth-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="co-detail-header">
+              <h3>Upload Customer Approval Email</h3>
+              <button
+                type="button"
+                className="co-detail-close"
+                onClick={handleCancelEmailAuth}
+              >
+                ×
+              </button>
+            </div>
+            <div className="co-detail-body">
+              {/* RCO Reference Info */}
+              <div className="email-auth-rco-info">
+                <div className="email-auth-rco-row">
+                  <span className="email-auth-rco-label">Change Order</span>
+                  <span className="email-auth-rco-value">{selectedChangeOrder.id}</span>
+                </div>
+                <div className="email-auth-rco-row">
+                  <span className="email-auth-rco-label">Employee</span>
+                  <span className="email-auth-rco-value">{selectedChangeOrder.employee}</span>
+                </div>
+                <div className="email-auth-rco-row">
+                  <span className="email-auth-rco-label">Delta</span>
+                  <span className="email-auth-rco-value email-auth-delta">{selectedChangeOrder.delta}</span>
+                </div>
+              </div>
+
+              {/* Effective Date Confirmation (read-only) */}
+              <div className="create-form-field">
+                <label className="create-form-label">Effective Date</label>
+                <div className="create-form-readonly">{selectedChangeOrder.effectiveDate}</div>
+              </div>
+
+              {/* Approval Confirmation Text (required) */}
+              <div className="create-form-field">
+                <label className="create-form-label">Approval Confirmation *</label>
+                <input
+                  type="text"
+                  className="create-form-input"
+                  placeholder="Approved by customer (name / title)"
+                  value={emailAuthForm.approvalConfirmation}
+                  onChange={(e) => setEmailAuthForm({ ...emailAuthForm, approvalConfirmation: e.target.value })}
+                />
+                <span className="create-form-hint">e.g., &quot;Approved by John Smith, Project Manager&quot;</span>
+              </div>
+
+              {/* Proof File Upload (mock - stores filename only) */}
+              <div className="create-form-field">
+                <label className="create-form-label">Proof Document</label>
+                <div className="email-auth-file-input-wrapper">
+                  <input
+                    type="file"
+                    id="emailAuthProofFile"
+                    className="email-auth-file-input"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleEmailAuthFileChange}
+                  />
+                  <label htmlFor="emailAuthProofFile" className="email-auth-file-label">
+                    <span className="email-auth-file-icon">📎</span>
+                    <span className="email-auth-file-text">
+                      {emailAuthForm.proofFilename || "Choose file (.pdf, .jpg, .png)"}
+                    </span>
+                  </label>
+                </div>
+                {emailAuthForm.proofFilename && (
+                  <div className="email-auth-file-selected">
+                    <span className="email-auth-file-selected-name">{emailAuthForm.proofFilename}</span>
+                    <button
+                      type="button"
+                      className="email-auth-file-remove"
+                      onClick={() => setEmailAuthForm({ ...emailAuthForm, proofFilename: "" })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="create-form-actions">
+                <button
+                  type="button"
+                  className="create-form-btn create-form-btn-secondary"
+                  onClick={handleCancelEmailAuth}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="create-form-btn create-form-btn-confirm"
+                  onClick={handleConfirmEmailAuth}
+                  disabled={!emailAuthForm.approvalConfirmation}
+                >
+                  Confirm Approval
                 </button>
               </div>
             </div>
@@ -1862,6 +2136,261 @@ export default function OrderDetailPage() {
           background: rgba(139, 92, 246, 0.3);
           border-color: rgba(139, 92, 246, 0.5);
           color: #c4b5fd;
+        }
+
+        /* Email Authorization Upload Button */
+        .co-email-auth-btn {
+          width: 100%;
+          padding: 14px 20px;
+          background: rgba(34, 197, 94, 0.2);
+          border: 1px solid rgba(34, 197, 94, 0.4);
+          border-radius: 8px;
+          color: #4ade80;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .co-email-auth-btn:hover {
+          background: rgba(34, 197, 94, 0.3);
+          border-color: rgba(34, 197, 94, 0.5);
+          color: #86efac;
+        }
+
+        /* Email Authorization Approved Banner */
+        .co-email-auth-approved-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 16px;
+          background: rgba(34, 197, 94, 0.08);
+          border: 1px solid rgba(34, 197, 94, 0.2);
+          border-radius: 8px;
+        }
+
+        .co-email-auth-approved-icon {
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(34, 197, 94, 0.2);
+          border-radius: 50%;
+          font-size: 12px;
+          color: #4ade80;
+          flex-shrink: 0;
+        }
+
+        .co-email-auth-approved-text {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .co-email-auth-approved-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #4ade80;
+        }
+
+        .co-email-auth-approved-timestamp {
+          font-size: 12px;
+          color: rgba(74, 222, 128, 0.7);
+        }
+
+        .co-email-auth-approved-by {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.75);
+          margin-top: 4px;
+        }
+
+        .co-email-auth-proof-file {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          font-family: monospace;
+        }
+
+        /* Email Authorization Upload Panel */
+        .email-auth-panel {
+          width: 480px;
+        }
+
+        .email-auth-rco-info {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+        }
+
+        .email-auth-rco-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 6px 0;
+        }
+
+        .email-auth-rco-row:not(:last-child) {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .email-auth-rco-label {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+        }
+
+        .email-auth-rco-value {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.9);
+          font-weight: 500;
+        }
+
+        .email-auth-delta {
+          color: #4ade80;
+          font-weight: 600;
+        }
+
+        .create-form-hint {
+          display: block;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          margin-top: 6px;
+        }
+
+        /* File Input Styling */
+        .email-auth-file-input-wrapper {
+          position: relative;
+        }
+
+        .email-auth-file-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          border: 0;
+        }
+
+        .email-auth-file-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px dashed rgba(255, 255, 255, 0.2);
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .email-auth-file-label:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .email-auth-file-icon {
+          font-size: 18px;
+        }
+
+        .email-auth-file-text {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .email-auth-file-selected {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 10px;
+          padding: 10px 14px;
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid rgba(34, 197, 94, 0.25);
+          border-radius: 6px;
+        }
+
+        .email-auth-file-selected-name {
+          font-size: 13px;
+          color: #4ade80;
+          font-family: monospace;
+        }
+
+        .email-auth-file-remove {
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+          transition: color 0.15s ease;
+        }
+
+        .email-auth-file-remove:hover {
+          color: #f87171;
+        }
+
+        /* Confirm Approval Button */
+        .create-form-btn-confirm {
+          background: rgba(34, 197, 94, 0.2);
+          border: 1px solid rgba(34, 197, 94, 0.4);
+          color: #4ade80;
+          margin-left: auto;
+        }
+
+        .create-form-btn-confirm:hover:not(:disabled) {
+          background: rgba(34, 197, 94, 0.3);
+          border-color: rgba(34, 197, 94, 0.5);
+          color: #86efac;
+        }
+
+        .create-form-btn-confirm:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        /* Editable Approval Method (Pending state) */
+        .co-approval-method-edit {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .co-approval-method-radios {
+          display: flex;
+          gap: 20px;
+        }
+
+        .co-approval-method-radio {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.85);
+        }
+
+        .co-approval-method-radio input[type="radio"] {
+          width: 18px;
+          height: 18px;
+          accent-color: #3b82f6;
+          cursor: pointer;
+        }
+
+        .co-approval-method-hint {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
+          font-style: italic;
+        }
+
+        /* Locked Approval Method (Sent for Approval / Approved) */
+        .co-approval-method-locked {
+          color: rgba(255, 255, 255, 0.6);
         }
       `}</style>
     </div>
