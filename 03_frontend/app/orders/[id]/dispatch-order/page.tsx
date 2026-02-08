@@ -464,6 +464,51 @@ export default function DispatchOrderPage() {
         </div>
       )}
 
+      {/* UI NOTE: Show only when an Approved RCO has issued a dispatch amendment */}
+      {/* Dispatch Amendment Panel — READ-ONLY, SYSTEM-ISSUED */}
+      <div className="dispatch-amendment-panel">
+        <div className="amendment-header">
+          <h2 className="amendment-title">Dispatch Amendment</h2>
+          <span className="amendment-badge">Amended</span>
+        </div>
+
+        <div className="amendment-content">
+          <div className="amendment-row">
+            <span className="amendment-label">Dispatch Version</span>
+            <div className="amendment-value-group">
+              <span className="amendment-value version-value">v2 (Amended)</span>
+              <span className="amendment-subtext">Previous version: v1</span>
+            </div>
+          </div>
+
+          <div className="amendment-row">
+            <span className="amendment-label">Amendment Source</span>
+            <div className="amendment-value-group">
+              <span className="amendment-value">Rate Change Order</span>
+              <span className="amendment-subtext">Reference: RCO #RCO-1042</span>
+            </div>
+          </div>
+
+          <div className="amendment-row">
+            <span className="amendment-label">Effective Date</span>
+            <span className="amendment-value">Effective: Feb 5, 2026</span>
+          </div>
+
+          <div className="amendment-summary">
+            <span className="summary-label">Amendment Summary</span>
+            <ul className="summary-list">
+              <li>Billing rate updated per approved change order</li>
+              <li>Effective mid-assignment</li>
+              <li>Original dispatch preserved for audit</li>
+            </ul>
+          </div>
+
+          <p className="amendment-audit-note">
+            This dispatch packet was amended due to an approved Rate Change Order. No new dispatch was created.
+          </p>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="dispatch-content">
         {/* Top Section - Two Columns */}
@@ -975,6 +1020,130 @@ export default function DispatchOrderPage() {
           margin: 0;
           font-size: 15px;
           color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Dispatch Amendment Panel — READ-ONLY */
+        .dispatch-amendment-panel {
+          background: rgba(139, 92, 246, 0.06);
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          border-radius: 12px;
+          padding: 24px;
+          margin-bottom: 32px;
+          max-width: 1100px;
+        }
+
+        .amendment-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+        }
+
+        .amendment-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #c4b5fd;
+          margin: 0;
+          letter-spacing: 0.3px;
+        }
+
+        .amendment-badge {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 10px;
+          background: rgba(139, 92, 246, 0.2);
+          color: #a78bfa;
+          border-radius: 5px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .amendment-content {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .amendment-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 12px 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+        }
+
+        .amendment-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .amendment-value-group {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+        }
+
+        .amendment-value {
+          font-size: 14px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+          text-align: right;
+        }
+
+        .amendment-value.version-value {
+          color: #c4b5fd;
+        }
+
+        .amendment-subtext {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.4);
+        }
+
+        .amendment-summary {
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+        }
+
+        .summary-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.5);
+          margin-bottom: 12px;
+        }
+
+        .summary-list {
+          margin: 0;
+          padding-left: 20px;
+          list-style-type: disc;
+        }
+
+        .summary-list li {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.75);
+          line-height: 1.6;
+          margin-bottom: 6px;
+        }
+
+        .summary-list li:last-child {
+          margin-bottom: 0;
+        }
+
+        .amendment-audit-note {
+          font-size: 12px;
+          font-style: italic;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 8px 0 0 0;
+          padding: 12px 16px;
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 6px;
+          border-left: 3px solid rgba(139, 92, 246, 0.4);
         }
 
         /* Dispatch Content */
