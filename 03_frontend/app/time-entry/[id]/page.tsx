@@ -13,11 +13,15 @@ const MOCK_JOB_OPTIONS = [
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+type EntryMode = "daily" | "weekly";
+
 interface JobRow {
   id: string;
   jobId: string;
   dailyHours: number[]; // Mon-Sun raw hours
   perDiemDays: number;
+  weeklyTotalHours: number;
+  weeklyOtAllocation: number;
 }
 
 interface NonHourItem {
@@ -34,6 +38,94 @@ interface EmployeeData {
   jobRows: JobRow[];
   billableItems: NonHourItem[];
   nonBillableItems: NonHourItem[];
+}
+
+// Compute weekly mode totals for an employee
+// Returns per-row breakdown, employee totals, and mismatch info
+function computeWeeklyTotals(jobRows: JobRow[]): {
+  totalHours: number;
+  reg: number;
+  ot: number;
+  dt: number;
+  jobBreakdown: { jobId: string; reg: number; ot: number; dt: number; total: number }[];
+  allocatedOt: number;
+  otEditable: boolean;
+  mismatch: boolean;
+} {
+  const totalHours = jobRows.reduce((sum, row) => sum + row.weeklyTotalHours, 0);
+  const regComputed = Math.min(totalHours, 40);
+  const otComputed = Math.max(totalHours - 40, 0);
+  const dt = 0;
+
+  const hasMultipleRows = jobRows.length >= 2;
+  const hasOtHours = totalHours > 40;
+  const otEditable = hasMultipleRows && hasOtHours;
+
+  const jobBreakdown: { jobId: string; reg: number; ot: number; dt: number; total: number }[] = [];
+  let allocatedOt = 0;
+
+  if (otEditable) {
+    // OT is user-editable: use weeklyOtAllocation
+    jobRows.forEach((row) => {
+      const otAlloc = Math.max(0, Math.min(row.weeklyOtAllocation, row.weeklyTotalHours));
+      const regRow = Math.max(row.weeklyTotalHours - otAlloc, 0);
+      jobBreakdown.push({
+        jobId: row.id,
+        reg: regRow,
+        ot: otAlloc,
+        dt: 0,
+        total: row.weeklyTotalHours,
+      });
+      allocatedOt += otAlloc;
+    });
+  } else {
+    // OT is NOT editable: compute deterministically (top row to bottom row)
+    let runningTotal = 0;
+    jobRows.forEach((row) => {
+      const hours = row.weeklyTotalHours;
+      const hoursBeforeThisRow = runningTotal;
+      const hoursAfterThisRow = runningTotal + hours;
+
+      let regRow = 0;
+      let otRow = 0;
+
+      if (hoursBeforeThisRow >= 40) {
+        // All OT
+        otRow = hours;
+      } else if (hoursAfterThisRow <= 40) {
+        // All REG
+        regRow = hours;
+      } else {
+        // Split: some REG, some OT
+        regRow = 40 - hoursBeforeThisRow;
+        otRow = hours - regRow;
+      }
+
+      jobBreakdown.push({
+        jobId: row.id,
+        reg: regRow,
+        ot: otRow,
+        dt: 0,
+        total: hours,
+      });
+
+      runningTotal = hoursAfterThisRow;
+      allocatedOt += otRow;
+    });
+  }
+
+  const mismatch = otEditable && allocatedOt !== otComputed;
+
+  return {
+    totalHours,
+    reg: regComputed,
+    ot: otComputed,
+    dt,
+    jobBreakdown,
+    allocatedOt,
+    otEditable,
+    mismatch,
+  };
 }
 
 // Compute derived REG/OT/DT for an employee across all job rows
@@ -102,6 +194,9 @@ export default function TimeEntryPage() {
     status: "Working",
   };
 
+  // Entry mode state
+  const [entryMode, setEntryMode] = useState<EntryMode>("daily");
+
   // Initialize with 2 mock employees, each with 1 default job row
   const [employees, setEmployees] = useState<EmployeeData[]>([
     {
@@ -114,6 +209,8 @@ export default function TimeEntryPage() {
           jobId: "job1",
           dailyHours: [8, 8, 8, 8, 8, 0, 0],
           perDiemDays: 3.5,
+          weeklyTotalHours: 40, // sum of dailyHours
+          weeklyOtAllocation: 0,
         },
       ],
       billableItems: [],
@@ -129,6 +226,8 @@ export default function TimeEntryPage() {
           jobId: "job1",
           dailyHours: [10, 10, 10, 10, 10, 4, 0],
           perDiemDays: 3.5,
+          weeklyTotalHours: 54, // sum of dailyHours
+          weeklyOtAllocation: 0,
         },
       ],
       billableItems: [],
@@ -151,6 +250,8 @@ export default function TimeEntryPage() {
               jobId: "job2",
               dailyHours: [0, 0, 0, 0, 0, 0, 0],
               perDiemDays: 0,
+              weeklyTotalHours: 0,
+              weeklyOtAllocation: 0,
             },
           ],
         };
@@ -226,6 +327,46 @@ export default function TimeEntryPage() {
           ...emp,
           jobRows: emp.jobRows.map((r) =>
             r.id === rowId ? { ...r, perDiemDays: numValue } : r
+          ),
+        };
+      })
+    );
+  };
+
+  // Update weekly total hours for a job row
+  const updateWeeklyTotalHours = (
+    employeeId: string,
+    rowId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          jobRows: emp.jobRows.map((r) =>
+            r.id === rowId ? { ...r, weeklyTotalHours: numValue } : r
+          ),
+        };
+      })
+    );
+  };
+
+  // Update weekly OT allocation for a job row
+  const updateWeeklyOtAllocation = (
+    employeeId: string,
+    rowId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          jobRows: emp.jobRows.map((r) =>
+            r.id === rowId ? { ...r, weeklyOtAllocation: numValue } : r
           ),
         };
       })
@@ -373,16 +514,55 @@ export default function TimeEntryPage() {
         <p className="text-sm text-slate-400">
           Working sheet — snapshot generated after approval
         </p>
+
+        {/* Entry Mode Toggle */}
+        <div className="mt-4 pt-4 border-t border-slate-700">
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-slate-400">Entry Mode:</span>
+            <div className="flex items-center gap-1 bg-slate-800 rounded p-0.5">
+              <button
+                onClick={() => setEntryMode("daily")}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  entryMode === "daily"
+                    ? "bg-slate-700 text-slate-100"
+                    : "text-slate-400 hover:text-slate-300"
+                }`}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => setEntryMode("weekly")}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  entryMode === "weekly"
+                    ? "bg-slate-700 text-slate-100"
+                    : "text-slate-400 hover:text-slate-300"
+                }`}
+              >
+                Weekly Totals
+              </button>
+            </div>
+            {entryMode === "weekly" && (
+              <span className="text-xs text-slate-500">
+                Weekly Totals mode — OT editable only when 2+ jobs and &gt;40 hrs
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Employee Sections */}
       {employees.map((employee) => {
-        const totals = computeEmployeeTotals(employee.jobRows);
+        const dailyTotals = computeEmployeeTotals(employee.jobRows);
+        const weeklyTotals = computeWeeklyTotals(employee.jobRows);
+        const totals = entryMode === "daily" ? dailyTotals : weeklyTotals;
+        const showMismatchWarning = entryMode === "weekly" && weeklyTotals.mismatch;
 
         return (
           <div
             key={employee.id}
-            className="bg-slate-900 border border-slate-700 rounded-lg mb-6 overflow-hidden"
+            className={`bg-slate-900 border rounded-lg mb-6 overflow-hidden ${
+              showMismatchWarning ? "border-amber-600" : "border-slate-700"
+            }`}
           >
             {/* Employee Header */}
             <div className="bg-slate-800 px-4 py-3 border-b border-slate-700">
@@ -399,6 +579,12 @@ export default function TimeEntryPage() {
                   Employee Weekly: REG {totals.reg} | OT {totals.ot} | DT {totals.dt} | Total {totals.totalHours}
                 </div>
               </div>
+              {/* OT Mismatch Warning */}
+              {showMismatchWarning && (
+                <div className="mt-2 px-2 py-1 bg-amber-900/30 border border-amber-700 rounded text-xs text-amber-400">
+                  OT allocation mismatch — computed OT: {weeklyTotals.ot}, allocated OT: {weeklyTotals.allocatedOt}
+                </div>
+              )}
             </div>
 
             {/* Job Rows Grid */}
@@ -409,14 +595,22 @@ export default function TimeEntryPage() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-400 border-b border-slate-700 min-w-[200px]">
                       Job/Order
                     </th>
-                    {DAYS.map((day) => (
-                      <th
-                        key={day}
-                        className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-16"
-                      >
-                        {day}
+                    {entryMode === "daily" ? (
+                      <>
+                        {DAYS.map((day) => (
+                          <th
+                            key={day}
+                            className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-16"
+                          >
+                            {day}
+                          </th>
+                        ))}
+                      </>
+                    ) : (
+                      <th className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-16">
+                        Hours
                       </th>
-                    ))}
+                    )}
                     <th className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-14">
                       Total
                     </th>
@@ -439,7 +633,7 @@ export default function TimeEntryPage() {
                 </thead>
                 <tbody>
                   {employee.jobRows.map((row, rowIdx) => {
-                    const rowTotal = row.dailyHours.reduce((s, h) => s + h, 0);
+                    const rowTotalDaily = row.dailyHours.reduce((s, h) => s + h, 0);
                     const breakdown = totals.jobBreakdown[rowIdx];
                     const isFirstRow = rowIdx === 0;
 
@@ -466,26 +660,55 @@ export default function TimeEntryPage() {
                             </select>
                           )}
                         </td>
-                        {DAYS.map((day, dayIdx) => (
-                          <td key={day} className="px-1 py-2 text-center">
+                        {entryMode === "daily" ? (
+                          <>
+                            {DAYS.map((day, dayIdx) => (
+                              <td key={day} className="px-1 py-2 text-center">
+                                <input
+                                  type="text"
+                                  value={row.dailyHours[dayIdx] || ""}
+                                  onChange={(e) =>
+                                    updateDailyHours(employee.id, row.id, dayIdx, e.target.value)
+                                  }
+                                  className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                                />
+                              </td>
+                            ))}
+                          </>
+                        ) : (
+                          <td className="px-1 py-2 text-center">
                             <input
                               type="text"
-                              value={row.dailyHours[dayIdx] || ""}
+                              value={row.weeklyTotalHours || ""}
                               onChange={(e) =>
-                                updateDailyHours(employee.id, row.id, dayIdx, e.target.value)
+                                updateWeeklyTotalHours(employee.id, row.id, e.target.value)
                               }
                               className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
                             />
                           </td>
-                        ))}
+                        )}
                         <td className="px-2 py-2 text-center text-sm font-medium text-slate-200">
-                          {rowTotal}
+                          {entryMode === "daily" ? rowTotalDaily : row.weeklyTotalHours}
                         </td>
                         <td className="px-2 py-2 text-center text-sm text-slate-400">
                           {breakdown?.reg || 0}
                         </td>
-                        <td className="px-2 py-2 text-center text-sm text-slate-400">
-                          {breakdown?.ot || 0}
+                        {/* OT column: editable input in weekly mode when otEditable, otherwise display-only */}
+                        <td className="px-1 py-2 text-center">
+                          {entryMode === "weekly" && weeklyTotals.otEditable ? (
+                            <input
+                              type="text"
+                              value={row.weeklyOtAllocation || ""}
+                              onChange={(e) =>
+                                updateWeeklyOtAllocation(employee.id, row.id, e.target.value)
+                              }
+                              className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                            />
+                          ) : (
+                            <span className="text-sm text-slate-400">
+                              {breakdown?.ot || 0}
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-center text-sm text-slate-400">
                           {breakdown?.dt || 0}
@@ -666,6 +889,12 @@ export default function TimeEntryPage() {
       })}
 
       {/* Bottom Actions (disabled UI shell) */}
+      {/* OT mismatch blocking warning */}
+      {entryMode === "weekly" && employees.some((emp) => computeWeeklyTotals(emp.jobRows).mismatch) && (
+        <div className="mb-3 px-3 py-2 bg-amber-900/30 border border-amber-700 rounded text-xs text-amber-400">
+          Fix OT allocation mismatch warnings before continuing.
+        </div>
+      )}
       <div className="flex gap-3 mb-6">
         <button
           disabled
