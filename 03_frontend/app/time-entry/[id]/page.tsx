@@ -814,8 +814,10 @@ export default function TimeEntryPage() {
                           </td>
                           <td className="px-1 py-2 text-center">
                             <input
-                              type="text"
-                              value={row.perDiemDays || ""}
+                              type="number"
+                              step="0.25"
+                              min="0"
+                              value={row.perDiemDays ?? ""}
                               onChange={(e) =>
                                 updatePerDiemDays(employee.id, row.id, e.target.value)
                               }
