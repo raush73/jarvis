@@ -20,11 +20,20 @@ interface JobRow {
   perDiemDays: number;
 }
 
+interface NonHourItem {
+  id: string;
+  type: string;
+  note: string;
+  value: number;
+}
+
 interface EmployeeData {
   id: string;
   name: string;
   trade: string;
   jobRows: JobRow[];
+  billableItems: NonHourItem[];
+  nonBillableItems: NonHourItem[];
 }
 
 // Compute derived REG/OT/DT for an employee across all job rows
@@ -107,6 +116,8 @@ export default function TimeEntryPage() {
           perDiemDays: 3.5,
         },
       ],
+      billableItems: [],
+      nonBillableItems: [],
     },
     {
       id: "emp2",
@@ -120,6 +131,8 @@ export default function TimeEntryPage() {
           perDiemDays: 3.5,
         },
       ],
+      billableItems: [],
+      nonBillableItems: [],
     },
   ]);
 
@@ -223,6 +236,109 @@ export default function TimeEntryPage() {
   const getJobName = (jobId: string): string => {
     const job = MOCK_JOB_OPTIONS.find((j) => j.id === jobId);
     return job ? job.name : "Unknown Job";
+  };
+
+  // Billable item type options
+  const BILLABLE_ITEM_TYPES = ["Bonus", "Hazard", "Mobilization", "Demobilization", "Reimbursement", "Other"];
+  // Non-billable item type options
+  const NON_BILLABLE_ITEM_TYPES = ["Per Diem", "Bonus", "Hazard", "Reimbursement", "Other"];
+
+  // Add a billable item for an employee
+  const addBillableItem = (employeeId: string) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        const newItemId = `${emp.id}-billable-${Date.now()}`;
+        return {
+          ...emp,
+          billableItems: [
+            ...emp.billableItems,
+            { id: newItemId, type: "Bonus", note: "", value: 0 },
+          ],
+        };
+      })
+    );
+  };
+
+  // Add a non-billable item for an employee
+  const addNonBillableItem = (employeeId: string) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        const newItemId = `${emp.id}-nonbillable-${Date.now()}`;
+        return {
+          ...emp,
+          nonBillableItems: [
+            ...emp.nonBillableItems,
+            { id: newItemId, type: "Per Diem", note: "", value: 0 },
+          ],
+        };
+      })
+    );
+  };
+
+  // Remove a billable item
+  const removeBillableItem = (employeeId: string, itemId: string) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          billableItems: emp.billableItems.filter((item) => item.id !== itemId),
+        };
+      })
+    );
+  };
+
+  // Remove a non-billable item
+  const removeNonBillableItem = (employeeId: string, itemId: string) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          nonBillableItems: emp.nonBillableItems.filter((item) => item.id !== itemId),
+        };
+      })
+    );
+  };
+
+  // Update a billable item
+  const updateBillableItem = (
+    employeeId: string,
+    itemId: string,
+    patch: Partial<NonHourItem>
+  ) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          billableItems: emp.billableItems.map((item) =>
+            item.id === itemId ? { ...item, ...patch } : item
+          ),
+        };
+      })
+    );
+  };
+
+  // Update a non-billable item
+  const updateNonBillableItem = (
+    employeeId: string,
+    itemId: string,
+    patch: Partial<NonHourItem>
+  ) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          nonBillableItems: emp.nonBillableItems.map((item) =>
+            item.id === itemId ? { ...item, ...patch } : item
+          ),
+        };
+      })
+    );
   };
 
   return (
@@ -402,14 +518,149 @@ export default function TimeEntryPage() {
             </div>
 
             {/* Add Job Control Row */}
-            <div className="px-4 py-3 border-t border-slate-700/50">
+            <div className="px-4 py-3 border-t border-slate-700/50 flex gap-2">
               <button
                 onClick={() => addJobRow(employee.id)}
                 className="text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-600 rounded px-3 py-1"
               >
                 + Add Job
               </button>
+              <button
+                onClick={() => addBillableItem(employee.id)}
+                className="text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-600 rounded px-3 py-1"
+              >
+                + Add Item
+              </button>
+              <button
+                onClick={() => addNonBillableItem(employee.id)}
+                className="text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-600 rounded px-3 py-1"
+              >
+                + Add Non-Billable Item
+              </button>
             </div>
+
+            {/* Non-Hour Items Section */}
+            {(employee.billableItems.length > 0 || employee.nonBillableItems.length > 0) && (
+              <div className="px-4 py-3 border-t border-slate-700/50">
+                <div className="text-xs font-medium text-slate-300 mb-3">Non-Hour Items</div>
+
+                {/* Billable Items */}
+                <div className="mb-3">
+                  <div className="text-xs text-slate-400 mb-2">Billable Items</div>
+                  {employee.billableItems.length === 0 ? (
+                    <div className="text-xs text-slate-500 italic">None</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {employee.billableItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-2 border border-slate-700 rounded px-2 py-1"
+                        >
+                          <select
+                            value={item.type}
+                            onChange={(e) =>
+                              updateBillableItem(employee.id, item.id, { type: e.target.value })
+                            }
+                            className="text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200"
+                          >
+                            {BILLABLE_ITEM_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Note"
+                            value={item.note}
+                            onChange={(e) =>
+                              updateBillableItem(employee.id, item.id, { note: e.target.value })
+                            }
+                            className="flex-1 text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200"
+                          />
+                          <input
+                            type="text"
+                            value={item.value || ""}
+                            onChange={(e) =>
+                              updateBillableItem(employee.id, item.id, {
+                                value: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="w-20 text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200 text-right"
+                          />
+                          <span className="text-xs text-slate-500 w-8">$</span>
+                          <button
+                            onClick={() => removeBillableItem(employee.id, item.id)}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Non-Billable Items */}
+                <div>
+                  <div className="text-xs text-slate-400 mb-2">Non-Billable Items (Payroll Only)</div>
+                  {employee.nonBillableItems.length === 0 ? (
+                    <div className="text-xs text-slate-500 italic">None</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {employee.nonBillableItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-2 border border-slate-700 rounded px-2 py-1"
+                        >
+                          <select
+                            value={item.type}
+                            onChange={(e) =>
+                              updateNonBillableItem(employee.id, item.id, { type: e.target.value })
+                            }
+                            className="text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200"
+                          >
+                            {NON_BILLABLE_ITEM_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Note"
+                            value={item.note}
+                            onChange={(e) =>
+                              updateNonBillableItem(employee.id, item.id, { note: e.target.value })
+                            }
+                            className="flex-1 text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200"
+                          />
+                          <input
+                            type="text"
+                            value={item.value || ""}
+                            onChange={(e) =>
+                              updateNonBillableItem(employee.id, item.id, {
+                                value: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="w-20 text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-200 text-right"
+                          />
+                          <span className="text-xs text-slate-500 w-8">
+                            {item.type === "Per Diem" ? "Days" : "$"}
+                          </span>
+                          <button
+                            onClick={() => removeNonBillableItem(employee.id, item.id)}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
