@@ -15,6 +15,7 @@ const TABS: { key: TabKey; label: string }[] = [
 // Change Order types and mock data
 type ChangeOrderStatus = "Draft" | "Pending" | "Approved" | "Rejected";
 type ApprovalMethod = "Portal" | "Email Authorization";
+type DeltaType = "hourly" | "shift";
 
 type ChangeOrder = {
   id: string;
@@ -31,6 +32,9 @@ type ChangeOrder = {
   // Detail fields
   fullSummary: string;
 };
+
+// Mock employees for dropdown
+const MOCK_EMPLOYEES = ["John Smith", "Mike Johnson", "Sarah Lee"];
 
 const MOCK_CHANGE_ORDERS: ChangeOrder[] = [
   {
@@ -206,6 +210,101 @@ export default function OrderDetailPage() {
   
   // Change Order detail panel state
   const [selectedChangeOrder, setSelectedChangeOrder] = useState<ChangeOrder | null>(null);
+
+  // Change Orders list state (initialized with mock data)
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>(MOCK_CHANGE_ORDERS);
+
+  // Create RCO panel state
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    employee: "",
+    deltaType: "hourly" as DeltaType,
+    deltaAmount: "",
+    effectiveDate: "",
+    notes: "",
+    approvalMethod: "Portal" as ApprovalMethod,
+    emailProof: "",
+  });
+
+  // Reset form helper
+  const resetCreateForm = () => {
+    setCreateForm({
+      employee: "",
+      deltaType: "hourly",
+      deltaAmount: "",
+      effectiveDate: "",
+      notes: "",
+      approvalMethod: "Portal",
+      emailProof: "",
+    });
+  };
+
+  // Generate mock ID
+  const generateMockId = () => {
+    const num = changeOrders.length + 1;
+    return `CO-${String(num).padStart(3, "0")}`;
+  };
+
+  // Format delta string
+  const formatDelta = (amount: string, type: DeltaType) => {
+    const prefix = "+$";
+    const suffix = type === "hourly" ? " / hr" : " / shift";
+    return `${prefix}${amount}${suffix}`;
+  };
+
+  // Handle Save Draft
+  const handleSaveDraft = () => {
+    if (!createForm.employee || !createForm.deltaAmount || !createForm.effectiveDate) {
+      return; // Basic required field check
+    }
+    const newOrder: ChangeOrder = {
+      id: generateMockId(),
+      status: "Draft",
+      employee: createForm.employee,
+      changeType: "Rate Change",
+      delta: formatDelta(createForm.deltaAmount, createForm.deltaType),
+      effectiveDate: createForm.effectiveDate,
+      requestedBy: "Internal",
+      approvalMethod: createForm.approvalMethod,
+      proof: createForm.approvalMethod === "Email Authorization" ? createForm.emailProof || "—" : "—",
+      dispatchAmendment: "—",
+      requestedOn: new Date().toISOString().split("T")[0],
+      fullSummary: createForm.notes || `Draft rate change for ${createForm.employee}.`,
+    };
+    setChangeOrders([newOrder, ...changeOrders]);
+    resetCreateForm();
+    setShowCreatePanel(false);
+  };
+
+  // Handle Mark Pending
+  const handleMarkPending = () => {
+    if (!createForm.employee || !createForm.deltaAmount || !createForm.effectiveDate) {
+      return; // Basic required field check
+    }
+    const newOrder: ChangeOrder = {
+      id: generateMockId(),
+      status: "Pending",
+      employee: createForm.employee,
+      changeType: "Rate Change",
+      delta: formatDelta(createForm.deltaAmount, createForm.deltaType),
+      effectiveDate: createForm.effectiveDate,
+      requestedBy: "Internal",
+      approvalMethod: createForm.approvalMethod,
+      proof: createForm.approvalMethod === "Email Authorization" ? createForm.emailProof || "Awaiting Proof" : "Awaiting Approval",
+      dispatchAmendment: "—",
+      requestedOn: new Date().toISOString().split("T")[0],
+      fullSummary: createForm.notes || `Rate change request for ${createForm.employee}. Pending customer approval.`,
+    };
+    setChangeOrders([newOrder, ...changeOrders]);
+    resetCreateForm();
+    setShowCreatePanel(false);
+  };
+
+  // Handle Cancel
+  const handleCancelCreate = () => {
+    resetCreateForm();
+    setShowCreatePanel(false);
+  };
 
   // Get order data or use default
   const order = MOCK_ORDER_DETAILS[orderId] || { ...DEFAULT_ORDER, id: orderId };
@@ -426,7 +525,16 @@ export default function OrderDetailPage() {
       {activeTab === "changeOrders" && (
         <div className="change-orders-content">
           <section className="detail-section change-orders-section">
-            <h2>Change Orders</h2>
+            <div className="co-section-header">
+              <h2>Change Orders</h2>
+              <button
+                type="button"
+                className="create-rco-btn"
+                onClick={() => setShowCreatePanel(true)}
+              >
+                + Create Rate Change Order
+              </button>
+            </div>
             <div className="change-orders-table">
               <div className="co-table-header">
                 <span className="co-col-status">Status</span>
@@ -440,7 +548,7 @@ export default function OrderDetailPage() {
                 <span className="co-col-amendment">Amendment</span>
                 <span className="co-col-requested-on">Requested On</span>
               </div>
-              {MOCK_CHANGE_ORDERS.map((co) => {
+              {changeOrders.map((co) => {
                 const statusStyle = getChangeOrderStatusStyle(co.status);
                 const isApproved = co.status === "Approved";
                 return (
@@ -582,6 +690,175 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Rate Change Order Panel */}
+      {showCreatePanel && (
+        <div className="co-detail-overlay" onClick={handleCancelCreate}>
+          <div className="co-detail-panel create-rco-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="co-detail-header">
+              <h3>Create Rate Change Order</h3>
+              <button
+                type="button"
+                className="co-detail-close"
+                onClick={handleCancelCreate}
+              >
+                ×
+              </button>
+            </div>
+            <div className="co-detail-body">
+              {/* Employee Dropdown */}
+              <div className="create-form-field">
+                <label className="create-form-label">Employee *</label>
+                <select
+                  className="create-form-select"
+                  value={createForm.employee}
+                  onChange={(e) => setCreateForm({ ...createForm, employee: e.target.value })}
+                >
+                  <option value="">Select employee...</option>
+                  {MOCK_EMPLOYEES.map((emp) => (
+                    <option key={emp} value={emp}>{emp}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Change Type (Read-only) */}
+              <div className="create-form-field">
+                <label className="create-form-label">Change Type</label>
+                <div className="create-form-readonly">Rate Change</div>
+              </div>
+
+              {/* Delta Type Radio */}
+              <div className="create-form-field">
+                <label className="create-form-label">Delta Type *</label>
+                <div className="create-form-radio-group">
+                  <label className="create-form-radio">
+                    <input
+                      type="radio"
+                      name="deltaType"
+                      checked={createForm.deltaType === "hourly"}
+                      onChange={() => setCreateForm({ ...createForm, deltaType: "hourly" })}
+                    />
+                    <span>$ / hour</span>
+                  </label>
+                  <label className="create-form-radio">
+                    <input
+                      type="radio"
+                      name="deltaType"
+                      checked={createForm.deltaType === "shift"}
+                      onChange={() => setCreateForm({ ...createForm, deltaType: "shift" })}
+                    />
+                    <span>$ / shift</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Delta Amount */}
+              <div className="create-form-field">
+                <label className="create-form-label">Delta Amount *</label>
+                <div className="create-form-input-wrapper">
+                  <span className="create-form-input-prefix">$</span>
+                  <input
+                    type="number"
+                    className="create-form-input create-form-input-with-prefix"
+                    placeholder="0.00"
+                    value={createForm.deltaAmount}
+                    onChange={(e) => setCreateForm({ ...createForm, deltaAmount: e.target.value })}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+
+              {/* Effective Date */}
+              <div className="create-form-field">
+                <label className="create-form-label">Effective Date *</label>
+                <input
+                  type="date"
+                  className="create-form-input"
+                  value={createForm.effectiveDate}
+                  onChange={(e) => setCreateForm({ ...createForm, effectiveDate: e.target.value })}
+                />
+              </div>
+
+              {/* Reason / Notes */}
+              <div className="create-form-field">
+                <label className="create-form-label">Reason / Notes</label>
+                <textarea
+                  className="create-form-textarea"
+                  placeholder="Enter reason for rate change..."
+                  value={createForm.notes}
+                  onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              {/* Approval Method Radio */}
+              <div className="create-form-field">
+                <label className="create-form-label">Approval Method *</label>
+                <div className="create-form-radio-group">
+                  <label className="create-form-radio">
+                    <input
+                      type="radio"
+                      name="approvalMethod"
+                      checked={createForm.approvalMethod === "Portal"}
+                      onChange={() => setCreateForm({ ...createForm, approvalMethod: "Portal" })}
+                    />
+                    <span>Portal Approval</span>
+                  </label>
+                  <label className="create-form-radio">
+                    <input
+                      type="radio"
+                      name="approvalMethod"
+                      checked={createForm.approvalMethod === "Email Authorization"}
+                      onChange={() => setCreateForm({ ...createForm, approvalMethod: "Email Authorization" })}
+                    />
+                    <span>Email Authorization</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Email Proof (conditional) */}
+              {createForm.approvalMethod === "Email Authorization" && (
+                <div className="create-form-field">
+                  <label className="create-form-label">Email on file</label>
+                  <input
+                    type="text"
+                    className="create-form-input"
+                    placeholder="Proof placeholder..."
+                    value={createForm.emailProof}
+                    onChange={(e) => setCreateForm({ ...createForm, emailProof: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="create-form-actions">
+                <button
+                  type="button"
+                  className="create-form-btn create-form-btn-secondary"
+                  onClick={handleCancelCreate}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="create-form-btn create-form-btn-draft"
+                  onClick={handleSaveDraft}
+                >
+                  Save Draft
+                </button>
+                <button
+                  type="button"
+                  className="create-form-btn create-form-btn-primary"
+                  onClick={handleMarkPending}
+                >
+                  Mark Pending
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1269,6 +1546,197 @@ export default function OrderDetailPage() {
           font-size: 13px;
           font-weight: 600;
           color: #93c5fd;
+        }
+
+        /* Change Orders Section Header */
+        .co-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 18px;
+        }
+
+        .co-section-header h2 {
+          margin: 0;
+        }
+
+        .create-rco-btn {
+          background: rgba(59, 130, 246, 0.15);
+          border: 1px solid rgba(59, 130, 246, 0.35);
+          color: #93c5fd;
+          padding: 10px 18px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          transition: all 0.15s ease;
+        }
+
+        .create-rco-btn:hover {
+          background: rgba(59, 130, 246, 0.25);
+          border-color: rgba(59, 130, 246, 0.5);
+          color: #bfdbfe;
+        }
+
+        /* Create RCO Panel */
+        .create-rco-panel {
+          width: 520px;
+        }
+
+        .create-form-field {
+          margin-bottom: 20px;
+        }
+
+        .create-form-label {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.6);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          margin-bottom: 8px;
+        }
+
+        .create-form-select,
+        .create-form-input,
+        .create-form-textarea {
+          width: 100%;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 8px;
+          padding: 12px 14px;
+          font-size: 14px;
+          color: #fff;
+          transition: all 0.15s ease;
+        }
+
+        .create-form-select:focus,
+        .create-form-input:focus,
+        .create-form-textarea:focus {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.5);
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .create-form-select {
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' fill-opacity='0.5' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          padding-right: 36px;
+        }
+
+        .create-form-select option {
+          background: #1f2937;
+          color: #fff;
+        }
+
+        .create-form-textarea {
+          resize: vertical;
+          min-height: 80px;
+        }
+
+        .create-form-readonly {
+          padding: 12px 14px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .create-form-radio-group {
+          display: flex;
+          gap: 20px;
+        }
+
+        .create-form-radio {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.85);
+        }
+
+        .create-form-radio input[type="radio"] {
+          width: 18px;
+          height: 18px;
+          accent-color: #3b82f6;
+          cursor: pointer;
+        }
+
+        .create-form-input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .create-form-input-prefix {
+          position: absolute;
+          left: 14px;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.5);
+          pointer-events: none;
+        }
+
+        .create-form-input-with-prefix {
+          padding-left: 28px;
+        }
+
+        .create-form-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .create-form-btn {
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .create-form-btn-secondary {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .create-form-btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: #fff;
+        }
+
+        .create-form-btn-draft {
+          background: rgba(148, 163, 184, 0.15);
+          border: 1px solid rgba(148, 163, 184, 0.3);
+          color: #94a3b8;
+        }
+
+        .create-form-btn-draft:hover {
+          background: rgba(148, 163, 184, 0.25);
+          border-color: rgba(148, 163, 184, 0.4);
+          color: #cbd5e1;
+        }
+
+        .create-form-btn-primary {
+          background: rgba(59, 130, 246, 0.2);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+          color: #93c5fd;
+          margin-left: auto;
+        }
+
+        .create-form-btn-primary:hover {
+          background: rgba(59, 130, 246, 0.3);
+          border-color: rgba(59, 130, 246, 0.5);
+          color: #bfdbfe;
         }
       `}</style>
     </div>
