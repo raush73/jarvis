@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 
 // Mock workers for the hours grid (UI-only)
@@ -28,6 +29,22 @@ function getStatusColor(status: string): string {
   }
 }
 
+// Placeholder REG/OT computation (UI-only, 40-hour baseline)
+function computeRegOt(totalHours: number, dt: number) {
+  const reg = Math.min(totalHours, 40);
+  const otComputed = Math.max(totalHours - 40, 0);
+  const otDisplay = Math.max(otComputed - dt, 0);
+  return { reg, otDisplay };
+}
+
+type EntryMode = "Daily" | "Total";
+
+interface WorkerHours {
+  daily: number[];
+  total: number;
+  dt: number;
+}
+
 export default function EnterHoursPage() {
   // Mock context data
   const mockContext = {
@@ -35,6 +52,69 @@ export default function EnterHoursPage() {
     jobOrder: "ORD-1042",
     weekEnding: "2026-02-08",
     status: "Draft",
+  };
+
+  const [entryMode, setEntryMode] = useState<EntryMode>("Daily");
+
+  // Per-worker hours state
+  const [workerHours, setWorkerHours] = useState<Record<string, WorkerHours>>(
+    () => {
+      const initial: Record<string, WorkerHours> = {};
+      MOCK_WORKERS.forEach((w) => {
+        initial[w.id] = {
+          daily: [0, 0, 0, 0, 0, 0, 0],
+          total: 0,
+          dt: 0,
+        };
+      });
+      return initial;
+    }
+  );
+
+  const handleDailyChange = (workerId: string, dayIndex: number, value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerHours((prev) => {
+      const worker = prev[workerId];
+      const newDaily = [...worker.daily];
+      newDaily[dayIndex] = numValue;
+      return {
+        ...prev,
+        [workerId]: {
+          ...worker,
+          daily: newDaily,
+        },
+      };
+    });
+  };
+
+  const handleTotalChange = (workerId: string, value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerHours((prev) => ({
+      ...prev,
+      [workerId]: {
+        ...prev[workerId],
+        total: numValue,
+      },
+    }));
+  };
+
+  const handleDtChange = (workerId: string, value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerHours((prev) => ({
+      ...prev,
+      [workerId]: {
+        ...prev[workerId],
+        dt: numValue,
+      },
+    }));
+  };
+
+  const getWorkerTotal = (workerId: string): number => {
+    const worker = workerHours[workerId];
+    if (entryMode === "Daily") {
+      return worker.daily.reduce((sum, h) => sum + h, 0);
+    }
+    return worker.total;
   };
 
   return (
@@ -104,6 +184,61 @@ export default function EnterHoursPage() {
         </div>
       </div>
 
+      {/* Hours Entry Mode Toggle */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "16px",
+        }}
+      >
+        <span style={{ fontSize: "14px", fontWeight: 500, color: "#374151" }}>
+          Hours Entry Mode:
+        </span>
+        <div
+          style={{
+            display: "inline-flex",
+            borderRadius: "6px",
+            overflow: "hidden",
+            border: "1px solid #d1d5db",
+          }}
+        >
+          <button
+            onClick={() => setEntryMode("Daily")}
+            style={{
+              padding: "6px 16px",
+              fontSize: "13px",
+              fontWeight: 500,
+              border: "none",
+              cursor: "pointer",
+              backgroundColor: entryMode === "Daily" ? "#2563eb" : "#fff",
+              color: entryMode === "Daily" ? "#fff" : "#374151",
+            }}
+          >
+            Daily
+          </button>
+          <button
+            onClick={() => setEntryMode("Total")}
+            style={{
+              padding: "6px 16px",
+              fontSize: "13px",
+              fontWeight: 500,
+              border: "none",
+              borderLeft: "1px solid #d1d5db",
+              cursor: "pointer",
+              backgroundColor: entryMode === "Total" ? "#2563eb" : "#fff",
+              color: entryMode === "Total" ? "#fff" : "#374151",
+            }}
+          >
+            Total
+          </button>
+        </div>
+        <span style={{ fontSize: "11px", color: "#9ca3af", fontStyle: "italic" }}>
+          (REG/OT placeholder: 40hr baseline, UI-only)
+        </span>
+      </div>
+
       {/* Hours Grid */}
       <div
         style={{
@@ -140,24 +275,39 @@ export default function EnterHoursPage() {
               >
                 Trade
               </th>
-              {DAYS.map((day) => (
+              {entryMode === "Daily" &&
+                DAYS.map((day) => (
+                  <th
+                    key={day}
+                    style={{
+                      padding: "12px 8px",
+                      textAlign: "center",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      borderBottom: "1px solid #e5e7eb",
+                      width: "60px",
+                    }}
+                  >
+                    {day}
+                  </th>
+                ))}
+              {entryMode === "Total" && (
                 <th
-                  key={day}
                   style={{
                     padding: "12px 8px",
                     textAlign: "center",
                     fontSize: "13px",
                     fontWeight: 600,
                     borderBottom: "1px solid #e5e7eb",
-                    width: "60px",
+                    width: "80px",
                   }}
                 >
-                  {day}
+                  Total
                 </th>
-              ))}
+              )}
               <th
                 style={{
-                  padding: "12px 16px",
+                  padding: "12px 8px",
                   textAlign: "center",
                   fontSize: "13px",
                   fontWeight: 600,
@@ -167,38 +317,167 @@ export default function EnterHoursPage() {
               >
                 Total
               </th>
+              <th
+                style={{
+                  padding: "12px 8px",
+                  textAlign: "center",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderBottom: "1px solid #e5e7eb",
+                  width: "60px",
+                }}
+              >
+                REG
+              </th>
+              <th
+                style={{
+                  padding: "12px 8px",
+                  textAlign: "center",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderBottom: "1px solid #e5e7eb",
+                  width: "60px",
+                }}
+              >
+                OT
+              </th>
+              <th
+                style={{
+                  padding: "12px 8px",
+                  textAlign: "center",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderBottom: "1px solid #e5e7eb",
+                  width: "70px",
+                }}
+              >
+                DT
+              </th>
             </tr>
           </thead>
           <tbody>
-            {MOCK_WORKERS.map((worker, idx) => (
-              <tr
-                key={worker.id}
-                style={{
-                  backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
-                }}
-              >
-                <td
+            {MOCK_WORKERS.map((worker, idx) => {
+              const totalHours = getWorkerTotal(worker.id);
+              const dt = workerHours[worker.id].dt;
+              const { reg, otDisplay } = computeRegOt(totalHours, dt);
+
+              return (
+                <tr
+                  key={worker.id}
                   style={{
-                    padding: "12px 16px",
-                    fontSize: "14px",
-                    borderBottom: "1px solid #e5e7eb",
+                    backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
                   }}
                 >
-                  {worker.name}
-                </td>
-                <td
-                  style={{
-                    padding: "12px 16px",
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    borderBottom: "1px solid #e5e7eb",
-                  }}
-                >
-                  {worker.trade}
-                </td>
-                {DAYS.map((day) => (
                   <td
-                    key={day}
+                    style={{
+                      padding: "12px 16px",
+                      fontSize: "14px",
+                      borderBottom: "1px solid #e5e7eb",
+                    }}
+                  >
+                    {worker.name}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 16px",
+                      fontSize: "13px",
+                      color: "#6b7280",
+                      borderBottom: "1px solid #e5e7eb",
+                    }}
+                  >
+                    {worker.trade}
+                  </td>
+                  {entryMode === "Daily" &&
+                    DAYS.map((day, dayIdx) => (
+                      <td
+                        key={day}
+                        style={{
+                          padding: "8px 4px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <input
+                          type="text"
+                          value={workerHours[worker.id].daily[dayIdx] || ""}
+                          onChange={(e) =>
+                            handleDailyChange(worker.id, dayIdx, e.target.value)
+                          }
+                          style={{
+                            width: "48px",
+                            padding: "6px 4px",
+                            textAlign: "center",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "4px",
+                            fontSize: "13px",
+                          }}
+                        />
+                      </td>
+                    ))}
+                  {entryMode === "Total" && (
+                    <td
+                      style={{
+                        padding: "8px 4px",
+                        textAlign: "center",
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={workerHours[worker.id].total || ""}
+                        onChange={(e) =>
+                          handleTotalChange(worker.id, e.target.value)
+                        }
+                        style={{
+                          width: "60px",
+                          padding: "6px 4px",
+                          textAlign: "center",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "4px",
+                          fontSize: "13px",
+                        }}
+                      />
+                    </td>
+                  )}
+                  {/* Total (computed display) */}
+                  <td
+                    style={{
+                      padding: "12px 8px",
+                      textAlign: "center",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      borderBottom: "1px solid #e5e7eb",
+                      color: "#374151",
+                    }}
+                  >
+                    {totalHours}
+                  </td>
+                  {/* REG (read-only) */}
+                  <td
+                    style={{
+                      padding: "12px 8px",
+                      textAlign: "center",
+                      fontSize: "13px",
+                      borderBottom: "1px solid #e5e7eb",
+                      color: "#6b7280",
+                    }}
+                  >
+                    {reg}
+                  </td>
+                  {/* OT (read-only, after DT reduction) */}
+                  <td
+                    style={{
+                      padding: "12px 8px",
+                      textAlign: "center",
+                      fontSize: "13px",
+                      borderBottom: "1px solid #e5e7eb",
+                      color: "#6b7280",
+                    }}
+                  >
+                    {otDisplay}
+                  </td>
+                  {/* DT (editable) */}
+                  <td
                     style={{
                       padding: "8px 4px",
                       textAlign: "center",
@@ -207,31 +486,22 @@ export default function EnterHoursPage() {
                   >
                     <input
                       type="text"
+                      value={workerHours[worker.id].dt || ""}
+                      onChange={(e) => handleDtChange(worker.id, e.target.value)}
                       style={{
                         width: "48px",
                         padding: "6px 4px",
                         textAlign: "center",
-                        border: "1px solid #d1d5db",
+                        border: "1px solid #2563eb",
                         borderRadius: "4px",
                         fontSize: "13px",
+                        backgroundColor: "#eff6ff",
                       }}
                     />
                   </td>
-                ))}
-                <td
-                  style={{
-                    padding: "12px 16px",
-                    textAlign: "center",
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    borderBottom: "1px solid #e5e7eb",
-                    color: "#6b7280",
-                  }}
-                >
-                  0
-                </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
