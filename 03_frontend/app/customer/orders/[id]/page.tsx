@@ -18,7 +18,7 @@ type Order = {
   customerVisibleSummary: Array<{ k: string; v: string }>;
 };
 
-type TabKey = "overview" | "trades" | "safety" | "time" | "invoices";
+type TabKey = "overview" | "trades" | "safety" | "time" | "invoices" | "changeOrders";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -26,6 +26,99 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "safety", label: "Safety" },
   { key: "time", label: "Time" },
   { key: "invoices", label: "Invoices" },
+  { key: "changeOrders", label: "Change Orders" },
+];
+
+// Change Order types and mock data (Customer Portal - Read-only)
+type ChangeOrderStatus = "Draft" | "Pending" | "Approved" | "Rejected";
+type ApprovalMethod = "Portal" | "Email Authorization";
+
+type ChangeOrder = {
+  id: string;
+  status: ChangeOrderStatus;
+  employee: string;
+  changeType: string;
+  delta: string;
+  effectiveDate: string;
+  requestedBy: string;
+  approvalMethod: ApprovalMethod;
+  proof: string;
+  dispatchAmendment: string;
+  requestedOn: string;
+  fullSummary: string;
+};
+
+const MOCK_CHANGE_ORDERS: ChangeOrder[] = [
+  {
+    id: "CO-001",
+    status: "Approved",
+    employee: "Marcus Johnson",
+    changeType: "Rate Change",
+    delta: "+$3.00 / hr",
+    effectiveDate: "2024-03-01",
+    requestedBy: "Casey Rivers (PM)",
+    approvalMethod: "Portal",
+    proof: "Portal Approval",
+    dispatchAmendment: "v2",
+    requestedOn: "2024-02-25",
+    fullSummary: "Rate increase for Marcus Johnson from $28.00/hr to $31.00/hr due to expanded scope including lead responsibilities on night shift crew.",
+  },
+  {
+    id: "CO-002",
+    status: "Approved",
+    employee: "Sarah Chen",
+    changeType: "Rate Change",
+    delta: "+$150 / shift",
+    effectiveDate: "2024-02-20",
+    requestedBy: "Jordan Miles (Sales)",
+    approvalMethod: "Email Authorization",
+    proof: "Email Uploaded",
+    dispatchAmendment: "v2",
+    requestedOn: "2024-02-18",
+    fullSummary: "Shift differential added for Sarah Chen for weekend coverage. Customer authorized via email on 2024-02-18.",
+  },
+  {
+    id: "CO-003",
+    status: "Pending",
+    employee: "David Martinez",
+    changeType: "Rate Change",
+    delta: "+$2.50 / hr",
+    effectiveDate: "2024-03-15",
+    requestedBy: "Casey Rivers (PM)",
+    approvalMethod: "Portal",
+    proof: "Awaiting Approval",
+    dispatchAmendment: "—",
+    requestedOn: "2024-03-01",
+    fullSummary: "Rate adjustment request for David Martinez to match market rate for certified welders. Pending customer approval.",
+  },
+  {
+    id: "CO-004",
+    status: "Draft",
+    employee: "Emily Rodriguez",
+    changeType: "Rate Change",
+    delta: "+$4.00 / hr",
+    effectiveDate: "2024-03-20",
+    requestedBy: "Internal",
+    approvalMethod: "Portal",
+    proof: "—",
+    dispatchAmendment: "—",
+    requestedOn: "2024-03-05",
+    fullSummary: "Draft rate change for Emily Rodriguez for hazard pay classification. Not yet submitted to customer.",
+  },
+  {
+    id: "CO-005",
+    status: "Rejected",
+    employee: "James Wilson",
+    changeType: "Rate Change",
+    delta: "+$5.00 / hr",
+    effectiveDate: "2024-02-15",
+    requestedBy: "Jordan Miles (Sales)",
+    approvalMethod: "Email Authorization",
+    proof: "—",
+    dispatchAmendment: "—",
+    requestedOn: "2024-02-10",
+    fullSummary: "Rate increase request for James Wilson was rejected by customer. Original rate to remain in effect.",
+  },
 ];
 
 // Mock Trades Data
@@ -136,11 +229,28 @@ function getStatusStyle(status: Status): { bg: string; text: string; border: str
   }
 }
 
+// Status badge styling for change orders
+function getChangeOrderStatusStyle(status: ChangeOrderStatus) {
+  switch (status) {
+    case "Approved":
+      return { bg: "rgba(34, 197, 94, 0.12)", color: "#4ade80", border: "rgba(34, 197, 94, 0.3)" };
+    case "Pending":
+      return { bg: "rgba(245, 158, 11, 0.12)", color: "#fbbf24", border: "rgba(245, 158, 11, 0.3)" };
+    case "Rejected":
+      return { bg: "rgba(239, 68, 68, 0.12)", color: "#f87171", border: "rgba(239, 68, 68, 0.3)" };
+    default: // Draft
+      return { bg: "rgba(148, 163, 184, 0.12)", color: "#94a3b8", border: "rgba(148, 163, 184, 0.3)" };
+  }
+}
+
 export default function CustomerOrderPage() {
   const router = useRouter();
   const params = useParams();
   const id = (params?.id as string) || "cust_ord_001";
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  
+  // Change Order detail panel state (read-only)
+  const [selectedChangeOrder, setSelectedChangeOrder] = useState<ChangeOrder | null>(null);
 
   const order: Order =
     MOCK_ORDERS[id] ?? {
@@ -473,7 +583,184 @@ export default function CustomerOrderPage() {
               </section>
             </div>
           )}
+
+          {/* CHANGE ORDERS TAB (Read-only) */}
+          {activeTab === "changeOrders" && (
+            <div className="grid">
+              <section className="card card-wide">
+                <h2>Change Orders</h2>
+                <div className="co-table">
+                  <div className="co-table-header">
+                    <span className="co-col-status">Status</span>
+                    <span className="co-col-employee">Employee</span>
+                    <span className="co-col-type">Change Type</span>
+                    <span className="co-col-delta">Delta</span>
+                    <span className="co-col-effective">Effective Date</span>
+                    <span className="co-col-requested-by">Requested By</span>
+                    <span className="co-col-method">Approval Method</span>
+                    <span className="co-col-proof">Proof</span>
+                    <span className="co-col-amendment">Amendment</span>
+                    <span className="co-col-requested-on">Requested On</span>
+                  </div>
+                  {MOCK_CHANGE_ORDERS.map((co) => {
+                    const statusStyle = getChangeOrderStatusStyle(co.status);
+                    const isApproved = co.status === "Approved";
+                    return (
+                      <button
+                        key={co.id}
+                        type="button"
+                        className={`co-table-row ${isApproved ? "co-row-approved" : ""}`}
+                        onClick={() => setSelectedChangeOrder(co)}
+                      >
+                        <span className="co-col-status">
+                          <span
+                            className="co-status-badge"
+                            style={{
+                              background: statusStyle.bg,
+                              color: statusStyle.color,
+                              borderColor: statusStyle.border,
+                            }}
+                          >
+                            {co.status}
+                          </span>
+                        </span>
+                        <span className="co-col-employee">{co.employee}</span>
+                        <span className="co-col-type">{co.changeType}</span>
+                        <span className="co-col-delta">{co.delta}</span>
+                        <span className="co-col-effective">{co.effectiveDate}</span>
+                        <span className="co-col-requested-by">{co.requestedBy}</span>
+                        <span className="co-col-method">{co.approvalMethod}</span>
+                        <span className="co-col-proof">{co.proof}</span>
+                        <span className="co-col-amendment">{co.dispatchAmendment}</span>
+                        <span className="co-col-requested-on">{co.requestedOn}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="card card-wide subtle">
+                <div className="transparency-note">
+                  <span className="transparency-icon">ℹ</span>
+                  <span className="transparency-text">
+                    Change orders reflect rate adjustments approved for this order. This view is read-only. Contact your MW4H representative for questions.
+                  </span>
+                </div>
+              </section>
+            </div>
+          )}
         </div>
+
+        {/* Change Order Detail Panel (Side Panel - Read-only) */}
+        {selectedChangeOrder && (
+          <div className="co-detail-overlay" onClick={() => setSelectedChangeOrder(null)}>
+            <div className="co-detail-panel" onClick={(e) => e.stopPropagation()}>
+              <div className="co-detail-header">
+                <div className="co-detail-header-left">
+                  <h3>Change Order Details</h3>
+                  <span className="co-readonly-badge">Read-only</span>
+                </div>
+                <button
+                  type="button"
+                  className="co-detail-close"
+                  onClick={() => setSelectedChangeOrder(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="co-detail-body">
+                {/* Status Badge */}
+                <div className="co-detail-status-row">
+                  {(() => {
+                    const statusStyle = getChangeOrderStatusStyle(selectedChangeOrder.status);
+                    const isApproved = selectedChangeOrder.status === "Approved";
+                    return (
+                      <>
+                        <span
+                          className="co-detail-status-badge"
+                          style={{
+                            background: statusStyle.bg,
+                            color: statusStyle.color,
+                            borderColor: statusStyle.border,
+                          }}
+                        >
+                          {selectedChangeOrder.status}
+                        </span>
+                        {isApproved && (
+                          <span className="co-immutable-badge">Immutable</span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Full Summary */}
+                <div className="co-detail-section">
+                  <h4>Change Summary</h4>
+                  <p className={`co-detail-summary ${selectedChangeOrder.status === "Approved" ? "co-summary-muted" : ""}`}>
+                    {selectedChangeOrder.fullSummary}
+                  </p>
+                </div>
+
+                {/* Details Grid */}
+                <div className="co-detail-section">
+                  <h4>Details</h4>
+                  <div className="co-detail-grid">
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Employee</span>
+                      <span className="co-detail-value">{selectedChangeOrder.employee}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Change Type</span>
+                      <span className="co-detail-value">{selectedChangeOrder.changeType}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Delta</span>
+                      <span className="co-detail-value co-delta-value">{selectedChangeOrder.delta}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Effective Date</span>
+                      <span className="co-detail-value">{selectedChangeOrder.effectiveDate}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Requested By</span>
+                      <span className="co-detail-value">{selectedChangeOrder.requestedBy}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Requested On</span>
+                      <span className="co-detail-value">{selectedChangeOrder.requestedOn}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Approval Info */}
+                <div className="co-detail-section">
+                  <h4>Approval Information</h4>
+                  <div className="co-detail-grid">
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Approval Method</span>
+                      <span className="co-detail-value">{selectedChangeOrder.approvalMethod}</span>
+                    </div>
+                    <div className="co-detail-item">
+                      <span className="co-detail-label">Proof</span>
+                      <span className="co-detail-value">{selectedChangeOrder.proof}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dispatch Amendment */}
+                {selectedChangeOrder.dispatchAmendment !== "—" && (
+                  <div className="co-detail-section">
+                    <h4>Dispatch Amendment</h4>
+                    <div className="co-amendment-badge">
+                      Dispatch Amendment: {selectedChangeOrder.dispatchAmendment}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="footer-note">
           <span className="i">i</span>
@@ -1113,6 +1400,267 @@ export default function CustomerOrderPage() {
         .inv-status-partial {
           background: rgba(245, 158, 11, 0.12);
           color: #fbbf24;
+        }
+
+        /* Change Orders Tab */
+        .co-table {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          overflow-x: auto;
+        }
+
+        .co-table-header,
+        .co-table-row {
+          display: grid;
+          grid-template-columns: 100px 140px 100px 110px 110px 150px 130px 120px 90px 110px;
+          gap: 8px;
+          padding: 12px 14px;
+          align-items: center;
+          min-width: 1160px;
+        }
+
+        .co-table-header {
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+        }
+
+        .co-table-row {
+          background: rgba(255, 255, 255, 0.015);
+          border: 1px solid transparent;
+          border-radius: 6px;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.85);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+          width: 100%;
+        }
+
+        .co-table-row:hover {
+          background: rgba(59, 130, 246, 0.08);
+          border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .co-row-approved {
+          opacity: 0.75;
+        }
+
+        .co-row-approved:hover {
+          opacity: 1;
+        }
+
+        .co-status-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .co-col-delta {
+          font-weight: 600;
+          color: #4ade80;
+        }
+
+        .co-col-amendment {
+          font-family: monospace;
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Change Order Detail Panel (Side Panel) */
+        .co-detail-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          z-index: 1000;
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .co-detail-panel {
+          width: 480px;
+          max-width: 90vw;
+          height: 100%;
+          background: #111827;
+          border-left: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex;
+          flex-direction: column;
+          animation: slideIn 0.2s ease;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        .co-detail-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .co-detail-header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .co-detail-header h3 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .co-readonly-badge {
+          font-size: 9px;
+          padding: 3px 8px;
+          background: rgba(34, 197, 94, 0.1);
+          color: #86efac;
+          border: 1px solid rgba(34, 197, 94, 0.2);
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          font-weight: 700;
+        }
+
+        .co-detail-close {
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 28px;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+          transition: color 0.15s ease;
+        }
+
+        .co-detail-close:hover {
+          color: #fff;
+        }
+
+        .co-detail-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+        }
+
+        .co-detail-status-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .co-detail-status-badge {
+          display: inline-block;
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1px solid;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .co-immutable-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          background: rgba(148, 163, 184, 0.15);
+          color: rgba(148, 163, 184, 0.8);
+          border: 1px dashed rgba(148, 163, 184, 0.3);
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .co-detail-section {
+          margin-bottom: 24px;
+        }
+
+        .co-detail-section h4 {
+          margin: 0 0 12px 0;
+          font-size: 12px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .co-detail-summary {
+          margin: 0;
+          font-size: 14px;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.85);
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .co-summary-muted {
+          opacity: 0.7;
+          border-style: dashed;
+        }
+
+        .co-detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        .co-detail-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .co-detail-label {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.45);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+        }
+
+        .co-detail-value {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .co-delta-value {
+          color: #4ade80;
+          font-weight: 600;
+        }
+
+        .co-amendment-badge {
+          display: inline-block;
+          padding: 8px 14px;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.25);
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #93c5fd;
         }
 
         .footer-note {
