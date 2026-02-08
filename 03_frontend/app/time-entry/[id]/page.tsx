@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 
 // =============================================================================
@@ -135,98 +135,6 @@ function computeWeeklyTotals(jobRows: JobRow[]): {
 }
 
 // =============================================================================
-// SD OVERLAY HELPER — PURE OBSERVER (NEVER MODIFIES ALLOCATOR)
-// =============================================================================
-// This function READS allocator output and SD flags to compute SD breakdown.
-// It does NOT call the allocator. It does NOT change allocator results.
-// =============================================================================
-interface SdOverlayResult {
-  regSd: number;
-  otSd: number;
-  dtSd: number;
-  perRowSd: { regSd: number; otSd: number; dtSd: number }[];
-}
-
-function computeShiftDiffOverlay(
-  jobBreakdown: { reg: number; ot: number; dt: number }[],
-  sdDayFlags: boolean[], // per-day SD flags for this worker (length 7)
-  dailyHoursPerRow: number[][] // [rowIdx][dayIdx] — raw hours per row per day
-): SdOverlayResult {
-  // For daily mode: we need to compute how much of each row's REG/OT/DT came from SD days
-  // We'll re-walk the allocation logic (without modifying it) to attribute SD hours
-  
-  // Initialize per-row SD accumulators
-  const perRowSd: { regSd: number; otSd: number; dtSd: number }[] = jobBreakdown.map(() => ({
-    regSd: 0,
-    otSd: 0,
-    dtSd: 0,
-  }));
-
-  let runningTotal = 0;
-
-  // Walk chronologically: Mon→Sun, within day: row order (mirrors allocator logic)
-  for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-    const isSdDay = sdDayFlags[dayIdx];
-
-    for (let rowIdx = 0; rowIdx < dailyHoursPerRow.length; rowIdx++) {
-      const hours = dailyHoursPerRow[rowIdx]?.[dayIdx] || 0;
-      if (hours <= 0) continue;
-
-      // Determine how this cell's hours were allocated (mirrors allocator)
-      const hoursBeforeThisCell = runningTotal;
-      const hoursAfterThisCell = runningTotal + hours;
-
-      let regPortion = 0;
-      let otPortion = 0;
-      const dtPortion = 0; // DT is always 0 in current allocator
-
-      if (hoursBeforeThisCell >= 40) {
-        // All OT
-        otPortion = hours;
-      } else if (hoursAfterThisCell <= 40) {
-        // All REG
-        regPortion = hours;
-      } else {
-        // Split: some REG, some OT
-        regPortion = 40 - hoursBeforeThisCell;
-        otPortion = hours - regPortion;
-      }
-
-      // If this day has SD enabled, add to SD totals
-      if (isSdDay) {
-        perRowSd[rowIdx].regSd += regPortion;
-        perRowSd[rowIdx].otSd += otPortion;
-        perRowSd[rowIdx].dtSd += dtPortion;
-      }
-
-      runningTotal = hoursAfterThisCell;
-    }
-  }
-
-  // Sum totals
-  const regSd = perRowSd.reduce((sum, r) => sum + r.regSd, 0);
-  const otSd = perRowSd.reduce((sum, r) => sum + r.otSd, 0);
-  const dtSd = perRowSd.reduce((sum, r) => sum + r.dtSd, 0);
-
-  return { regSd, otSd, dtSd, perRowSd };
-}
-
-// Weekly mode SD overlay — simpler: uses weekly totals and weekly SD hours input
-function computeWeeklyShiftDiffOverlay(
-  weeklyTotals: { reg: number; ot: number; dt: number },
-  weeklyRegSd: number,
-  weeklyOtSd: number,
-  weeklyDtSd: number
-): { regSd: number; otSd: number; dtSd: number } {
-  // Clamp SD values to not exceed lane totals
-  return {
-    regSd: Math.min(weeklyRegSd, weeklyTotals.reg),
-    otSd: Math.min(weeklyOtSd, weeklyTotals.ot),
-    dtSd: Math.min(weeklyDtSd, weeklyTotals.dt),
-  };
-}
-
-// =============================================================================
 // GOLD ALLOCATOR — DO NOT MODIFY
 // =============================================================================
 // Compute derived REG/OT/DT for an employee across all job rows
@@ -299,27 +207,29 @@ export default function TimeEntryPage() {
   const [entryMode, setEntryMode] = useState<EntryMode>("daily");
 
   // =============================================================================
-  // SD STATE — Worker-level toggles, Day-level toggles, Weekly SD inputs
+  // SD STATE — Worker-level enable, Project-Row/Day toggles (INTENT ONLY)
   // =============================================================================
   // Worker-level SD enable: { [employeeId]: boolean }
+  // This gates ALL SD UI for the employee (week-scoped enable)
+  // Meaning: "This employee is eligible for shift differential THIS WEEK."
   const [workerSdEnabled, setWorkerSdEnabled] = useState<Record<string, boolean>>({
     emp1: false,
     emp2: true, // Demo: Sarah Chen has SD enabled
   });
 
-  // Day-level SD flags: { [employeeId]: boolean[7] } — per worker, per day
-  const [sdDayFlags, setSdDayFlags] = useState<Record<string, boolean[]>>({
-    emp1: [false, false, false, false, false, false, false],
-    emp2: [true, true, true, true, true, false, false], // Demo: Mon-Fri SD for Sarah
+  // Project-Row/Day SD flags: { [employeeId]: { [jobRowId]: boolean[7] } }
+  // Each job row has its OWN SD-by-day state (SNAPSHOT-SAFE shape)
+  // Records INTENT only — which PROJECT + DAY hours are marked as SD
+  const [rowSdFlags, setRowSdFlags] = useState<Record<string, Record<string, boolean[]>>>({
+    emp1: {
+      "emp1-job1": [false, false, false, false, false, false, false],
+    },
+    emp2: {
+      "emp2-job1": [true, true, true, true, true, false, false], // Demo: Mon-Fri SD for Sarah's first job
+    },
   });
 
-  // Weekly mode SD inputs: { [employeeId]: { regSd, otSd, dtSd } }
-  const [weeklySdInputs, setWeeklySdInputs] = useState<Record<string, { regSd: number; otSd: number; dtSd: number }>>({
-    emp1: { regSd: 0, otSd: 0, dtSd: 0 },
-    emp2: { regSd: 40, otSd: 14, dtSd: 0 }, // Demo values for Sarah
-  });
-
-  // Toggle worker-level SD
+  // Toggle worker-level SD (gates all SD UI for this employee)
   const toggleWorkerSd = (employeeId: string) => {
     setWorkerSdEnabled((prev) => ({
       ...prev,
@@ -327,30 +237,41 @@ export default function TimeEntryPage() {
     }));
   };
 
-  // Toggle day-level SD for a worker
-  const toggleDaySd = (employeeId: string, dayIdx: number) => {
-    setSdDayFlags((prev) => {
-      const current = prev[employeeId] || [false, false, false, false, false, false, false];
+  // Toggle day-level SD for a specific job row
+  const toggleRowDaySd = (employeeId: string, rowId: string, dayIdx: number) => {
+    setRowSdFlags((prev) => {
+      const empRows = prev[employeeId] || {};
+      const current = empRows[rowId] || [false, false, false, false, false, false, false];
       const updated = [...current];
       updated[dayIdx] = !updated[dayIdx];
-      return { ...prev, [employeeId]: updated };
+      return {
+        ...prev,
+        [employeeId]: {
+          ...empRows,
+          [rowId]: updated,
+        },
+      };
     });
   };
 
-  // Update weekly SD input
-  const updateWeeklySdInput = (
-    employeeId: string,
-    field: "regSd" | "otSd" | "dtSd",
-    value: string
-  ) => {
-    const numValue = parseFloat(value) || 0;
-    setWeeklySdInputs((prev) => ({
-      ...prev,
-      [employeeId]: {
-        ...(prev[employeeId] || { regSd: 0, otSd: 0, dtSd: 0 }),
-        [field]: numValue,
-      },
-    }));
+  // Initialize SD flags for a new job row
+  const initRowSdFlags = (employeeId: string, rowId: string) => {
+    setRowSdFlags((prev) => {
+      const empRows = prev[employeeId] || {};
+      if (empRows[rowId]) return prev; // Already exists
+      return {
+        ...prev,
+        [employeeId]: {
+          ...empRows,
+          [rowId]: [false, false, false, false, false, false, false],
+        },
+      };
+    });
+  };
+
+  // Helper: Get SD flags for a row (with fallback)
+  const getRowSdFlags = (employeeId: string, rowId: string): boolean[] => {
+    return rowSdFlags[employeeId]?.[rowId] || [false, false, false, false, false, false, false];
   };
 
   // Initialize with 2 mock employees, each with 1 default job row
@@ -393,10 +314,10 @@ export default function TimeEntryPage() {
 
   // Add a new job row for an employee
   const addJobRow = (employeeId: string) => {
+    const newRowId = `${employeeId}-job${Date.now()}`;
     setEmployees((prev) =>
       prev.map((emp) => {
         if (emp.id !== employeeId) return emp;
-        const newRowId = `${emp.id}-job${emp.jobRows.length + 1}-${Date.now()}`;
         return {
           ...emp,
           jobRows: [
@@ -413,6 +334,8 @@ export default function TimeEntryPage() {
         };
       })
     );
+    // Initialize SD flags for the new row
+    initRowSdFlags(employeeId, newRowId);
   };
 
   // Remove a job row for an employee
@@ -713,29 +636,8 @@ export default function TimeEntryPage() {
         const totals = entryMode === "daily" ? dailyTotals : weeklyTotals;
         const showMismatchWarning = entryMode === "weekly" && weeklyTotals.mismatch;
 
-        // SD state for this worker
+        // SD state for this worker (INTENT ONLY — no calculations)
         const isWorkerSdEnabled = JOB_HAS_SHIFT_DIFF && (workerSdEnabled[employee.id] ?? false);
-        const workerSdDayFlags = sdDayFlags[employee.id] || [false, false, false, false, false, false, false];
-        const workerWeeklySd = weeklySdInputs[employee.id] || { regSd: 0, otSd: 0, dtSd: 0 };
-
-        // Compute SD overlay (READS allocator output, NEVER modifies it)
-        const dailyHoursPerRow = employee.jobRows.map((r) => r.dailyHours);
-        const sdOverlay = isWorkerSdEnabled && entryMode === "daily"
-          ? computeShiftDiffOverlay(dailyTotals.jobBreakdown, workerSdDayFlags, dailyHoursPerRow)
-          : { regSd: 0, otSd: 0, dtSd: 0, perRowSd: employee.jobRows.map(() => ({ regSd: 0, otSd: 0, dtSd: 0 })) };
-
-        // Weekly mode SD overlay
-        const weeklySdOverlay = isWorkerSdEnabled && entryMode === "weekly"
-          ? computeWeeklyShiftDiffOverlay(
-              { reg: weeklyTotals.reg, ot: weeklyTotals.ot, dt: weeklyTotals.dt },
-              workerWeeklySd.regSd,
-              workerWeeklySd.otSd,
-              workerWeeklySd.dtSd
-            )
-          : { regSd: 0, otSd: 0, dtSd: 0 };
-
-        // Final SD values based on mode
-        const finalSd = entryMode === "daily" ? sdOverlay : weeklySdOverlay;
 
         return (
           <div
@@ -773,22 +675,6 @@ export default function TimeEntryPage() {
                 </div>
               </div>
 
-              {/* SD Breakdown Display — only shown when worker SD is enabled */}
-              {isWorkerSdEnabled && (
-                <div className="mt-2 flex items-center gap-4 text-xs">
-                  <span className="text-slate-500">SD Breakdown:</span>
-                  <span className="text-purple-400">
-                    REG: {totals.reg} <span className="text-purple-300/70">(SD: {finalSd.regSd})</span>
-                  </span>
-                  <span className="text-purple-400">
-                    OT: {totals.ot} <span className="text-purple-300/70">(SD: {finalSd.otSd})</span>
-                  </span>
-                  <span className="text-purple-400">
-                    DT: {totals.dt} <span className="text-purple-300/70">(SD: {finalSd.dtSd})</span>
-                  </span>
-                </div>
-              )}
-
               {/* OT Mismatch Warning */}
               {showMismatchWarning && (
                 <div className="mt-2 px-2 py-1 bg-amber-900/30 border border-amber-700 rounded text-xs text-amber-400">
@@ -807,25 +693,12 @@ export default function TimeEntryPage() {
                     </th>
                     {entryMode === "daily" ? (
                       <>
-                        {DAYS.map((day, dayIdx) => (
+                        {DAYS.map((day) => (
                           <th
                             key={day}
                             className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-16"
                           >
                             <div>{day}</div>
-                            {/* Day-level SD toggle — only shown when worker SD is enabled */}
-                            {isWorkerSdEnabled && (
-                              <button
-                                onClick={() => toggleDaySd(employee.id, dayIdx)}
-                                className={`mt-1 px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
-                                  workerSdDayFlags[dayIdx]
-                                    ? "bg-purple-800/60 text-purple-300 border border-purple-600"
-                                    : "bg-slate-700/50 text-slate-500 border border-slate-600 hover:text-slate-400"
-                                }`}
-                              >
-                                SD
-                              </button>
-                            )}
                           </th>
                         ))}
                       </>
@@ -859,148 +732,139 @@ export default function TimeEntryPage() {
                     const rowTotalDaily = row.dailyHours.reduce((s, h) => s + h, 0);
                     const breakdown = totals.jobBreakdown[rowIdx];
                     const isFirstRow = rowIdx === 0;
+                    const rowSdFlagsArr = getRowSdFlags(employee.id, row.id);
 
                     return (
-                      <tr key={row.id} className="border-b border-slate-700/50">
-                        <td className="px-4 py-2">
-                          {isFirstRow ? (
-                            <span className="text-sm text-slate-200">
-                              {getJobName(row.jobId)}
-                            </span>
-                          ) : (
-                            <select
-                              value={row.jobId}
-                              onChange={(e) =>
-                                updateJobSelection(employee.id, row.id, e.target.value)
-                              }
-                              className="w-full px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
-                            >
-                              {MOCK_JOB_OPTIONS.map((job) => (
-                                <option key={job.id} value={job.id}>
-                                  {job.name}
-                                </option>
+                      <React.Fragment key={row.id}>
+                        {/* Main job row */}
+                        <tr className="border-b border-slate-700/50">
+                          <td className="px-4 py-2">
+                            {isFirstRow ? (
+                              <span className="text-sm text-slate-200">
+                                {getJobName(row.jobId)}
+                              </span>
+                            ) : (
+                              <select
+                                value={row.jobId}
+                                onChange={(e) =>
+                                  updateJobSelection(employee.id, row.id, e.target.value)
+                                }
+                                className="w-full px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                              >
+                                {MOCK_JOB_OPTIONS.map((job) => (
+                                  <option key={job.id} value={job.id}>
+                                    {job.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                          {entryMode === "daily" ? (
+                            <>
+                              {DAYS.map((day, dayIdx) => (
+                                <td key={day} className="px-1 py-2 text-center">
+                                  <input
+                                    type="text"
+                                    value={row.dailyHours[dayIdx] || ""}
+                                    onChange={(e) =>
+                                      updateDailyHours(employee.id, row.id, dayIdx, e.target.value)
+                                    }
+                                    className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                                  />
+                                </td>
                               ))}
-                            </select>
+                            </>
+                          ) : (
+                            <td className="px-1 py-2 text-center">
+                              <input
+                                type="text"
+                                value={row.weeklyTotalHours || ""}
+                                onChange={(e) =>
+                                  updateWeeklyTotalHours(employee.id, row.id, e.target.value)
+                                }
+                                className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                              />
+                            </td>
                           )}
-                        </td>
-                        {entryMode === "daily" ? (
-                          <>
-                            {DAYS.map((day, dayIdx) => (
-                              <td key={day} className="px-1 py-2 text-center">
-                                <input
-                                  type="text"
-                                  value={row.dailyHours[dayIdx] || ""}
-                                  onChange={(e) =>
-                                    updateDailyHours(employee.id, row.id, dayIdx, e.target.value)
-                                  }
-                                  className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
-                                />
-                              </td>
-                            ))}
-                          </>
-                        ) : (
+                          <td className="px-2 py-2 text-center text-sm font-medium text-slate-200">
+                            {entryMode === "daily" ? rowTotalDaily : row.weeklyTotalHours}
+                          </td>
+                          <td className="px-2 py-2 text-center text-sm text-slate-400">
+                            {breakdown?.reg || 0}
+                          </td>
+                          {/* OT column: editable input in weekly mode when otEditable, otherwise display-only */}
+                          <td className="px-1 py-2 text-center">
+                            {entryMode === "weekly" && weeklyTotals.otEditable ? (
+                              <input
+                                type="text"
+                                value={row.weeklyOtAllocation || ""}
+                                onChange={(e) =>
+                                  updateWeeklyOtAllocation(employee.id, row.id, e.target.value)
+                                }
+                                className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                              />
+                            ) : (
+                              <span className="text-sm text-slate-400">
+                                {breakdown?.ot || 0}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-center text-sm text-slate-400">
+                            {breakdown?.dt || 0}
+                          </td>
                           <td className="px-1 py-2 text-center">
                             <input
                               type="text"
-                              value={row.weeklyTotalHours || ""}
+                              value={row.perDiemDays || ""}
                               onChange={(e) =>
-                                updateWeeklyTotalHours(employee.id, row.id, e.target.value)
+                                updatePerDiemDays(employee.id, row.id, e.target.value)
                               }
                               className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
                             />
                           </td>
+                          <td className="px-2 py-2 text-center">
+                            {!isFirstRow && (
+                              <button
+                                onClick={() => removeJobRow(employee.id, row.id)}
+                                className="text-xs text-red-400 hover:text-red-300"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Per-row SD toggles — only shown when worker SD is enabled (INTENT ONLY) */}
+                        {isWorkerSdEnabled && entryMode === "daily" && (
+                          <tr className="bg-purple-900/10 border-b border-slate-700/30">
+                            <td className="px-4 py-1 text-[10px] text-purple-400">
+                              SD
+                            </td>
+                            {DAYS.map((day, dayIdx) => (
+                              <td key={day} className="px-1 py-1 text-center">
+                                <button
+                                  onClick={() => toggleRowDaySd(employee.id, row.id, dayIdx)}
+                                  className={`w-8 h-5 text-[10px] font-medium rounded transition-colors ${
+                                    rowSdFlagsArr[dayIdx]
+                                      ? "bg-purple-700/70 text-purple-200 border border-purple-500"
+                                      : "bg-slate-700/40 text-slate-500 border border-slate-600 hover:text-slate-400"
+                                  }`}
+                                >
+                                  {rowSdFlagsArr[dayIdx] ? "✓" : ""}
+                                </button>
+                              </td>
+                            ))}
+                            {/* Empty cells to align with table columns */}
+                            <td colSpan={5}>&nbsp;</td>
+                          </tr>
                         )}
-                        <td className="px-2 py-2 text-center text-sm font-medium text-slate-200">
-                          {entryMode === "daily" ? rowTotalDaily : row.weeklyTotalHours}
-                        </td>
-                        <td className="px-2 py-2 text-center text-sm text-slate-400">
-                          {breakdown?.reg || 0}
-                        </td>
-                        {/* OT column: editable input in weekly mode when otEditable, otherwise display-only */}
-                        <td className="px-1 py-2 text-center">
-                          {entryMode === "weekly" && weeklyTotals.otEditable ? (
-                            <input
-                              type="text"
-                              value={row.weeklyOtAllocation || ""}
-                              onChange={(e) =>
-                                updateWeeklyOtAllocation(employee.id, row.id, e.target.value)
-                              }
-                              className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
-                            />
-                          ) : (
-                            <span className="text-sm text-slate-400">
-                              {breakdown?.ot || 0}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-center text-sm text-slate-400">
-                          {breakdown?.dt || 0}
-                        </td>
-                        <td className="px-1 py-2 text-center">
-                          <input
-                            type="text"
-                            value={row.perDiemDays || ""}
-                            onChange={(e) =>
-                              updatePerDiemDays(employee.id, row.id, e.target.value)
-                            }
-                            className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
-                          />
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          {!isFirstRow && (
-                            <button
-                              onClick={() => removeJobRow(employee.id, row.id)}
-                              className="text-xs text-red-400 hover:text-red-300"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </td>
-                      </tr>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
 
-            {/* Weekly Mode SD Inputs — only shown when worker SD is enabled in weekly mode */}
-            {isWorkerSdEnabled && entryMode === "weekly" && (
-              <div className="px-4 py-3 border-t border-slate-700/50 bg-purple-900/10">
-                <div className="text-xs font-medium text-purple-300 mb-2">Shift Differential Hours (Weekly)</div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400">REG SD:</label>
-                    <input
-                      type="text"
-                      value={workerWeeklySd.regSd || ""}
-                      onChange={(e) => updateWeeklySdInput(employee.id, "regSd", e.target.value)}
-                      className="w-16 px-2 py-1 text-xs text-center bg-slate-800 border border-purple-600/50 rounded text-purple-200"
-                    />
-                    <span className="text-xs text-slate-500">/ {totals.reg}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400">OT SD:</label>
-                    <input
-                      type="text"
-                      value={workerWeeklySd.otSd || ""}
-                      onChange={(e) => updateWeeklySdInput(employee.id, "otSd", e.target.value)}
-                      className="w-16 px-2 py-1 text-xs text-center bg-slate-800 border border-purple-600/50 rounded text-purple-200"
-                    />
-                    <span className="text-xs text-slate-500">/ {totals.ot}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400">DT SD:</label>
-                    <input
-                      type="text"
-                      value={workerWeeklySd.dtSd || ""}
-                      onChange={(e) => updateWeeklySdInput(employee.id, "dtSd", e.target.value)}
-                      className="w-16 px-2 py-1 text-xs text-center bg-slate-800 border border-purple-600/50 rounded text-purple-200"
-                    />
-                    <span className="text-xs text-slate-500">/ {totals.dt}</span>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Add Job Control Row */}
             <div className="px-4 py-3 border-t border-slate-700/50 flex gap-2">
