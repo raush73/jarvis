@@ -13,7 +13,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 // Change Order types and mock data
-type ChangeOrderStatus = "Draft" | "Pending" | "Approved" | "Rejected";
+type ChangeOrderStatus = "Draft" | "Pending" | "Sent for Approval" | "Approved" | "Rejected";
 type ApprovalMethod = "Portal" | "Email Authorization";
 type DeltaType = "hourly" | "shift";
 
@@ -31,6 +31,8 @@ type ChangeOrder = {
   requestedOn: string;
   // Detail fields
   fullSummary: string;
+  // Sent for Approval tracking
+  sentForApprovalAt?: string;
 };
 
 // Mock employees for dropdown
@@ -327,11 +329,29 @@ export default function OrderDetailPage() {
         return { bg: "rgba(34, 197, 94, 0.12)", color: "#4ade80", border: "rgba(34, 197, 94, 0.3)" };
       case "Pending":
         return { bg: "rgba(245, 158, 11, 0.12)", color: "#fbbf24", border: "rgba(245, 158, 11, 0.3)" };
+      case "Sent for Approval":
+        return { bg: "rgba(139, 92, 246, 0.12)", color: "#a78bfa", border: "rgba(139, 92, 246, 0.3)" };
       case "Rejected":
         return { bg: "rgba(239, 68, 68, 0.12)", color: "#f87171", border: "rgba(239, 68, 68, 0.3)" };
       default: // Draft
         return { bg: "rgba(148, 163, 184, 0.12)", color: "#94a3b8", border: "rgba(148, 163, 184, 0.3)" };
     }
+  };
+
+  // Handle Send for Customer Approval
+  const handleSendForApproval = (orderId: string) => {
+    setChangeOrders((prev) =>
+      prev.map((co) =>
+        co.id === orderId
+          ? {
+              ...co,
+              status: "Sent for Approval" as ChangeOrderStatus,
+              sentForApprovalAt: new Date().toLocaleString(),
+              proof: "Portal Approval Requested",
+            }
+          : co
+      )
+    );
   };
 
   return (
@@ -607,6 +627,7 @@ export default function OrderDetailPage() {
                 {(() => {
                   const statusStyle = getChangeOrderStatusStyle(selectedChangeOrder.status);
                   const isApproved = selectedChangeOrder.status === "Approved";
+                  const isSentForApproval = selectedChangeOrder.status === "Sent for Approval";
                   return (
                     <>
                       <span
@@ -622,10 +643,26 @@ export default function OrderDetailPage() {
                       {isApproved && (
                         <span className="co-immutable-badge">Immutable</span>
                       )}
+                      {isSentForApproval && (
+                        <span className="co-awaiting-badge">Awaiting Customer Approval</span>
+                      )}
                     </>
                   );
                 })()}
               </div>
+
+              {/* Sent for Approval Info Banner */}
+              {selectedChangeOrder.status === "Sent for Approval" && (
+                <div className="co-sent-approval-banner">
+                  <div className="co-sent-approval-icon">📤</div>
+                  <div className="co-sent-approval-text">
+                    <span className="co-sent-approval-title">Approval request sent via customer portal</span>
+                    <span className="co-sent-approval-timestamp">
+                      Sent: {selectedChangeOrder.sentForApprovalAt || "—"}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Full Summary */}
               <div className="co-detail-section">
@@ -690,6 +727,20 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Send for Customer Approval Action */}
+              {selectedChangeOrder.status === "Pending" &&
+                selectedChangeOrder.approvalMethod === "Portal" && (
+                  <div className="co-detail-section co-action-section">
+                    <button
+                      type="button"
+                      className="co-send-approval-btn"
+                      onClick={() => handleSendForApproval(selectedChangeOrder.id)}
+                    >
+                      Send for Customer Approval
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -1737,6 +1788,80 @@ export default function OrderDetailPage() {
           background: rgba(59, 130, 246, 0.3);
           border-color: rgba(59, 130, 246, 0.5);
           color: #bfdbfe;
+        }
+
+        /* Awaiting Customer Approval Badge */
+        .co-awaiting-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          background: rgba(139, 92, 246, 0.15);
+          color: #a78bfa;
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        /* Sent for Approval Info Banner */
+        .co-sent-approval-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 16px;
+          background: rgba(139, 92, 246, 0.08);
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          border-radius: 8px;
+          margin-bottom: 24px;
+        }
+
+        .co-sent-approval-icon {
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .co-sent-approval-text {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .co-sent-approval-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #a78bfa;
+        }
+
+        .co-sent-approval-timestamp {
+          font-size: 12px;
+          color: rgba(167, 139, 250, 0.7);
+        }
+
+        /* Send for Customer Approval Button */
+        .co-action-section {
+          margin-top: 24px;
+          padding-top: 24px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .co-send-approval-btn {
+          width: 100%;
+          padding: 14px 20px;
+          background: rgba(139, 92, 246, 0.2);
+          border: 1px solid rgba(139, 92, 246, 0.4);
+          border-radius: 8px;
+          color: #a78bfa;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .co-send-approval-btn:hover {
+          background: rgba(139, 92, 246, 0.3);
+          border-color: rgba(139, 92, 246, 0.5);
+          color: #c4b5fd;
         }
       `}</style>
     </div>
