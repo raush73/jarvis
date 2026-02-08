@@ -216,10 +216,10 @@ export default function EnterHoursPage() {
     <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 600, marginBottom: "8px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 600, marginBottom: "8px", color: "#f1f5f9" }}>
           Working Timesheet
         </h1>
-        <p style={{ color: "#6b7280", fontSize: "14px" }}>
+        <p style={{ color: "#94a3b8", fontSize: "14px" }}>
           Enter hours for this working timesheet before snapshot.
         </p>
       </div>
@@ -232,33 +232,33 @@ export default function EnterHoursPage() {
           gap: "24px",
           alignItems: "center",
           padding: "16px 20px",
-          backgroundColor: "#f9fafb",
-          border: "1px solid #e5e7eb",
+          backgroundColor: "#0b1220",
+          border: "1px solid #1f2937",
           borderRadius: "8px",
           marginBottom: "24px",
         }}
       >
         <div>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "2px" }}>
+          <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "2px" }}>
             Customer
           </div>
-          <div style={{ fontSize: "14px", fontWeight: 500 }}>
+          <div style={{ fontSize: "14px", fontWeight: 500, color: "#e5e7eb" }}>
             {mockContext.customer}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "2px" }}>
+          <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "2px" }}>
             Job Order
           </div>
-          <div style={{ fontSize: "14px", fontWeight: 500 }}>
+          <div style={{ fontSize: "14px", fontWeight: 500, color: "#e5e7eb" }}>
             {mockContext.jobOrder}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "2px" }}>
+          <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "2px" }}>
             Week Ending
           </div>
-          <div style={{ fontSize: "14px", fontWeight: 500 }}>
+          <div style={{ fontSize: "14px", fontWeight: 500, color: "#e5e7eb" }}>
             {mockContext.weekEnding}
           </div>
         </div>
@@ -270,8 +270,9 @@ export default function EnterHoursPage() {
               borderRadius: "12px",
               fontSize: "12px",
               fontWeight: 500,
-              backgroundColor: `${getStatusColor(mockContext.status)}15`,
+              backgroundColor: "#1e293b",
               color: getStatusColor(mockContext.status),
+              border: `1px solid ${getStatusColor(mockContext.status)}40`,
             }}
           >
             {mockContext.status}
@@ -288,7 +289,7 @@ export default function EnterHoursPage() {
           marginBottom: "16px",
         }}
       >
-        <span style={{ fontSize: "14px", fontWeight: 500, color: "#374151" }}>
+        <span style={{ fontSize: "14px", fontWeight: 500, color: "#e5e7eb" }}>
           Hours Entry Mode:
         </span>
         <div
@@ -296,7 +297,7 @@ export default function EnterHoursPage() {
             display: "inline-flex",
             borderRadius: "6px",
             overflow: "hidden",
-            border: "1px solid #d1d5db",
+            border: "1px solid #334155",
           }}
         >
           <button
@@ -307,8 +308,8 @@ export default function EnterHoursPage() {
               fontWeight: 500,
               border: "none",
               cursor: "pointer",
-              backgroundColor: entryMode === "Daily" ? "#2563eb" : "#fff",
-              color: entryMode === "Daily" ? "#fff" : "#374151",
+              backgroundColor: entryMode === "Daily" ? "#2563eb" : "#0f172a",
+              color: entryMode === "Daily" ? "#fff" : "#94a3b8",
             }}
           >
             Daily
@@ -320,16 +321,16 @@ export default function EnterHoursPage() {
               fontSize: "13px",
               fontWeight: 500,
               border: "none",
-              borderLeft: "1px solid #d1d5db",
+              borderLeft: "1px solid #334155",
               cursor: "pointer",
-              backgroundColor: entryMode === "Total" ? "#2563eb" : "#fff",
-              color: entryMode === "Total" ? "#fff" : "#374151",
+              backgroundColor: entryMode === "Total" ? "#2563eb" : "#0f172a",
+              color: entryMode === "Total" ? "#fff" : "#94a3b8",
             }}
           >
             Total
           </button>
         </div>
-        <span style={{ fontSize: "11px", color: "#9ca3af", fontStyle: "italic" }}>
+        <span style={{ fontSize: "11px", color: "#64748b", fontStyle: "italic" }}>
           (REG/OT placeholder: 40hr baseline, UI-only)
         </span>
       </div>
@@ -337,7 +338,7 @@ export default function EnterHoursPage() {
       {/* Hours Grid */}
       <div
         style={{
-          border: "1px solid #e5e7eb",
+          border: "1px solid #1f2937",
           borderRadius: "8px",
           overflow: "hidden",
           marginBottom: "24px",
@@ -345,15 +346,16 @@ export default function EnterHoursPage() {
       >
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ backgroundColor: "#f9fafb" }}>
+            <tr style={{ backgroundColor: "#0f172a" }}>
               <th
                 style={{
                   padding: "12px 16px",
                   textAlign: "left",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   minWidth: "180px",
+                  color: "#e5e7eb",
                 }}
               >
                 Worker
@@ -364,8 +366,9 @@ export default function EnterHoursPage() {
                   textAlign: "left",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   minWidth: "120px",
+                  color: "#e5e7eb",
                 }}
               >
                 Trade
@@ -379,8 +382,9 @@ export default function EnterHoursPage() {
                       textAlign: "center",
                       fontSize: "13px",
                       fontWeight: 600,
-                      borderBottom: "1px solid #e5e7eb",
+                      borderBottom: "1px solid #1f2937",
                       width: "60px",
+                      color: "#e5e7eb",
                     }}
                   >
                     {day}
@@ -393,8 +397,9 @@ export default function EnterHoursPage() {
                     textAlign: "center",
                     fontSize: "13px",
                     fontWeight: 600,
-                    borderBottom: "1px solid #e5e7eb",
+                    borderBottom: "1px solid #1f2937",
                     width: "80px",
+                    color: "#e5e7eb",
                   }}
                 >
                   Total
@@ -406,8 +411,9 @@ export default function EnterHoursPage() {
                   textAlign: "center",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   width: "70px",
+                  color: "#e5e7eb",
                 }}
               >
                 Total
@@ -418,8 +424,9 @@ export default function EnterHoursPage() {
                   textAlign: "center",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   width: "60px",
+                  color: "#e5e7eb",
                 }}
               >
                 REG
@@ -430,8 +437,9 @@ export default function EnterHoursPage() {
                   textAlign: "center",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   width: "60px",
+                  color: "#e5e7eb",
                 }}
               >
                 OT
@@ -442,8 +450,9 @@ export default function EnterHoursPage() {
                   textAlign: "center",
                   fontSize: "13px",
                   fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #1f2937",
                   width: "70px",
+                  color: "#e5e7eb",
                 }}
               >
                 DT
@@ -466,14 +475,15 @@ export default function EnterHoursPage() {
                   <tr
                     key={worker.id}
                     style={{
-                      backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
+                      backgroundColor: idx % 2 === 0 ? "#0b1220" : "#0f172a",
                     }}
                   >
                     <td
                       style={{
                         padding: "12px 16px",
                         fontSize: "14px",
-                        borderBottom: "1px solid #e5e7eb",
+                        borderBottom: "1px solid #1f2937",
+                        color: "#e5e7eb",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -484,10 +494,10 @@ export default function EnterHoursPage() {
                             padding: "2px 8px",
                             fontSize: "11px",
                             fontWeight: 500,
-                            border: "1px solid #d1d5db",
+                            border: "1px solid #334155",
                             borderRadius: "4px",
-                            backgroundColor: isExpanded ? "#eff6ff" : "#fff",
-                            color: isExpanded ? "#2563eb" : "#6b7280",
+                            backgroundColor: isExpanded ? "#1e3a5f" : "#0f172a",
+                            color: isExpanded ? "#60a5fa" : "#94a3b8",
                             cursor: "pointer",
                           }}
                         >
@@ -499,8 +509,8 @@ export default function EnterHoursPage() {
                       style={{
                         padding: "12px 16px",
                         fontSize: "13px",
-                        color: "#6b7280",
-                        borderBottom: "1px solid #e5e7eb",
+                        color: "#94a3b8",
+                        borderBottom: "1px solid #1f2937",
                       }}
                     >
                       {worker.trade}
@@ -512,7 +522,7 @@ export default function EnterHoursPage() {
                           style={{
                             padding: "8px 4px",
                             textAlign: "center",
-                            borderBottom: "1px solid #e5e7eb",
+                            borderBottom: "1px solid #1f2937",
                           }}
                         >
                           <input
@@ -525,9 +535,11 @@ export default function EnterHoursPage() {
                               width: "48px",
                               padding: "6px 4px",
                               textAlign: "center",
-                              border: "1px solid #d1d5db",
+                              border: "1px solid #334155",
                               borderRadius: "4px",
                               fontSize: "13px",
+                              backgroundColor: "#0b1220",
+                              color: "#e5e7eb",
                             }}
                           />
                         </td>
@@ -537,7 +549,7 @@ export default function EnterHoursPage() {
                         style={{
                           padding: "8px 4px",
                           textAlign: "center",
-                          borderBottom: "1px solid #e5e7eb",
+                          borderBottom: "1px solid #1f2937",
                         }}
                       >
                         <input
@@ -550,9 +562,11 @@ export default function EnterHoursPage() {
                             width: "60px",
                             padding: "6px 4px",
                             textAlign: "center",
-                            border: "1px solid #d1d5db",
+                            border: "1px solid #334155",
                             borderRadius: "4px",
                             fontSize: "13px",
+                            backgroundColor: "#0b1220",
+                            color: "#e5e7eb",
                           }}
                         />
                       </td>
@@ -564,8 +578,8 @@ export default function EnterHoursPage() {
                         textAlign: "center",
                         fontSize: "14px",
                         fontWeight: 500,
-                        borderBottom: "1px solid #e5e7eb",
-                        color: "#374151",
+                        borderBottom: "1px solid #1f2937",
+                        color: "#e5e7eb",
                       }}
                     >
                       {totalHours}
@@ -576,8 +590,8 @@ export default function EnterHoursPage() {
                         padding: "12px 8px",
                         textAlign: "center",
                         fontSize: "13px",
-                        borderBottom: "1px solid #e5e7eb",
-                        color: "#6b7280",
+                        borderBottom: "1px solid #1f2937",
+                        color: "#94a3b8",
                       }}
                     >
                       {reg}
@@ -588,8 +602,8 @@ export default function EnterHoursPage() {
                         padding: "12px 8px",
                         textAlign: "center",
                         fontSize: "13px",
-                        borderBottom: "1px solid #e5e7eb",
-                        color: "#6b7280",
+                        borderBottom: "1px solid #1f2937",
+                        color: "#94a3b8",
                       }}
                     >
                       {otDisplay}
@@ -599,7 +613,7 @@ export default function EnterHoursPage() {
                       style={{
                         padding: "8px 4px",
                         textAlign: "center",
-                        borderBottom: "1px solid #e5e7eb",
+                        borderBottom: "1px solid #1f2937",
                       }}
                     >
                       <input
@@ -613,7 +627,8 @@ export default function EnterHoursPage() {
                           border: "1px solid #2563eb",
                           borderRadius: "4px",
                           fontSize: "13px",
-                          backgroundColor: "#eff6ff",
+                          backgroundColor: "#1e3a5f",
+                          color: "#e5e7eb",
                         }}
                       />
                     </td>
@@ -622,19 +637,19 @@ export default function EnterHoursPage() {
                   {isExpanded && (
                     <tr
                       key={`${worker.id}-alloc`}
-                      style={{ backgroundColor: "#f9fafb" }}
+                      style={{ backgroundColor: "#0f172a" }}
                     >
                       <td
                         colSpan={getColSpan()}
                         style={{
                           padding: "12px 16px 16px 40px",
-                          borderBottom: "1px solid #e5e7eb",
+                          borderBottom: "1px solid #1f2937",
                         }}
                       >
                         <div
                           style={{
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "#0b1220",
+                            border: "1px solid #1f2937",
                             borderRadius: "6px",
                             padding: "12px",
                           }}
@@ -643,7 +658,7 @@ export default function EnterHoursPage() {
                             style={{
                               fontSize: "12px",
                               fontWeight: 600,
-                              color: "#374151",
+                              color: "#e5e7eb",
                               marginBottom: "8px",
                             }}
                           >
@@ -666,8 +681,8 @@ export default function EnterHoursPage() {
                                       textAlign: "left",
                                       fontSize: "11px",
                                       fontWeight: 600,
-                                      color: "#6b7280",
-                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#94a3b8",
+                                      borderBottom: "1px solid #1f2937",
                                     }}
                                   >
                                     Project
@@ -678,8 +693,8 @@ export default function EnterHoursPage() {
                                       textAlign: "center",
                                       fontSize: "11px",
                                       fontWeight: 600,
-                                      color: "#6b7280",
-                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#94a3b8",
+                                      borderBottom: "1px solid #1f2937",
                                       width: "100px",
                                     }}
                                   >
@@ -691,8 +706,8 @@ export default function EnterHoursPage() {
                                       textAlign: "center",
                                       fontSize: "11px",
                                       fontWeight: 600,
-                                      color: "#6b7280",
-                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#94a3b8",
+                                      borderBottom: "1px solid #1f2937",
                                       width: "40px",
                                     }}
                                   >
@@ -706,7 +721,7 @@ export default function EnterHoursPage() {
                                     <td
                                       style={{
                                         padding: "6px 8px",
-                                        borderBottom: "1px solid #f3f4f6",
+                                        borderBottom: "1px solid #1f2937",
                                       }}
                                     >
                                       <select
@@ -721,9 +736,10 @@ export default function EnterHoursPage() {
                                         style={{
                                           padding: "4px 8px",
                                           fontSize: "12px",
-                                          border: "1px solid #d1d5db",
+                                          border: "1px solid #334155",
                                           borderRadius: "4px",
-                                          backgroundColor: "#fff",
+                                          backgroundColor: "#0b1220",
+                                          color: "#e5e7eb",
                                           width: "100%",
                                         }}
                                       >
@@ -738,7 +754,7 @@ export default function EnterHoursPage() {
                                       style={{
                                         padding: "6px 8px",
                                         textAlign: "center",
-                                        borderBottom: "1px solid #f3f4f6",
+                                        borderBottom: "1px solid #1f2937",
                                       }}
                                     >
                                       <input
@@ -755,9 +771,11 @@ export default function EnterHoursPage() {
                                           width: "60px",
                                           padding: "4px 6px",
                                           textAlign: "center",
-                                          border: "1px solid #d1d5db",
+                                          border: "1px solid #334155",
                                           borderRadius: "4px",
                                           fontSize: "12px",
+                                          backgroundColor: "#0b1220",
+                                          color: "#e5e7eb",
                                         }}
                                       />
                                     </td>
@@ -765,7 +783,7 @@ export default function EnterHoursPage() {
                                       style={{
                                         padding: "6px 8px",
                                         textAlign: "center",
-                                        borderBottom: "1px solid #f3f4f6",
+                                        borderBottom: "1px solid #1f2937",
                                       }}
                                     >
                                       <button
@@ -777,8 +795,8 @@ export default function EnterHoursPage() {
                                           fontSize: "11px",
                                           border: "none",
                                           borderRadius: "3px",
-                                          backgroundColor: "#fee2e2",
-                                          color: "#dc2626",
+                                          backgroundColor: "#7f1d1d",
+                                          color: "#fca5a5",
                                           cursor: "pointer",
                                         }}
                                       >
@@ -796,10 +814,10 @@ export default function EnterHoursPage() {
                               padding: "4px 10px",
                               fontSize: "12px",
                               fontWeight: 500,
-                              border: "1px solid #d1d5db",
+                              border: "1px solid #334155",
                               borderRadius: "4px",
-                              backgroundColor: "#fff",
-                              color: "#374151",
+                              backgroundColor: "#0f172a",
+                              color: "#e5e7eb",
                               cursor: "pointer",
                             }}
                           >
@@ -811,7 +829,7 @@ export default function EnterHoursPage() {
                               style={{
                                 marginTop: "10px",
                                 fontSize: "12px",
-                                color: "#6b7280",
+                                color: "#94a3b8",
                               }}
                             >
                               <span>
@@ -853,9 +871,9 @@ export default function EnterHoursPage() {
           disabled
           style={{
             padding: "10px 20px",
-            backgroundColor: "#e5e7eb",
-            color: "#9ca3af",
-            border: "none",
+            backgroundColor: "#1e293b",
+            color: "#64748b",
+            border: "1px solid #334155",
             borderRadius: "6px",
             fontSize: "14px",
             fontWeight: 500,
@@ -868,9 +886,9 @@ export default function EnterHoursPage() {
           disabled
           style={{
             padding: "10px 20px",
-            backgroundColor: "#e5e7eb",
-            color: "#9ca3af",
-            border: "none",
+            backgroundColor: "#1e293b",
+            color: "#64748b",
+            border: "1px solid #334155",
             borderRadius: "6px",
             fontSize: "14px",
             fontWeight: 500,
@@ -883,9 +901,9 @@ export default function EnterHoursPage() {
           disabled
           style={{
             padding: "10px 20px",
-            backgroundColor: "#e5e7eb",
-            color: "#9ca3af",
-            border: "none",
+            backgroundColor: "#1e293b",
+            color: "#64748b",
+            border: "1px solid #334155",
             borderRadius: "6px",
             fontSize: "14px",
             fontWeight: 500,
@@ -908,7 +926,7 @@ export default function EnterHoursPage() {
         <Link
           href="/time-entry"
           style={{
-            color: "#2563eb",
+            color: "#60a5fa",
             fontSize: "14px",
             textDecoration: "none",
           }}
@@ -918,7 +936,7 @@ export default function EnterHoursPage() {
         <Link
           href="/orders/mock-order-id/timesheets"
           style={{
-            color: "#9ca3af",
+            color: "#64748b",
             fontSize: "13px",
             textDecoration: "none",
           }}
@@ -930,7 +948,7 @@ export default function EnterHoursPage() {
       {/* Boundary Helper Text */}
       <div
         style={{
-          color: "#9ca3af",
+          color: "#64748b",
           fontSize: "13px",
           lineHeight: "1.6",
         }}
