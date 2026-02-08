@@ -33,6 +33,8 @@ type ChangeOrder = {
   fullSummary: string;
   // Sent for Approval tracking
   sentForApprovalAt?: string;
+  // Resend approval link tracking (Portal Approval only)
+  resentAt?: string;
   // Email Authorization approval tracking
   approvedAt?: string;
   approvalConfirmationText?: string;
@@ -434,6 +436,24 @@ export default function OrderDetailPage() {
     setEmailAuthForm({ approvalConfirmation: "", proofFilename: "" });
   };
 
+  // Handle Resend Approval Link (Portal Approval only, UI state only)
+  const handleResendApprovalLink = (orderId: string) => {
+    const resentAt = new Date().toLocaleString();
+    setChangeOrders((prev) =>
+      prev.map((co) =>
+        co.id === orderId
+          ? { ...co, resentAt }
+          : co
+      )
+    );
+    // Update selected change order to reflect new resentAt
+    setSelectedChangeOrder((prev) =>
+      prev && prev.id === orderId
+        ? { ...prev, resentAt }
+        : prev
+    );
+  };
+
   return (
     <div className="order-detail-page">
       <div className="order-detail-container">
@@ -743,6 +763,25 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Resend Approval Link Action (Portal Approval + Sent for Approval only) */}
+              {selectedChangeOrder.status === "Sent for Approval" &&
+                selectedChangeOrder.approvalMethod === "Portal" && (
+                  <div className="co-resend-section">
+                    <button
+                      type="button"
+                      className="co-resend-btn"
+                      onClick={() => handleResendApprovalLink(selectedChangeOrder.id)}
+                    >
+                      Resend Approval Link
+                    </button>
+                    {selectedChangeOrder.resentAt && (
+                      <div className="co-resend-feedback">
+                        Approval link resent on {selectedChangeOrder.resentAt}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               {/* Full Summary */}
               <div className="co-detail-section">
@@ -2391,6 +2430,36 @@ export default function OrderDetailPage() {
         /* Locked Approval Method (Sent for Approval / Approved) */
         .co-approval-method-locked {
           color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Resend Approval Link Section */
+        .co-resend-section {
+          margin-bottom: 24px;
+        }
+
+        .co-resend-btn {
+          padding: 10px 16px;
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 6px;
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .co-resend-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.3);
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .co-resend-feedback {
+          margin-top: 10px;
+          font-size: 12px;
+          color: rgba(139, 92, 246, 0.8);
+          font-style: italic;
         }
       `}</style>
     </div>
