@@ -37,7 +37,7 @@ function computeRegOt(totalHours: number, dt: number) {
   const reg = Math.min(totalHours, 40);
   const otComputed = Math.max(totalHours - 40, 0);
   const otDisplay = Math.max(otComputed - dt, 0);
-  return { reg, otDisplay };
+  return { reg, otDisplay, otComputed };
 }
 
 type EntryMode = "Daily" | "Total";
@@ -48,10 +48,12 @@ interface WorkerHours {
   dt: number;
 }
 
-interface ProjectAllocation {
+interface ProjectSplitRow {
   id: string;
   project: string;
-  hours: number;
+  dailyHours: number[]; // For Daily mode: hours per day (Mon-Sun)
+  totalHours: number; // For Total mode: total hours for this project
+  otAllocation: number; // For Total mode OT allocation (editable when conditions met)
 }
 
 export default function EnterHoursPage() {
@@ -91,11 +93,11 @@ export default function EnterHoursPage() {
     }
   );
 
-  // Per-worker project allocations state
-  const [workerAllocations, setWorkerAllocations] = useState<
-    Record<string, ProjectAllocation[]>
+  // Per-worker project split rows state
+  const [workerProjectSplits, setWorkerProjectSplits] = useState<
+    Record<string, ProjectSplitRow[]>
   >(() => {
-    const initial: Record<string, ProjectAllocation[]> = {};
+    const initial: Record<string, ProjectSplitRow[]> = {};
     MOCK_WORKERS.forEach((w) => {
       initial[w.id] = [];
     });
@@ -155,52 +157,117 @@ export default function EnterHoursPage() {
     }));
   };
 
-  const addAllocation = (workerId: string) => {
-    setWorkerAllocations((prev) => ({
+  // Project Split Row handlers
+  const addProjectSplitRow = (workerId: string) => {
+    setWorkerProjectSplits((prev) => ({
       ...prev,
       [workerId]: [
         ...prev[workerId],
-        { id: `alloc-${Date.now()}`, project: MOCK_PROJECTS[0], hours: 0 },
+        {
+          id: `split-${Date.now()}`,
+          project: MOCK_PROJECTS[0],
+          dailyHours: [0, 0, 0, 0, 0, 0, 0],
+          totalHours: 0,
+          otAllocation: 0,
+        },
       ],
     }));
   };
 
-  const updateAllocationProject = (
+  const removeProjectSplitRow = (workerId: string, rowId: string) => {
+    setWorkerProjectSplits((prev) => ({
+      ...prev,
+      [workerId]: prev[workerId].filter((r) => r.id !== rowId),
+    }));
+  };
+
+  const updateProjectSplitProject = (
     workerId: string,
-    allocId: string,
+    rowId: string,
     project: string
   ) => {
-    setWorkerAllocations((prev) => ({
+    setWorkerProjectSplits((prev) => ({
       ...prev,
-      [workerId]: prev[workerId].map((a) =>
-        a.id === allocId ? { ...a, project } : a
+      [workerId]: prev[workerId].map((r) =>
+        r.id === rowId ? { ...r, project } : r
       ),
     }));
   };
 
-  const updateAllocationHours = (
+  const updateProjectSplitDailyHours = (
     workerId: string,
-    allocId: string,
+    rowId: string,
+    dayIndex: number,
     value: string
   ) => {
     const numValue = parseFloat(value) || 0;
-    setWorkerAllocations((prev) => ({
+    setWorkerProjectSplits((prev) => ({
       ...prev,
-      [workerId]: prev[workerId].map((a) =>
-        a.id === allocId ? { ...a, hours: numValue } : a
+      [workerId]: prev[workerId].map((r) => {
+        if (r.id === rowId) {
+          const newDailyHours = [...r.dailyHours];
+          newDailyHours[dayIndex] = numValue;
+          return { ...r, dailyHours: newDailyHours };
+        }
+        return r;
+      }),
+    }));
+  };
+
+  const updateProjectSplitTotalHours = (
+    workerId: string,
+    rowId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerProjectSplits((prev) => ({
+      ...prev,
+      [workerId]: prev[workerId].map((r) =>
+        r.id === rowId ? { ...r, totalHours: numValue } : r
       ),
     }));
   };
 
-  const removeAllocation = (workerId: string, allocId: string) => {
-    setWorkerAllocations((prev) => ({
+  const updateProjectSplitOtAllocation = (
+    workerId: string,
+    rowId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerProjectSplits((prev) => ({
       ...prev,
-      [workerId]: prev[workerId].filter((a) => a.id !== allocId),
+      [workerId]: prev[workerId].map((r) =>
+        r.id === rowId ? { ...r, otAllocation: numValue } : r
+      ),
     }));
   };
 
-  const getAllocatedTotal = (workerId: string): number => {
-    return workerAllocations[workerId].reduce((sum, a) => sum + a.hours, 0);
+  // Compute project split row total (Daily mode: sum of dailyHours)
+  const getProjectSplitRowTotal = (row: ProjectSplitRow): number => {
+    return row.dailyHours.reduce((sum, h) => sum + h, 0);
+  };
+
+  // Compute worker total from project splits
+  const getWorkerTotalFromProjects = (workerId: string): number => {
+    const splits = workerProjectSplits[workerId];
+    if (entryMode === "Daily") {
+      return splits.reduce((sum, r) => sum + getProjectSplitRowTotal(r), 0);
+    }
+    return splits.reduce((sum, r) => sum + r.totalHours, 0);
+  };
+
+  // Compute total allocated OT from project splits (Total mode only)
+  const getAllocatedOt = (workerId: string): number => {
+    return workerProjectSplits[workerId].reduce((sum, r) => sum + r.otAllocation, 0);
+  };
+
+  // Check if OT allocation should be editable (Total mode, >=2 projects, worker total > 40)
+  const isOtAllocationEditable = (workerId: string): boolean => {
+    if (entryMode !== "Total") return false;
+    const splits = workerProjectSplits[workerId];
+    if (splits.length < 2) return false;
+    const workerTotal = getWorkerTotal(workerId);
+    return workerTotal > 40;
   };
 
   // Compute column count for allocation row colspan
@@ -463,12 +530,12 @@ export default function EnterHoursPage() {
             {MOCK_WORKERS.map((worker, idx) => {
               const totalHours = getWorkerTotal(worker.id);
               const dt = workerHours[worker.id].dt;
-              const { reg, otDisplay } = computeRegOt(totalHours, dt);
+              const { reg, otDisplay, otComputed } = computeRegOt(totalHours, dt);
               const isExpanded = splitExpanded[worker.id];
-              const allocations = workerAllocations[worker.id];
-              const allocatedTotal = getAllocatedTotal(worker.id);
-              const hasMismatch =
-                allocations.length > 0 && allocatedTotal !== totalHours;
+              const projectSplits = workerProjectSplits[worker.id];
+              const workerTotalFromProjects = getWorkerTotalFromProjects(worker.id);
+              const otEditable = isOtAllocationEditable(worker.id);
+              const allocatedOt = getAllocatedOt(worker.id);
 
               return (
                 <>
@@ -633,10 +700,10 @@ export default function EnterHoursPage() {
                       />
                     </td>
                   </tr>
-                  {/* Project Allocation Row (expanded) */}
+                  {/* Project Split Panel (expanded) */}
                   {isExpanded && (
                     <tr
-                      key={`${worker.id}-alloc`}
+                      key={`${worker.id}-split`}
                       style={{ backgroundColor: "#0f172a" }}
                     >
                       <td
@@ -659,157 +726,400 @@ export default function EnterHoursPage() {
                               fontSize: "12px",
                               fontWeight: 600,
                               color: "#e5e7eb",
-                              marginBottom: "8px",
+                              marginBottom: "4px",
                             }}
                           >
-                            Project / Cost-Code Allocation
+                            Project Split Entry
                           </div>
-                          {allocations.length > 0 && (
-                            <table
-                              style={{
-                                width: "100%",
-                                maxWidth: "400px",
-                                borderCollapse: "collapse",
-                                marginBottom: "8px",
-                              }}
-                            >
-                              <thead>
-                                <tr>
-                                  <th
-                                    style={{
-                                      padding: "6px 8px",
-                                      textAlign: "left",
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      color: "#94a3b8",
-                                      borderBottom: "1px solid #1f2937",
-                                    }}
-                                  >
-                                    Project
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "6px 8px",
-                                      textAlign: "center",
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      color: "#94a3b8",
-                                      borderBottom: "1px solid #1f2937",
-                                      width: "100px",
-                                    }}
-                                  >
-                                    Allocated Hours
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "6px 8px",
-                                      textAlign: "center",
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      color: "#94a3b8",
-                                      borderBottom: "1px solid #1f2937",
-                                      width: "40px",
-                                    }}
-                                  >
-                                    &nbsp;
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {allocations.map((alloc) => (
-                                  <tr key={alloc.id}>
-                                    <td
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "#64748b",
+                              fontStyle: "italic",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            When using Project Split, enter project hours below. Main row entry remains available in this UI shell.
+                          </div>
+
+                          {/* Daily Mode: Project | Mon-Sun | Row Total */}
+                          {entryMode === "Daily" && projectSplits.length > 0 && (
+                            <div style={{ overflowX: "auto", marginBottom: "8px" }}>
+                              <table
+                                style={{
+                                  borderCollapse: "collapse",
+                                  minWidth: "700px",
+                                }}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th
                                       style={{
                                         padding: "6px 8px",
+                                        textAlign: "left",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
                                         borderBottom: "1px solid #1f2937",
+                                        minWidth: "120px",
                                       }}
                                     >
-                                      <select
-                                        value={alloc.project}
-                                        onChange={(e) =>
-                                          updateAllocationProject(
-                                            worker.id,
-                                            alloc.id,
-                                            e.target.value
-                                          )
-                                        }
+                                      Project
+                                    </th>
+                                    {DAYS.map((day) => (
+                                      <th
+                                        key={day}
                                         style={{
-                                          padding: "4px 8px",
-                                          fontSize: "12px",
-                                          border: "1px solid #334155",
-                                          borderRadius: "4px",
-                                          backgroundColor: "#0b1220",
-                                          color: "#e5e7eb",
-                                          width: "100%",
-                                        }}
-                                      >
-                                        {MOCK_PROJECTS.map((proj) => (
-                                          <option key={proj} value={proj}>
-                                            {proj}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "6px 8px",
-                                        textAlign: "center",
-                                        borderBottom: "1px solid #1f2937",
-                                      }}
-                                    >
-                                      <input
-                                        type="text"
-                                        value={alloc.hours || ""}
-                                        onChange={(e) =>
-                                          updateAllocationHours(
-                                            worker.id,
-                                            alloc.id,
-                                            e.target.value
-                                          )
-                                        }
-                                        style={{
-                                          width: "60px",
-                                          padding: "4px 6px",
+                                          padding: "6px 4px",
                                           textAlign: "center",
-                                          border: "1px solid #334155",
-                                          borderRadius: "4px",
-                                          fontSize: "12px",
-                                          backgroundColor: "#0b1220",
-                                          color: "#e5e7eb",
+                                          fontSize: "11px",
+                                          fontWeight: 600,
+                                          color: "#94a3b8",
+                                          borderBottom: "1px solid #1f2937",
+                                          width: "55px",
                                         }}
-                                      />
-                                    </td>
-                                    <td
+                                      >
+                                        {day}
+                                      </th>
+                                    ))}
+                                    <th
                                       style={{
                                         padding: "6px 8px",
                                         textAlign: "center",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
                                         borderBottom: "1px solid #1f2937",
+                                        width: "70px",
                                       }}
                                     >
-                                      <button
-                                        onClick={() =>
-                                          removeAllocation(worker.id, alloc.id)
-                                        }
+                                      Row Total
+                                    </th>
+                                    <th
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "center",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
+                                        borderBottom: "1px solid #1f2937",
+                                        width: "40px",
+                                      }}
+                                    >
+                                      &nbsp;
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {projectSplits.map((row) => {
+                                    const rowTotal = getProjectSplitRowTotal(row);
+                                    return (
+                                      <tr key={row.id}>
+                                        <td
+                                          style={{
+                                            padding: "6px 8px",
+                                            borderBottom: "1px solid #1f2937",
+                                          }}
+                                        >
+                                          <select
+                                            value={row.project}
+                                            onChange={(e) =>
+                                              updateProjectSplitProject(
+                                                worker.id,
+                                                row.id,
+                                                e.target.value
+                                              )
+                                            }
+                                            style={{
+                                              padding: "4px 8px",
+                                              fontSize: "12px",
+                                              border: "1px solid #334155",
+                                              borderRadius: "4px",
+                                              backgroundColor: "#0b1220",
+                                              color: "#e5e7eb",
+                                              width: "100%",
+                                            }}
+                                          >
+                                            {MOCK_PROJECTS.map((proj) => (
+                                              <option key={proj} value={proj}>
+                                                {proj}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </td>
+                                        {DAYS.map((day, dayIdx) => (
+                                          <td
+                                            key={day}
+                                            style={{
+                                              padding: "6px 4px",
+                                              textAlign: "center",
+                                              borderBottom: "1px solid #1f2937",
+                                            }}
+                                          >
+                                            <input
+                                              type="text"
+                                              value={row.dailyHours[dayIdx] || ""}
+                                              onChange={(e) =>
+                                                updateProjectSplitDailyHours(
+                                                  worker.id,
+                                                  row.id,
+                                                  dayIdx,
+                                                  e.target.value
+                                                )
+                                              }
+                                              style={{
+                                                width: "42px",
+                                                padding: "4px 2px",
+                                                textAlign: "center",
+                                                border: "1px solid #334155",
+                                                borderRadius: "4px",
+                                                fontSize: "12px",
+                                                backgroundColor: "#0b1220",
+                                                color: "#e5e7eb",
+                                              }}
+                                            />
+                                          </td>
+                                        ))}
+                                        <td
+                                          style={{
+                                            padding: "6px 8px",
+                                            textAlign: "center",
+                                            fontSize: "12px",
+                                            fontWeight: 500,
+                                            color: "#e5e7eb",
+                                            borderBottom: "1px solid #1f2937",
+                                          }}
+                                        >
+                                          {rowTotal}
+                                        </td>
+                                        <td
+                                          style={{
+                                            padding: "6px 8px",
+                                            textAlign: "center",
+                                            borderBottom: "1px solid #1f2937",
+                                          }}
+                                        >
+                                          <button
+                                            onClick={() =>
+                                              removeProjectSplitRow(worker.id, row.id)
+                                            }
+                                            style={{
+                                              padding: "2px 6px",
+                                              fontSize: "11px",
+                                              border: "none",
+                                              borderRadius: "3px",
+                                              backgroundColor: "#7f1d1d",
+                                              color: "#fca5a5",
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            ✕
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Total Mode: Project | Total Hours | (OT Allocation if editable) */}
+                          {entryMode === "Total" && projectSplits.length > 0 && (
+                            <div style={{ marginBottom: "8px" }}>
+                              <table
+                                style={{
+                                  borderCollapse: "collapse",
+                                  width: "100%",
+                                  maxWidth: otEditable ? "500px" : "350px",
+                                }}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "left",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
+                                        borderBottom: "1px solid #1f2937",
+                                        minWidth: "120px",
+                                      }}
+                                    >
+                                      Project
+                                    </th>
+                                    <th
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "center",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
+                                        borderBottom: "1px solid #1f2937",
+                                        width: "100px",
+                                      }}
+                                    >
+                                      Total Hours
+                                    </th>
+                                    {otEditable && (
+                                      <th
                                         style={{
-                                          padding: "2px 6px",
+                                          padding: "6px 8px",
+                                          textAlign: "center",
                                           fontSize: "11px",
-                                          border: "none",
-                                          borderRadius: "3px",
-                                          backgroundColor: "#7f1d1d",
-                                          color: "#fca5a5",
-                                          cursor: "pointer",
+                                          fontWeight: 600,
+                                          color: "#94a3b8",
+                                          borderBottom: "1px solid #1f2937",
+                                          width: "100px",
                                         }}
                                       >
-                                        ✕
-                                      </button>
-                                    </td>
+                                        OT Allocation
+                                      </th>
+                                    )}
+                                    <th
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "center",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        color: "#94a3b8",
+                                        borderBottom: "1px solid #1f2937",
+                                        width: "40px",
+                                      }}
+                                    >
+                                      &nbsp;
+                                    </th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {projectSplits.map((row) => (
+                                    <tr key={row.id}>
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          borderBottom: "1px solid #1f2937",
+                                        }}
+                                      >
+                                        <select
+                                          value={row.project}
+                                          onChange={(e) =>
+                                            updateProjectSplitProject(
+                                              worker.id,
+                                              row.id,
+                                              e.target.value
+                                            )
+                                          }
+                                          style={{
+                                            padding: "4px 8px",
+                                            fontSize: "12px",
+                                            border: "1px solid #334155",
+                                            borderRadius: "4px",
+                                            backgroundColor: "#0b1220",
+                                            color: "#e5e7eb",
+                                            width: "100%",
+                                          }}
+                                        >
+                                          {MOCK_PROJECTS.map((proj) => (
+                                            <option key={proj} value={proj}>
+                                              {proj}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          textAlign: "center",
+                                          borderBottom: "1px solid #1f2937",
+                                        }}
+                                      >
+                                        <input
+                                          type="text"
+                                          value={row.totalHours || ""}
+                                          onChange={(e) =>
+                                            updateProjectSplitTotalHours(
+                                              worker.id,
+                                              row.id,
+                                              e.target.value
+                                            )
+                                          }
+                                          style={{
+                                            width: "60px",
+                                            padding: "4px 6px",
+                                            textAlign: "center",
+                                            border: "1px solid #334155",
+                                            borderRadius: "4px",
+                                            fontSize: "12px",
+                                            backgroundColor: "#0b1220",
+                                            color: "#e5e7eb",
+                                          }}
+                                        />
+                                      </td>
+                                      {otEditable && (
+                                        <td
+                                          style={{
+                                            padding: "6px 8px",
+                                            textAlign: "center",
+                                            borderBottom: "1px solid #1f2937",
+                                          }}
+                                        >
+                                          <input
+                                            type="text"
+                                            value={row.otAllocation || ""}
+                                            onChange={(e) =>
+                                              updateProjectSplitOtAllocation(
+                                                worker.id,
+                                                row.id,
+                                                e.target.value
+                                              )
+                                            }
+                                            style={{
+                                              width: "60px",
+                                              padding: "4px 6px",
+                                              textAlign: "center",
+                                              border: "1px solid #2563eb",
+                                              borderRadius: "4px",
+                                              fontSize: "12px",
+                                              backgroundColor: "#1e3a5f",
+                                              color: "#e5e7eb",
+                                            }}
+                                          />
+                                        </td>
+                                      )}
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          textAlign: "center",
+                                          borderBottom: "1px solid #1f2937",
+                                        }}
+                                      >
+                                        <button
+                                          onClick={() =>
+                                            removeProjectSplitRow(worker.id, row.id)
+                                          }
+                                          style={{
+                                            padding: "2px 6px",
+                                            fontSize: "11px",
+                                            border: "none",
+                                            borderRadius: "3px",
+                                            backgroundColor: "#7f1d1d",
+                                            color: "#fca5a5",
+                                            cursor: "pointer",
+                                          }}
+                                        >
+                                          ✕
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           )}
+
                           <button
-                            onClick={() => addAllocation(worker.id)}
+                            onClick={() => addProjectSplitRow(worker.id)}
                             style={{
                               padding: "4px 10px",
                               fontSize: "12px",
@@ -823,8 +1133,9 @@ export default function EnterHoursPage() {
                           >
                             + Add Project
                           </button>
+
                           {/* Rollup Display */}
-                          {allocations.length > 0 && (
+                          {projectSplits.length > 0 && (
                             <div
                               style={{
                                 marginTop: "10px",
@@ -833,9 +1144,27 @@ export default function EnterHoursPage() {
                               }}
                             >
                               <span>
-                                Allocated: {allocatedTotal} / Total: {totalHours}
+                                Worker Total from Projects: {workerTotalFromProjects}
                               </span>
-                              {hasMismatch && (
+                            </div>
+                          )}
+
+                          {/* OT Allocation Summary (Total mode only, when editable) */}
+                          {entryMode === "Total" && otEditable && projectSplits.length > 0 && (
+                            <div
+                              style={{
+                                marginTop: "8px",
+                                fontSize: "12px",
+                                color: "#94a3b8",
+                              }}
+                            >
+                              <span>
+                                Computed OT (UI-only): {otComputed}
+                              </span>
+                              <span style={{ marginLeft: "16px" }}>
+                                Allocated OT: {allocatedOt}
+                              </span>
+                              {allocatedOt !== otComputed && (
                                 <span
                                   style={{
                                     marginLeft: "12px",
@@ -843,7 +1172,7 @@ export default function EnterHoursPage() {
                                     fontStyle: "italic",
                                   }}
                                 >
-                                  (Allocation does not match total hours)
+                                  (Allocated OT does not match computed OT)
                                 </span>
                               )}
                             </div>
