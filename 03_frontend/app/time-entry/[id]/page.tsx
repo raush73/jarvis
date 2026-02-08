@@ -17,6 +17,7 @@ interface JobRow {
   id: string;
   jobId: string;
   dailyHours: number[]; // Mon-Sun raw hours
+  perDiemDays: number;
 }
 
 interface EmployeeData {
@@ -103,6 +104,7 @@ export default function TimeEntryPage() {
           id: "emp1-job1",
           jobId: "job1",
           dailyHours: [8, 8, 8, 8, 8, 0, 0],
+          perDiemDays: 3.5,
         },
       ],
     },
@@ -115,6 +117,7 @@ export default function TimeEntryPage() {
           id: "emp2-job1",
           jobId: "job1",
           dailyHours: [10, 10, 10, 10, 10, 4, 0],
+          perDiemDays: 3.5,
         },
       ],
     },
@@ -134,6 +137,7 @@ export default function TimeEntryPage() {
               id: newRowId,
               jobId: "job2",
               dailyHours: [0, 0, 0, 0, 0, 0, 0],
+              perDiemDays: 0,
             },
           ],
         };
@@ -190,6 +194,26 @@ export default function TimeEntryPage() {
             newDailyHours[dayIdx] = numValue;
             return { ...r, dailyHours: newDailyHours };
           }),
+        };
+      })
+    );
+  };
+
+  // Update per diem days for a job row
+  const updatePerDiemDays = (
+    employeeId: string,
+    rowId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== employeeId) return emp;
+        return {
+          ...emp,
+          jobRows: emp.jobRows.map((r) =>
+            r.id === rowId ? { ...r, perDiemDays: numValue } : r
+          ),
         };
       })
     );
@@ -289,6 +313,9 @@ export default function TimeEntryPage() {
                     <th className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-14">
                       DT
                     </th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-14">
+                      PD
+                    </th>
                     <th className="px-2 py-2 text-center text-xs font-medium text-slate-400 border-b border-slate-700 w-10">
                       &nbsp;
                     </th>
@@ -346,6 +373,16 @@ export default function TimeEntryPage() {
                         </td>
                         <td className="px-2 py-2 text-center text-sm text-slate-400">
                           {breakdown?.dt || 0}
+                        </td>
+                        <td className="px-1 py-2 text-center">
+                          <input
+                            type="text"
+                            value={row.perDiemDays || ""}
+                            onChange={(e) =>
+                              updatePerDiemDays(employee.id, row.id, e.target.value)
+                            }
+                            className="w-12 px-1 py-1 text-center text-sm bg-slate-800 border border-slate-600 rounded text-slate-200"
+                          />
                         </td>
                         <td className="px-2 py-2 text-center">
                           {!isFirstRow && (
