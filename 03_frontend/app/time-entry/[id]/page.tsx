@@ -14,6 +14,9 @@ const MOCK_WORKERS = [
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Mock project options for allocation
+const MOCK_PROJECTS = ["Main", "Line 1", "Line 2", "Shutdown", "Maintenance"];
+
 function getStatusColor(status: string): string {
   switch (status) {
     case "Draft":
@@ -45,6 +48,12 @@ interface WorkerHours {
   dt: number;
 }
 
+interface ProjectAllocation {
+  id: string;
+  project: string;
+  hours: number;
+}
+
 export default function EnterHoursPage() {
   // Mock context data
   const mockContext = {
@@ -70,6 +79,28 @@ export default function EnterHoursPage() {
       return initial;
     }
   );
+
+  // Per-worker project split toggle state
+  const [splitExpanded, setSplitExpanded] = useState<Record<string, boolean>>(
+    () => {
+      const initial: Record<string, boolean> = {};
+      MOCK_WORKERS.forEach((w) => {
+        initial[w.id] = false;
+      });
+      return initial;
+    }
+  );
+
+  // Per-worker project allocations state
+  const [workerAllocations, setWorkerAllocations] = useState<
+    Record<string, ProjectAllocation[]>
+  >(() => {
+    const initial: Record<string, ProjectAllocation[]> = {};
+    MOCK_WORKERS.forEach((w) => {
+      initial[w.id] = [];
+    });
+    return initial;
+  });
 
   const handleDailyChange = (workerId: string, dayIndex: number, value: string) => {
     const numValue = parseFloat(value) || 0;
@@ -115,6 +146,70 @@ export default function EnterHoursPage() {
       return worker.daily.reduce((sum, h) => sum + h, 0);
     }
     return worker.total;
+  };
+
+  const toggleSplit = (workerId: string) => {
+    setSplitExpanded((prev) => ({
+      ...prev,
+      [workerId]: !prev[workerId],
+    }));
+  };
+
+  const addAllocation = (workerId: string) => {
+    setWorkerAllocations((prev) => ({
+      ...prev,
+      [workerId]: [
+        ...prev[workerId],
+        { id: `alloc-${Date.now()}`, project: MOCK_PROJECTS[0], hours: 0 },
+      ],
+    }));
+  };
+
+  const updateAllocationProject = (
+    workerId: string,
+    allocId: string,
+    project: string
+  ) => {
+    setWorkerAllocations((prev) => ({
+      ...prev,
+      [workerId]: prev[workerId].map((a) =>
+        a.id === allocId ? { ...a, project } : a
+      ),
+    }));
+  };
+
+  const updateAllocationHours = (
+    workerId: string,
+    allocId: string,
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    setWorkerAllocations((prev) => ({
+      ...prev,
+      [workerId]: prev[workerId].map((a) =>
+        a.id === allocId ? { ...a, hours: numValue } : a
+      ),
+    }));
+  };
+
+  const removeAllocation = (workerId: string, allocId: string) => {
+    setWorkerAllocations((prev) => ({
+      ...prev,
+      [workerId]: prev[workerId].filter((a) => a.id !== allocId),
+    }));
+  };
+
+  const getAllocatedTotal = (workerId: string): number => {
+    return workerAllocations[workerId].reduce((sum, a) => sum + a.hours, 0);
+  };
+
+  // Compute column count for allocation row colspan
+  const getColSpan = (): number => {
+    // Worker + Trade + (Daily days OR Total input) + Total display + REG + OT + DT
+    if (entryMode === "Daily") {
+      return 2 + 7 + 4; // 13
+    }
+    return 2 + 1 + 4; // 7
   };
 
   return (
@@ -360,37 +455,85 @@ export default function EnterHoursPage() {
               const totalHours = getWorkerTotal(worker.id);
               const dt = workerHours[worker.id].dt;
               const { reg, otDisplay } = computeRegOt(totalHours, dt);
+              const isExpanded = splitExpanded[worker.id];
+              const allocations = workerAllocations[worker.id];
+              const allocatedTotal = getAllocatedTotal(worker.id);
+              const hasMismatch =
+                allocations.length > 0 && allocatedTotal !== totalHours;
 
               return (
-                <tr
-                  key={worker.id}
-                  style={{
-                    backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
-                  }}
-                >
-                  <td
+                <>
+                  <tr
+                    key={worker.id}
                     style={{
-                      padding: "12px 16px",
-                      fontSize: "14px",
-                      borderBottom: "1px solid #e5e7eb",
+                      backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
                     }}
                   >
-                    {worker.name}
-                  </td>
-                  <td
-                    style={{
-                      padding: "12px 16px",
-                      fontSize: "13px",
-                      color: "#6b7280",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    {worker.trade}
-                  </td>
-                  {entryMode === "Daily" &&
-                    DAYS.map((day, dayIdx) => (
+                    <td
+                      style={{
+                        padding: "12px 16px",
+                        fontSize: "14px",
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>{worker.name}</span>
+                        <button
+                          onClick={() => toggleSplit(worker.id)}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            border: "1px solid #d1d5db",
+                            borderRadius: "4px",
+                            backgroundColor: isExpanded ? "#eff6ff" : "#fff",
+                            color: isExpanded ? "#2563eb" : "#6b7280",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {isExpanded ? "▼ Split by Project" : "▶ Split by Project"}
+                        </button>
+                      </div>
+                    </td>
+                    <td
+                      style={{
+                        padding: "12px 16px",
+                        fontSize: "13px",
+                        color: "#6b7280",
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      {worker.trade}
+                    </td>
+                    {entryMode === "Daily" &&
+                      DAYS.map((day, dayIdx) => (
+                        <td
+                          key={day}
+                          style={{
+                            padding: "8px 4px",
+                            textAlign: "center",
+                            borderBottom: "1px solid #e5e7eb",
+                          }}
+                        >
+                          <input
+                            type="text"
+                            value={workerHours[worker.id].daily[dayIdx] || ""}
+                            onChange={(e) =>
+                              handleDailyChange(worker.id, dayIdx, e.target.value)
+                            }
+                            style={{
+                              width: "48px",
+                              padding: "6px 4px",
+                              textAlign: "center",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "4px",
+                              fontSize: "13px",
+                            }}
+                          />
+                        </td>
+                      ))}
+                    {entryMode === "Total" && (
                       <td
-                        key={day}
                         style={{
                           padding: "8px 4px",
                           textAlign: "center",
@@ -399,12 +542,12 @@ export default function EnterHoursPage() {
                       >
                         <input
                           type="text"
-                          value={workerHours[worker.id].daily[dayIdx] || ""}
+                          value={workerHours[worker.id].total || ""}
                           onChange={(e) =>
-                            handleDailyChange(worker.id, dayIdx, e.target.value)
+                            handleTotalChange(worker.id, e.target.value)
                           }
                           style={{
-                            width: "48px",
+                            width: "60px",
                             padding: "6px 4px",
                             textAlign: "center",
                             border: "1px solid #d1d5db",
@@ -413,8 +556,45 @@ export default function EnterHoursPage() {
                           }}
                         />
                       </td>
-                    ))}
-                  {entryMode === "Total" && (
+                    )}
+                    {/* Total (computed display) */}
+                    <td
+                      style={{
+                        padding: "12px 8px",
+                        textAlign: "center",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        borderBottom: "1px solid #e5e7eb",
+                        color: "#374151",
+                      }}
+                    >
+                      {totalHours}
+                    </td>
+                    {/* REG (read-only) */}
+                    <td
+                      style={{
+                        padding: "12px 8px",
+                        textAlign: "center",
+                        fontSize: "13px",
+                        borderBottom: "1px solid #e5e7eb",
+                        color: "#6b7280",
+                      }}
+                    >
+                      {reg}
+                    </td>
+                    {/* OT (read-only, after DT reduction) */}
+                    <td
+                      style={{
+                        padding: "12px 8px",
+                        textAlign: "center",
+                        fontSize: "13px",
+                        borderBottom: "1px solid #e5e7eb",
+                        color: "#6b7280",
+                      }}
+                    >
+                      {otDisplay}
+                    </td>
+                    {/* DT (editable) */}
                     <td
                       style={{
                         padding: "8px 4px",
@@ -424,82 +604,237 @@ export default function EnterHoursPage() {
                     >
                       <input
                         type="text"
-                        value={workerHours[worker.id].total || ""}
-                        onChange={(e) =>
-                          handleTotalChange(worker.id, e.target.value)
-                        }
+                        value={workerHours[worker.id].dt || ""}
+                        onChange={(e) => handleDtChange(worker.id, e.target.value)}
                         style={{
-                          width: "60px",
+                          width: "48px",
                           padding: "6px 4px",
                           textAlign: "center",
-                          border: "1px solid #d1d5db",
+                          border: "1px solid #2563eb",
                           borderRadius: "4px",
                           fontSize: "13px",
+                          backgroundColor: "#eff6ff",
                         }}
                       />
                     </td>
+                  </tr>
+                  {/* Project Allocation Row (expanded) */}
+                  {isExpanded && (
+                    <tr
+                      key={`${worker.id}-alloc`}
+                      style={{ backgroundColor: "#f9fafb" }}
+                    >
+                      <td
+                        colSpan={getColSpan()}
+                        style={{
+                          padding: "12px 16px 16px 40px",
+                          borderBottom: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div
+                          style={{
+                            backgroundColor: "#fff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "6px",
+                            padding: "12px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              color: "#374151",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            Project / Cost-Code Allocation
+                          </div>
+                          {allocations.length > 0 && (
+                            <table
+                              style={{
+                                width: "100%",
+                                maxWidth: "400px",
+                                borderCollapse: "collapse",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              <thead>
+                                <tr>
+                                  <th
+                                    style={{
+                                      padding: "6px 8px",
+                                      textAlign: "left",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      borderBottom: "1px solid #e5e7eb",
+                                    }}
+                                  >
+                                    Project
+                                  </th>
+                                  <th
+                                    style={{
+                                      padding: "6px 8px",
+                                      textAlign: "center",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      width: "100px",
+                                    }}
+                                  >
+                                    Allocated Hours
+                                  </th>
+                                  <th
+                                    style={{
+                                      padding: "6px 8px",
+                                      textAlign: "center",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      width: "40px",
+                                    }}
+                                  >
+                                    &nbsp;
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {allocations.map((alloc) => (
+                                  <tr key={alloc.id}>
+                                    <td
+                                      style={{
+                                        padding: "6px 8px",
+                                        borderBottom: "1px solid #f3f4f6",
+                                      }}
+                                    >
+                                      <select
+                                        value={alloc.project}
+                                        onChange={(e) =>
+                                          updateAllocationProject(
+                                            worker.id,
+                                            alloc.id,
+                                            e.target.value
+                                          )
+                                        }
+                                        style={{
+                                          padding: "4px 8px",
+                                          fontSize: "12px",
+                                          border: "1px solid #d1d5db",
+                                          borderRadius: "4px",
+                                          backgroundColor: "#fff",
+                                          width: "100%",
+                                        }}
+                                      >
+                                        {MOCK_PROJECTS.map((proj) => (
+                                          <option key={proj} value={proj}>
+                                            {proj}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "center",
+                                        borderBottom: "1px solid #f3f4f6",
+                                      }}
+                                    >
+                                      <input
+                                        type="text"
+                                        value={alloc.hours || ""}
+                                        onChange={(e) =>
+                                          updateAllocationHours(
+                                            worker.id,
+                                            alloc.id,
+                                            e.target.value
+                                          )
+                                        }
+                                        style={{
+                                          width: "60px",
+                                          padding: "4px 6px",
+                                          textAlign: "center",
+                                          border: "1px solid #d1d5db",
+                                          borderRadius: "4px",
+                                          fontSize: "12px",
+                                        }}
+                                      />
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "6px 8px",
+                                        textAlign: "center",
+                                        borderBottom: "1px solid #f3f4f6",
+                                      }}
+                                    >
+                                      <button
+                                        onClick={() =>
+                                          removeAllocation(worker.id, alloc.id)
+                                        }
+                                        style={{
+                                          padding: "2px 6px",
+                                          fontSize: "11px",
+                                          border: "none",
+                                          borderRadius: "3px",
+                                          backgroundColor: "#fee2e2",
+                                          color: "#dc2626",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                          <button
+                            onClick={() => addAllocation(worker.id)}
+                            style={{
+                              padding: "4px 10px",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              border: "1px solid #d1d5db",
+                              borderRadius: "4px",
+                              backgroundColor: "#fff",
+                              color: "#374151",
+                              cursor: "pointer",
+                            }}
+                          >
+                            + Add Project
+                          </button>
+                          {/* Rollup Display */}
+                          {allocations.length > 0 && (
+                            <div
+                              style={{
+                                marginTop: "10px",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                              }}
+                            >
+                              <span>
+                                Allocated: {allocatedTotal} / Total: {totalHours}
+                              </span>
+                              {hasMismatch && (
+                                <span
+                                  style={{
+                                    marginLeft: "12px",
+                                    color: "#d97706",
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  (Allocation does not match total hours)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                  {/* Total (computed display) */}
-                  <td
-                    style={{
-                      padding: "12px 8px",
-                      textAlign: "center",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#374151",
-                    }}
-                  >
-                    {totalHours}
-                  </td>
-                  {/* REG (read-only) */}
-                  <td
-                    style={{
-                      padding: "12px 8px",
-                      textAlign: "center",
-                      fontSize: "13px",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#6b7280",
-                    }}
-                  >
-                    {reg}
-                  </td>
-                  {/* OT (read-only, after DT reduction) */}
-                  <td
-                    style={{
-                      padding: "12px 8px",
-                      textAlign: "center",
-                      fontSize: "13px",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#6b7280",
-                    }}
-                  >
-                    {otDisplay}
-                  </td>
-                  {/* DT (editable) */}
-                  <td
-                    style={{
-                      padding: "8px 4px",
-                      textAlign: "center",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={workerHours[worker.id].dt || ""}
-                      onChange={(e) => handleDtChange(worker.id, e.target.value)}
-                      style={{
-                        width: "48px",
-                        padding: "6px 4px",
-                        textAlign: "center",
-                        border: "1px solid #2563eb",
-                        borderRadius: "4px",
-                        fontSize: "13px",
-                        backgroundColor: "#eff6ff",
-                      }}
-                    />
-                  </td>
-                </tr>
+                </>
               );
             })}
           </tbody>
