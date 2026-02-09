@@ -33,6 +33,12 @@ type OrderModifiers = {
   bonuses: number;
 };
 
+// SD delta rates type
+type SDDeltaRates = {
+  sdPayDeltaRate: number | null;
+  sdBillDeltaRate: number | null;
+};
+
 // Order payload type
 type OrderPayload = {
   orderId: string;
@@ -45,6 +51,8 @@ type OrderPayload = {
   status: string;
   tradeLines: TradeLine[];
   modifiers: OrderModifiers;
+  sdPayDeltaRate?: number | null;
+  sdBillDeltaRate?: number | null;
   commissionSplits: CommissionSplit[];
   origin: {
     type: string;
@@ -295,6 +303,34 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+{/* Shift Differential */}
+{(order.sdPayDeltaRate !== null && order.sdPayDeltaRate !== undefined) ||
+ (order.sdBillDeltaRate !== null && order.sdBillDeltaRate !== undefined) ? (
+  <div className="sd-delta-display">
+    <h3>Shift Differential</h3>
+    <div className="modifiers-list">
+      <div className="modifier-row">
+        <span className="modifier-label">SD Pay Delta</span>
+        <span className="modifier-value">
+          {order.sdPayDeltaRate !== null && order.sdPayDeltaRate !== undefined
+            ? `$${order.sdPayDeltaRate}/hr`
+            : "—"}
+        </span>
+      </div>
+      <div className="modifier-row">
+        <span className="modifier-label">SD Bill Delta</span>
+        <span className="modifier-value">
+          {order.sdBillDeltaRate !== null && order.sdBillDeltaRate !== undefined
+            ? `$${order.sdBillDeltaRate}/hr`
+            : "—"}
+        </span>
+      </div>
+    </div>
+    <p className="sd-helper-text">
+      Additive delta applied only to SD hours. Base rates remain on trade lines.
+    </p>
+  </div>
+) : null}
 
       {/* Commission Splits Section */}
       <div className="detail-section">
@@ -615,6 +651,26 @@ export default function OrderDetailPage() {
           font-family: var(--font-geist-mono), monospace;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.85);
+        }
+
+        .sd-delta-display {
+          margin-top: 20px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .sd-delta-display h3 {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.8);
+          margin: 0 0 12px;
+        }
+
+        .sd-helper-text {
+          margin: 12px 0 0;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          font-style: italic;
         }
 
         .system-panel {

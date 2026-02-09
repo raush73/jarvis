@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -61,6 +61,12 @@ type OrderModifiers = {
   perDiem: number;
   travel: number;
   bonuses: number;
+};
+
+// SD delta rates type
+type SDDeltaRates = {
+  sdPayDeltaRate: number | null;
+  sdBillDeltaRate: number | null;
 };
 
 // Helper to generate order ID
@@ -183,6 +189,12 @@ export default function CreateOrderPage() {
     bonuses: 0,
   });
 
+  // SD Delta Rates
+  const [sdDeltaRates, setSDDeltaRates] = useState<SDDeltaRates>({
+    sdPayDeltaRate: null,
+    sdBillDeltaRate: null,
+  });
+
   // Commission splits
   const [commissionSplits, setCommissionSplits] = useState<CommissionSplit[]>([
     createEmptyCommissionSplit(MOCK_PERSONS[0]),
@@ -230,6 +242,14 @@ export default function CreateOrderPage() {
           perDiem: payload.modifiers.perDiem ?? 100,
           travel: payload.modifiers.travel ?? 0.58,
           bonuses: payload.modifiers.bonuses ?? 0,
+        });
+      }
+
+      // Load SD delta rates from draft (top-level fields)
+      if (payload.sdPayDeltaRate !== undefined || payload.sdBillDeltaRate !== undefined) {
+        setSDDeltaRates({
+          sdPayDeltaRate: payload.sdPayDeltaRate ?? null,
+          sdBillDeltaRate: payload.sdBillDeltaRate ?? null,
         });
       }
       if (payload.jobRequirements) {
@@ -306,6 +326,11 @@ export default function CreateOrderPage() {
     setModifiers({ ...modifiers, [field]: value });
   };
 
+  // SD Delta Rate handlers
+  const updateSDDeltaRate = (field: keyof SDDeltaRates, value: number | null) => {
+    setSDDeltaRates({ ...sdDeltaRates, [field]: value });
+  };
+
   // Job requirements handlers
   const toggleTool = (tool: string) => {
     const newTools = jobRequirements.tools.includes(tool)
@@ -364,6 +389,8 @@ export default function CreateOrderPage() {
       status: "Draft",
       tradeLines,
       modifiers,
+      sdPayDeltaRate: sdDeltaRates.sdPayDeltaRate,
+      sdBillDeltaRate: sdDeltaRates.sdBillDeltaRate,
       commissionSplits,
       origin: { type: "manual" },
     };
@@ -385,7 +412,7 @@ export default function CreateOrderPage() {
       {/* Page Header */}
       <div className="page-header">
         <button className="back-btn" onClick={handleCancel}>
-          ← Back to Customer
+          â† Back to Customer
         </button>
         <h1>Create Order</h1>
         <span className="customer-id-badge">{customerId}</span>
@@ -402,7 +429,7 @@ export default function CreateOrderPage() {
               className="form-input"
               value={orderName}
               onChange={(e) => setOrderName(e.target.value)}
-              placeholder="e.g., Downtown Tower Phase 2 — Millwright Services"
+              placeholder="e.g., Downtown Tower Phase 2 â€” Millwright Services"
             />
           </div>
           <div className="form-row">
@@ -412,7 +439,7 @@ export default function CreateOrderPage() {
               className="form-input"
               value={site}
               onChange={(e) => setSite(e.target.value)}
-              placeholder="e.g., Downtown Tower — Los Angeles, CA"
+              placeholder="e.g., Downtown Tower â€” Los Angeles, CA"
             />
           </div>
           <div className="form-row">
@@ -613,7 +640,7 @@ export default function CreateOrderPage() {
                       disabled={tradeLines.length <= 1}
                       title="Remove trade"
                     >
-                      ×
+                      Ã—
                     </button>
                   </td>
                 </tr>
@@ -660,6 +687,46 @@ export default function CreateOrderPage() {
               step={0.01}
             />
           </div>
+        </div>
+
+        {/* Shift Differential Section */}
+        <div className="sd-delta-section">
+          <h3>Shift Differential</h3>
+          <div className="sd-delta-grid">
+            <div className="form-row">
+              <label className="form-label">SD Pay Delta ($/hr)</label>
+              <input
+                type="number"
+                className="form-input"
+                value={sdDeltaRates.sdPayDeltaRate ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateSDDeltaRate("sdPayDeltaRate", val === "" ? null : parseFloat(val));
+                }}
+                min={0}
+                step={0.01}
+                placeholder="e.g., 2.50"
+              />
+            </div>
+            <div className="form-row">
+              <label className="form-label">SD Bill Delta ($/hr)</label>
+              <input
+                type="number"
+                className="form-input"
+                value={sdDeltaRates.sdBillDeltaRate ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateSDDeltaRate("sdBillDeltaRate", val === "" ? null : parseFloat(val));
+                }}
+                min={0}
+                step={0.01}
+                placeholder="e.g., 4.00"
+              />
+            </div>
+          </div>
+          <p className="sd-helper-text">
+            Additive delta applied only to SD hours. Base rates remain on trade lines.
+          </p>
         </div>
       </div>
 
@@ -831,7 +898,7 @@ export default function CreateOrderPage() {
                       disabled={commissionSplits.length <= 1}
                       title="Remove split"
                     >
-                      ×
+                      Ã—
                     </button>
                   </td>
                 </tr>
@@ -1179,6 +1246,33 @@ export default function CreateOrderPage() {
           gap: 16px;
         }
 
+        .sd-delta-section {
+          margin-top: 24px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .sd-delta-section h3 {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.8);
+          margin: 0 0 12px;
+        }
+
+        .sd-delta-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          max-width: 500px;
+        }
+
+        .sd-helper-text {
+          margin: 12px 0 0;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          font-style: italic;
+        }
+
         .error-banner {
           padding: 12px 16px;
           margin-bottom: 16px;
@@ -1364,3 +1458,5 @@ export default function CreateOrderPage() {
     </div>
   );
 }
+
+
