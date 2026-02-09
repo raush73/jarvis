@@ -805,6 +805,125 @@ export default function TimeEntryPage() {
                   OT allocation mismatch — computed OT: {weeklyTotals.ot}, allocated OT: {weeklyTotals.allocatedOt}
                 </div>
               )}
+
+              {/* ================================================================
+                  SHIFT DIFFERENTIAL BREAKDOWN — VISUAL VERIFICATION LAYER
+                  Read-only display of SD vs non-SD hour buckets.
+                  Reflects existing data; does NOT compute or modify anything.
+                  ================================================================ */}
+              {JOB_HAS_SHIFT_DIFF && entryMode === "daily" && (() => {
+                // Compute SD overlay for this employee (read-only, parallel to GOLD)
+                const cellBreakdown = computeAllocatorCellBreakdownDaily(employee.jobRows);
+                const rowSdFlagsForEmployee = rowSdFlags[employee.id] || {};
+                const sdOverlay = computeShiftDiffOverlayDaily({
+                  jobRows: employee.jobRows,
+                  cellBreakdown: cellBreakdown.cell,
+                  rowSdFlagsForEmployee,
+                });
+
+                // Derive non-SD hours (total minus SD)
+                const regNonSd = totals.reg - sdOverlay.regSdHours;
+                const otNonSd = totals.ot - sdOverlay.otSdHours;
+                const dtNonSd = totals.dt - sdOverlay.dtSdHours;
+
+                const hasSdHours = sdOverlay.regSdHours > 0 || sdOverlay.otSdHours > 0 || sdOverlay.dtSdHours > 0;
+
+                return (
+                  <div className="mt-3 pt-3 border-t border-slate-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">
+                        Shift Differential Breakdown
+                      </span>
+                      {isWorkerSdEnabled ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-300 border border-purple-600">
+                          SD Applied
+                        </span>
+                      ) : (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 border border-slate-600">
+                          SD Not Enabled
+                        </span>
+                      )}
+                    </div>
+
+                    {isWorkerSdEnabled ? (
+                      <div className="grid grid-cols-3 gap-4 text-xs">
+                        {/* REG Bucket */}
+                        <div className="bg-slate-800/50 rounded px-3 py-2 border border-slate-700">
+                          <div className="text-[10px] text-slate-400 mb-1 font-medium">REG Hours</div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-slate-300">Non-SD:</span>
+                              <span className="ml-1 font-medium text-slate-100">{regNonSd}</span>
+                            </div>
+                            <div>
+                              <span className="text-purple-400">SD:</span>
+                              <span className="ml-1 font-medium text-purple-300">{sdOverlay.regSdHours}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* OT Bucket */}
+                        <div className="bg-slate-800/50 rounded px-3 py-2 border border-slate-700">
+                          <div className="text-[10px] text-slate-400 mb-1 font-medium">OT Hours</div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-slate-300">Non-SD:</span>
+                              <span className="ml-1 font-medium text-slate-100">{otNonSd}</span>
+                            </div>
+                            <div>
+                              <span className="text-purple-400">SD:</span>
+                              <span className="ml-1 font-medium text-purple-300">{sdOverlay.otSdHours}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* DT Bucket */}
+                        <div className="bg-slate-800/50 rounded px-3 py-2 border border-slate-700">
+                          <div className="text-[10px] text-slate-400 mb-1 font-medium">DT Hours</div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-slate-300">Non-SD:</span>
+                              <span className="ml-1 font-medium text-slate-100">{dtNonSd}</span>
+                            </div>
+                            <div>
+                              <span className="text-purple-400">SD:</span>
+                              <span className="ml-1 font-medium text-purple-300">{sdOverlay.dtSdHours}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-500 italic">
+                        Enable Shift Diff for this worker to see SD vs non-SD breakdown.
+                      </div>
+                    )}
+
+                    {/* Source attribution */}
+                    {isWorkerSdEnabled && hasSdHours && (
+                      <div className="mt-2 text-[9px] text-slate-500">
+                        Derived from Job Order SD rules • Per-row/day SD flags shown below
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Job Order has NO Shift Differential — explicit indicator */}
+              {!JOB_HAS_SHIFT_DIFF && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                      Shift Differential
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700">
+                      Not Configured
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500 italic">
+                    This Job Order does not have Shift Differential configured.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Job Rows Grid */}
