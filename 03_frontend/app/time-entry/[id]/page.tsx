@@ -194,6 +194,130 @@ function computeEmployeeTotals(jobRows: JobRow[]): {
   return { totalHours, reg, ot, dt, jobBreakdown };
 }
 
+// =============================================================================
+// CELL BREAKDOWN HELPER — DAILY MODE ONLY (PARALLEL BREAKDOWN, NO GOLD MUTATION)
+// =============================================================================
+// Returns per-cell REG/OT/DT breakdown for SD overlay consumption.
+// Uses SAME allocation logic as computeEmployeeTotals: Mon→Sun, row order, first 40 REG.
+// This is a READ-ONLY parallel breakdown — does NOT affect GOLD totals.
+function computeAllocatorCellBreakdownDaily(jobRows: JobRow[]): {
+  cell: { reg: number; ot: number; dt: number }[][];
+} {
+  const cell: { reg: number; ot: number; dt: number }[][] = [];
+
+  // Initialize 2D array: cell[rowIdx][dayIdx]
+  for (let rowIdx = 0; rowIdx < jobRows.length; rowIdx++) {
+    cell[rowIdx] = [];
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      cell[rowIdx][dayIdx] = { reg: 0, ot: 0, dt: 0 };
+    }
+  }
+
+  let runningTotal = 0;
+
+  // Iterate chronologically: Mon→Sun, within day: row order (SAME as computeEmployeeTotals)
+  for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+    for (let rowIdx = 0; rowIdx < jobRows.length; rowIdx++) {
+      const hours = jobRows[rowIdx].dailyHours[dayIdx] || 0;
+      if (hours <= 0) continue;
+
+      const hoursBeforeThisCell = runningTotal;
+      const hoursAfterThisCell = runningTotal + hours;
+
+      if (hoursBeforeThisCell >= 40) {
+        // All OT
+        cell[rowIdx][dayIdx].ot = hours;
+      } else if (hoursAfterThisCell <= 40) {
+        // All REG
+        cell[rowIdx][dayIdx].reg = hours;
+      } else {
+        // Split: some REG, some OT
+        const regPortion = 40 - hoursBeforeThisCell;
+        const otPortion = hours - regPortion;
+        cell[rowIdx][dayIdx].reg = regPortion;
+        cell[rowIdx][dayIdx].ot = otPortion;
+      }
+
+      runningTotal = hoursAfterThisCell;
+    }
+  }
+
+  return { cell };
+}
+
+// =============================================================================
+// SD OVERLAY HELPER — DAILY MODE ONLY (HOURS ONLY, NO RATES)
+// =============================================================================
+// Computes SD hour buckets by reading the per-cell breakdown.
+// rowSdFlagsForEmployee: { [rowId]: boolean[7] } — SD intent flags per row/day
+function computeShiftDiffOverlayDaily({
+  jobRows,
+  cellBreakdown,
+  rowSdFlagsForEmployee,
+}: {
+  jobRows: JobRow[];
+  cellBreakdown: { reg: number; ot: number; dt: number }[][];
+  rowSdFlagsForEmployee: Record<string, boolean[]>;
+}): { regSdHours: number; otSdHours: number; dtSdHours: number } {
+  let regSdHours = 0;
+  let otSdHours = 0;
+  let dtSdHours = 0;
+
+  // Iterate Mon→Sun, row order (SAME order as cell breakdown)
+  for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+    for (let rowIdx = 0; rowIdx < jobRows.length; rowIdx++) {
+      const row = jobRows[rowIdx];
+      const sdFlags = rowSdFlagsForEmployee[row.id] || [false, false, false, false, false, false, false];
+      const isSdOn = sdFlags[dayIdx];
+
+      if (isSdOn) {
+        const cellData = cellBreakdown[rowIdx]?.[dayIdx];
+        if (cellData) {
+          regSdHours += cellData.reg;
+          otSdHours += cellData.ot;
+          dtSdHours += cellData.dt;
+        }
+      }
+    }
+  }
+
+  return { regSdHours, otSdHours, dtSdHours };
+}
+
+// =============================================================================
+// PER-ROW SD TOTALS HELPER — DAILY MODE ONLY
+// =============================================================================
+// Computes SD hour buckets for a SINGLE row (scoped by rowIdx).
+// Uses the same cellBreakdown but only sums for the specific row.
+function computeRowShiftDiffTotals({
+  rowIdx,
+  cellBreakdown,
+  sdFlags,
+}: {
+  rowIdx: number;
+  cellBreakdown: { reg: number; ot: number; dt: number }[][];
+  sdFlags: boolean[];
+}): { regSd: number; otSd: number; dtSd: number } {
+  let regSd = 0;
+  let otSd = 0;
+  let dtSd = 0;
+
+  // Iterate Mon→Sun for this specific row only
+  for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+    const isSdOn = sdFlags[dayIdx];
+    if (isSdOn) {
+      const cellData = cellBreakdown[rowIdx]?.[dayIdx];
+      if (cellData) {
+        regSd += cellData.reg;
+        otSd += cellData.ot;
+        dtSd += cellData.dt;
+      }
+    }
+  }
+
+  return { regSd, otSd, dtSd };
+}
+
 export default function TimeEntryPage() {
   // Mock context data
   const mockContext = {
@@ -835,29 +959,62 @@ export default function TimeEntryPage() {
                         </tr>
 
                         {/* Per-row SD toggles — only shown when worker SD is enabled (INTENT ONLY) */}
-                        {isWorkerSdEnabled && entryMode === "daily" && (
-                          <tr className="bg-purple-900/10 border-b border-slate-700/30">
-                            <td className="px-4 py-1 text-[10px] text-purple-400">
-                              SD
-                            </td>
-                            {DAYS.map((day, dayIdx) => (
-                              <td key={day} className="px-1 py-1 text-center">
-                                <button
-                                  onClick={() => toggleRowDaySd(employee.id, row.id, dayIdx)}
-                                  className={`w-8 h-5 text-[10px] font-medium rounded transition-colors ${
-                                    rowSdFlagsArr[dayIdx]
-                                      ? "bg-purple-700/70 text-purple-200 border border-purple-500"
-                                      : "bg-slate-700/40 text-slate-500 border border-slate-600 hover:text-slate-400"
-                                  }`}
-                                >
-                                  {rowSdFlagsArr[dayIdx] ? "✓" : ""}
-                                </button>
+                        {isWorkerSdEnabled && entryMode === "daily" && (() => {
+                          const cellBreakdown = computeAllocatorCellBreakdownDaily(employee.jobRows);
+                          const rowSdTotals = computeRowShiftDiffTotals({
+                            rowIdx,
+                            cellBreakdown: cellBreakdown.cell,
+                            sdFlags: rowSdFlagsArr,
+                          });
+                          const hasAnySd = rowSdTotals.regSd > 0 || rowSdTotals.otSd > 0 || rowSdTotals.dtSd > 0;
+                          return (
+                            <tr className="bg-purple-900/10 border-b border-slate-700/30">
+                              <td className="px-4 py-1 text-[10px] text-purple-400">
+                                SD
                               </td>
-                            ))}
-                            {/* Empty cells to align with table columns */}
-                            <td colSpan={5}>&nbsp;</td>
-                          </tr>
-                        )}
+                              {DAYS.map((day, dayIdx) => (
+                                <td key={day} className="px-1 py-1 text-center">
+                                  <button
+                                    onClick={() => toggleRowDaySd(employee.id, row.id, dayIdx)}
+                                    className={`w-8 h-5 text-[10px] font-medium rounded transition-colors ${
+                                      rowSdFlagsArr[dayIdx]
+                                        ? "bg-purple-700/70 text-purple-200 border border-purple-500"
+                                        : "bg-slate-700/40 text-slate-500 border border-slate-600 hover:text-slate-400"
+                                    }`}
+                                  >
+                                    {rowSdFlagsArr[dayIdx] ? "✓" : ""}
+                                  </button>
+                                </td>
+                              ))}
+                              {/* Per-row SD totals: REG_SD / OT_SD / DT_SD */}
+                              <td className="px-2 py-1 text-center">
+                                {/* Total column - empty for SD row */}
+                              </td>
+                              <td className="px-2 py-1 text-center">
+                                {hasAnySd && (
+                                  <span className="text-[10px] font-medium text-purple-400 bg-purple-900/40 px-1.5 py-0.5 rounded">
+                                    {rowSdTotals.regSd}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1 text-center">
+                                {hasAnySd && (
+                                  <span className="text-[10px] font-medium text-purple-400 bg-purple-900/40 px-1.5 py-0.5 rounded">
+                                    {rowSdTotals.otSd}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1 text-center">
+                                {hasAnySd && (
+                                  <span className="text-[10px] font-medium text-purple-400 bg-purple-900/40 px-1.5 py-0.5 rounded">
+                                    {rowSdTotals.dtSd}
+                                  </span>
+                                )}
+                              </td>
+                              <td colSpan={2}>&nbsp;</td>
+                            </tr>
+                          );
+                        })()}
                       </React.Fragment>
                     );
                   })}
