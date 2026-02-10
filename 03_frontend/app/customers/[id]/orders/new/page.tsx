@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -779,6 +779,105 @@ export default function CreateOrderPage() {
               </div>
             </div>
           )}
+
+          {/* Trade-specific tool display (UI-only) */}
+          {(() => {
+            // Local alias mapping for trade name normalization (UI-only)
+            const TRADE_DISPLAY_ALIAS: Record<string, string> = {
+              Millwrights: "Millwright",
+              Electricians: "Electrician",
+            };
+
+            // Local MW4H baseline per trade (UI-only, does not modify MW4H_STANDARD_TOOLS)
+            const MW4H_BASELINE_BY_TRADE: Record<string, string[]> = {
+              Millwright: ["Hard Hat", "FR Clothing", "Steel Toe Boots", "Safety Glasses", "Gloves", "Basic Hand Tools"],
+              Electrician: ["Hard Hat", "FR Clothing", "Steel Toe Boots", "Safety Glasses", "Gloves", "Basic Hand Tools"],
+            };
+
+            const tradesToDisplay = ["Millwrights", "Electricians"];
+
+            // Helper: get baseline list for a trade based on current toggle state
+            const getBaselineForTrade = (displayTrade: string): string[] => {
+              const normalizedTrade = TRADE_DISPLAY_ALIAS[displayTrade] || displayTrade;
+              if (jobRequirements.useCustomerToolList) {
+                return MOCK_CUSTOMER_TOOLS[normalizedTrade] || [];
+              } else if (jobRequirements.useMW4HStandardToolList) {
+                return MW4H_BASELINE_BY_TRADE[normalizedTrade] || [];
+              }
+              return [];
+            };
+
+            // Helper: compute baseline and job-specific tools for a trade
+            const computeTradeToolGroups = (displayTrade: string) => {
+              const baselineList = getBaselineForTrade(displayTrade);
+              const selectedTools = jobRequirements.tools;
+              const baselineTools = selectedTools.filter((t) => baselineList.includes(t));
+              const jobSpecificTools = selectedTools.filter((t) => !baselineList.includes(t));
+              return { baselineTools, jobSpecificTools };
+            };
+
+            return (
+              <div className="trade-tools-display-wrapper">
+                <div className="trade-tools-note-box">
+                  Tools are selected once for the Job Order. Each trade section shows how the selected tools relate to the baseline for that trade.
+                </div>
+
+                {tradesToDisplay.map((displayTrade) => {
+                  const { baselineTools, jobSpecificTools } = computeTradeToolGroups(displayTrade);
+                  return (
+                    <div key={displayTrade} className="trade-tools-section">
+                      <h4 className="trade-tools-section-header">Required Tools — {displayTrade}</h4>
+                      <p className="trade-tools-helper-text">
+                        Baseline tools are copied into this Job Order and will not change if customer defaults change later.
+                      </p>
+
+                      {/* Baseline tools group */}
+                      <div className="trade-tools-group">
+                        <div className="trade-tools-group-header">
+                          <span className="trade-tools-group-title">Baseline tools</span>
+                          <span className="trade-tools-group-badge badge-copied">Copied at creation</span>
+                        </div>
+                        <p className="trade-tools-group-subtext">These tools came from the selected baseline for this trade.</p>
+                        <div className="trade-tools-list">
+                          {baselineTools.length > 0 ? (
+                            baselineTools.map((tool) => (
+                              <span key={tool} className="trade-tool-item">
+                                <span className="trade-tool-name">{tool}</span>
+                                <span className="trade-tool-badge badge-baseline">Baseline</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="trade-tools-empty">No baseline tools selected</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Job-specific additions group */}
+                      <div className="trade-tools-group">
+                        <div className="trade-tools-group-header">
+                          <span className="trade-tools-group-title">Job-specific additions</span>
+                        </div>
+                        <p className="trade-tools-group-subtext">Added for this Job Order only.</p>
+                        <div className="trade-tools-list">
+                          {jobSpecificTools.length > 0 ? (
+                            jobSpecificTools.map((tool) => (
+                              <span key={tool} className="trade-tool-item">
+                                <span className="trade-tool-name">{tool}</span>
+                                <span className="trade-tool-badge badge-job-specific">Job-specific</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="trade-tools-empty">No job-specific tools added</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           <div className="checkbox-grid">
             {MOCK_TOOLS.map((tool) => (
               <label key={tool} className="checkbox-label">
@@ -1453,6 +1552,137 @@ export default function CreateOrderPage() {
 
         .checkbox-label input[type="checkbox"]:checked + span {
           color: #fff;
+        }
+
+        /* Trade-specific tool display styles (UI-only) */
+        .trade-tools-display-wrapper {
+          margin-bottom: 16px;
+        }
+
+        .trade-tools-note-box {
+          padding: 12px 16px;
+          margin-bottom: 16px;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          border-radius: 6px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.8);
+          line-height: 1.5;
+        }
+
+        .trade-tools-section {
+          margin-bottom: 20px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+        }
+
+        .trade-tools-section:last-of-type {
+          margin-bottom: 16px;
+        }
+
+        .trade-tools-section-header {
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          margin: 0 0 8px;
+        }
+
+        .trade-tools-helper-text {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.5);
+          margin: 0 0 16px;
+          font-style: italic;
+        }
+
+        .trade-tools-group {
+          margin-bottom: 16px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 6px;
+        }
+
+        .trade-tools-group:last-child {
+          margin-bottom: 0;
+        }
+
+        .trade-tools-group-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 6px;
+        }
+
+        .trade-tools-group-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .trade-tools-group-badge {
+          padding: 2px 8px;
+          font-size: 10px;
+          font-weight: 500;
+          border-radius: 4px;
+        }
+
+        .badge-copied {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+        }
+
+        .trade-tools-group-subtext {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 0 0 10px;
+        }
+
+        .trade-tools-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .trade-tool-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 4px;
+        }
+
+        .trade-tool-name {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.85);
+        }
+
+        .trade-tool-badge {
+          padding: 2px 6px;
+          font-size: 9px;
+          font-weight: 500;
+          border-radius: 3px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .badge-baseline {
+          background: rgba(59, 130, 246, 0.15);
+          color: #3b82f6;
+        }
+
+        .badge-job-specific {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+        }
+
+        .trade-tools-empty {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          font-style: italic;
         }
       `}</style>
     </div>
