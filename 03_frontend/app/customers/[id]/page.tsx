@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { formatPhone } from "@/lib/format";
 
 // Trade row type for labor plan
 type TradeRow = {
@@ -347,6 +348,28 @@ export default function CustomerDetailPage() {
   const [mode, setMode] = useState<QuoteMode>("view");
   const [draftQuote, setDraftQuote] = useState<DraftQuote | null>(null);
 
+  // UI-only contacts state (never initialized from base customer data)
+  const [uiContacts, setUiContacts] = useState<Array<{
+    id: string;
+    name: string;
+    title: string;
+    email: string;
+    officePhone: string;
+    cellPhone: string;
+    notes: string;
+    isPrimary: boolean;
+  }>>([]);
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [newContact, setNewContact] = useState({
+    name: "",
+    title: "",
+    email: "",
+    officePhone: "",
+    cellPhone: "",
+    notes: "",
+    isPrimary: false,
+  });
+
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
 
@@ -412,6 +435,40 @@ export default function CustomerDetailPage() {
   const handleCancelForm = () => {
     setDraftQuote(null);
     setMode("view");
+  };
+
+  // Add Contact handlers
+  const handleOpenAddContactModal = () => {
+    setNewContact({
+      name: "",
+      title: "",
+      email: "",
+      officePhone: "",
+      cellPhone: "",
+      notes: "",
+      isPrimary: false,
+    });
+    setShowAddContactModal(true);
+  };
+
+  const handleCloseAddContactModal = () => {
+    setShowAddContactModal(false);
+  };
+
+  const handleSaveNewContact = () => {
+    if (!newContact.name.trim()) return;
+    const contact = {
+      id: `UI-CON-${Date.now()}`,
+      name: newContact.name.trim(),
+      title: newContact.title.trim(),
+      email: newContact.email.trim(),
+      officePhone: newContact.officePhone.trim(),
+      cellPhone: newContact.cellPhone.trim(),
+      notes: newContact.notes.trim(),
+      isPrimary: newContact.isPrimary,
+    };
+    setUiContacts([...uiContacts, contact]);
+    setShowAddContactModal(false);
   };
 
   const handleSaveQuote = () => {
@@ -530,7 +587,7 @@ export default function CustomerDetailPage() {
         </div>
         <div className="summary-item">
           <span className="summary-label">Main Phone</span>
-          <span className="summary-value mono">{customer.mainPhone}</span>
+          <span className="summary-value mono">{formatPhone(customer.mainPhone)}</span>
         </div>
         <div className="summary-item">
           <span className="summary-label">Website</span>
@@ -612,6 +669,9 @@ export default function CustomerDetailPage() {
             <div className="panel-header">
               <h2>Contacts Directory</h2>
               <span className="panel-note">Customer contact sprawl lives here — Job Orders only show PM</span>
+              <button className="add-contact-btn" onClick={handleOpenAddContactModal}>
+                + Add Contact
+              </button>
             </div>
             <div className="contacts-table-wrap">
               <table className="contacts-table">
@@ -626,7 +686,7 @@ export default function CustomerDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {customer.contacts.map((contact) => (
+                  {[...customer.contacts, ...uiContacts].map((contact) => (
                     <tr key={contact.id} className={contact.isPrimary ? "primary-contact" : ""}>
                       <td className="contact-name">
                         <span className="name-text">{contact.name}</span>
@@ -636,10 +696,10 @@ export default function CustomerDetailPage() {
                       </td>
                       <td className="contact-title">{contact.title}</td>
                       <td className="contact-email">
-                        <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                        {contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}
                       </td>
-                      <td className="contact-phone">{contact.officePhone}</td>
-                      <td className="contact-phone">{contact.cellPhone}</td>
+<td className="contact-phone">{contact.officePhone ? formatPhone(contact.officePhone) : "—"}</td>
+                                      <td className="contact-phone">{contact.cellPhone ? formatPhone(contact.cellPhone) : "—"}</td>
                       <td className="contact-notes">{contact.notes || "—"}</td>
                     </tr>
                   ))}
@@ -1291,6 +1351,103 @@ export default function CustomerDetailPage() {
         )}
 
       </div>
+
+      {/* Add Contact Modal */}
+      {showAddContactModal && (
+        <div className="modal-overlay" onClick={handleCloseAddContactModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Add Contact</h3>
+              <button className="modal-close-btn" onClick={handleCloseAddContactModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newContact.name}
+                  onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                  placeholder="Contact name"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Title / Role</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newContact.title}
+                  onChange={(e) => setNewContact({ ...newContact, title: e.target.value })}
+                  placeholder="e.g., Project Manager"
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={newContact.email}
+                  onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="form-row-group">
+                <div className="form-row">
+                  <label className="form-label">Office Phone</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newContact.officePhone}
+                    onChange={(e) => setNewContact({ ...newContact, officePhone: e.target.value })}
+                    placeholder="(000) 000-0000"
+                  />
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Cell Phone</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newContact.cellPhone}
+                    onChange={(e) => setNewContact({ ...newContact, cellPhone: e.target.value })}
+                    placeholder="(000) 000-0000"
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={newContact.notes}
+                  onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                  placeholder="Additional notes about this contact..."
+                  rows={3}
+                />
+              </div>
+              <div className="form-row">
+                <label className="toggle-label">
+                  <input
+                    type="checkbox"
+                    checked={newContact.isPrimary}
+                    onChange={(e) => setNewContact({ ...newContact, isPrimary: e.target.checked })}
+                  />
+                  <span>Primary Contact</span>
+                </label>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseAddContactModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveNewContact}
+                disabled={!newContact.name.trim()}
+              >
+                Save Contact
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .customer-detail-container {
@@ -2551,6 +2708,107 @@ export default function CustomerDetailPage() {
 
         .save-btn:hover {
           background: #2563eb;
+        }
+
+        .save-btn:disabled {
+          background: rgba(59, 130, 246, 0.4);
+          cursor: not-allowed;
+        }
+
+        /* Add Contact Button */
+        .add-contact-btn {
+          margin-left: auto;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .add-contact-btn:hover {
+          background: #2563eb;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal-content {
+          background: #1a1a1a;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          width: 100%;
+          max-width: 500px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .modal-header h3 {
+          font-size: 18px;
+          font-weight: 600;
+          color: #fff;
+          margin: 0;
+        }
+
+        .modal-close-btn {
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          color: rgba(255, 255, 255, 0.5);
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .modal-close-btn:hover {
+          color: #fff;
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          padding: 16px 24px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .required-star {
+          color: #ef4444;
         }
 
       `}</style>
