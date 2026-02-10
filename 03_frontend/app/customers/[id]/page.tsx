@@ -359,7 +359,39 @@ export default function CustomerDetailPage() {
     notes: string;
     isPrimary: boolean;
   }>>([]);
+
+  // UI overlays for base/mock contacts (edits and deletes without mutating source)
+  const [uiContactOverrides, setUiContactOverrides] = useState<Record<string, {
+    id: string;
+    name: string;
+    title: string;
+    email: string;
+    officePhone: string;
+    cellPhone: string;
+    notes: string;
+    isPrimary: boolean;
+  }>>({});
+  const [uiContactHiddenIds, setUiContactHiddenIds] = useState<Set<string>>(new Set());
+
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showEditContactModal, setShowEditContactModal] = useState(false);
+  const [showDeleteContactModal, setShowDeleteContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<{
+    id: string;
+    name: string;
+    title: string;
+    email: string;
+    officePhone: string;
+    cellPhone: string;
+    notes: string;
+    isPrimary: boolean;
+    isUiContact: boolean; // true if from uiContacts, false if from base contacts
+  } | null>(null);
+  const [deletingContact, setDeletingContact] = useState<{
+    id: string;
+    name: string;
+    isUiContact: boolean;
+  } | null>(null);
   const [newContact, setNewContact] = useState({
     name: "",
     title: "",
@@ -470,6 +502,113 @@ export default function CustomerDetailPage() {
     setUiContacts([...uiContacts, contact]);
     setShowAddContactModal(false);
   };
+
+  // Edit Contact handlers
+  const handleOpenEditContactModal = (contact: {
+    id: string;
+    name: string;
+    title: string;
+    email: string;
+    officePhone: string;
+    cellPhone: string;
+    notes: string;
+    isPrimary: boolean;
+  }, isUiContact: boolean) => {
+    setEditingContact({
+      ...contact,
+      isUiContact,
+    });
+    setShowEditContactModal(true);
+  };
+
+  const handleCloseEditContactModal = () => {
+    setShowEditContactModal(false);
+    setEditingContact(null);
+  };
+
+  const handleSaveEditContact = () => {
+    if (!editingContact || !editingContact.name.trim()) return;
+
+    const updatedContact = {
+      id: editingContact.id,
+      name: editingContact.name.trim(),
+      title: editingContact.title.trim(),
+      email: editingContact.email.trim(),
+      officePhone: editingContact.officePhone.trim(),
+      cellPhone: editingContact.cellPhone.trim(),
+      notes: editingContact.notes.trim(),
+      isPrimary: editingContact.isPrimary,
+    };
+
+    if (editingContact.isUiContact) {
+      // Update uiContacts array
+      setUiContacts(uiContacts.map((c) =>
+        c.id === updatedContact.id ? updatedContact : c
+      ));
+    } else {
+      // Store in uiContactOverrides (overlay for base/mock contact)
+      setUiContactOverrides({
+        ...uiContactOverrides,
+        [updatedContact.id]: updatedContact,
+      });
+    }
+
+    setShowEditContactModal(false);
+    setEditingContact(null);
+  };
+
+  // Delete Contact handlers
+  const handleOpenDeleteContactModal = (contact: {
+    id: string;
+    name: string;
+  }, isUiContact: boolean) => {
+    setDeletingContact({
+      id: contact.id,
+      name: contact.name,
+      isUiContact,
+    });
+    setShowDeleteContactModal(true);
+  };
+
+  const handleCloseDeleteContactModal = () => {
+    setShowDeleteContactModal(false);
+    setDeletingContact(null);
+  };
+
+  const handleConfirmDeleteContact = () => {
+    if (!deletingContact) return;
+
+    if (deletingContact.isUiContact) {
+      // Remove from uiContacts array
+      setUiContacts(uiContacts.filter((c) => c.id !== deletingContact.id));
+    } else {
+      // Add to hidden set (overlay for base/mock contact)
+      setUiContactHiddenIds(new Set([...uiContactHiddenIds, deletingContact.id]));
+    }
+
+    setShowDeleteContactModal(false);
+    setDeletingContact(null);
+  };
+
+  // Compute rendered contacts: base contacts (filtered, with overrides) + uiContacts
+  const renderedContacts = useMemo(() => {
+    // Start with base contacts, filter out hidden, apply overrides
+    const baseRendered = baseCustomer.contacts
+      .filter((c) => !uiContactHiddenIds.has(c.id))
+      .map((c) => ({
+        ...c,
+        ...(uiContactOverrides[c.id] || {}),
+        isUiContact: false,
+      }));
+
+    // Append uiContacts
+    const uiRendered = uiContacts.map((c) => ({
+      ...c,
+      isUiContact: true,
+    }));
+
+    return [...baseRendered, ...uiRendered];
+  }, [baseCustomer.contacts, uiContactHiddenIds, uiContactOverrides, uiContacts]);
 
   const handleSaveQuote = () => {
     if (!draftQuote) return;
@@ -683,10 +822,11 @@ export default function CustomerDetailPage() {
                     <th>Office Phone</th>
                     <th>Cell Phone</th>
                     <th>Notes</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...customer.contacts, ...uiContacts].map((contact) => (
+                  {renderedContacts.map((contact) => (
                     <tr key={contact.id} className={contact.isPrimary ? "primary-contact" : ""}>
                       <td className="contact-name">
                         <span className="name-text">{contact.name}</span>
@@ -698,9 +838,23 @@ export default function CustomerDetailPage() {
                       <td className="contact-email">
                         {contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}
                       </td>
-<td className="contact-phone">{contact.officePhone ? formatPhone(contact.officePhone) : "—"}</td>
-                                      <td className="contact-phone">{contact.cellPhone ? formatPhone(contact.cellPhone) : "—"}</td>
+                      <td className="contact-phone">{contact.officePhone ? formatPhone(contact.officePhone) : "—"}</td>
+                      <td className="contact-phone">{contact.cellPhone ? formatPhone(contact.cellPhone) : "—"}</td>
                       <td className="contact-notes">{contact.notes || "—"}</td>
+                      <td className="contact-actions">
+                        <button
+                          className="contact-action-link"
+                          onClick={() => handleOpenEditContactModal(contact, contact.isUiContact)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="contact-action-link contact-action-delete"
+                          onClick={() => handleOpenDeleteContactModal(contact, contact.isUiContact)}
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1443,6 +1597,132 @@ export default function CustomerDetailPage() {
                 disabled={!newContact.name.trim()}
               >
                 Save Contact
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {showEditContactModal && editingContact && (
+        <div className="modal-overlay" onClick={handleCloseEditContactModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Contact</h3>
+              <button className="modal-close-btn" onClick={handleCloseEditContactModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingContact.name}
+                  onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                  placeholder="Contact name"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Title / Role</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingContact.title}
+                  onChange={(e) => setEditingContact({ ...editingContact, title: e.target.value })}
+                  placeholder="e.g., Project Manager"
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={editingContact.email}
+                  onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="form-row-group">
+                <div className="form-row">
+                  <label className="form-label">Office Phone</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editingContact.officePhone}
+                    onChange={(e) => setEditingContact({ ...editingContact, officePhone: e.target.value })}
+                    placeholder="(000) 000-0000"
+                  />
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Cell Phone</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editingContact.cellPhone}
+                    onChange={(e) => setEditingContact({ ...editingContact, cellPhone: e.target.value })}
+                    placeholder="(000) 000-0000"
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={editingContact.notes}
+                  onChange={(e) => setEditingContact({ ...editingContact, notes: e.target.value })}
+                  placeholder="Additional notes about this contact..."
+                  rows={3}
+                />
+              </div>
+              <div className="form-row">
+                <label className="toggle-label">
+                  <input
+                    type="checkbox"
+                    checked={editingContact.isPrimary}
+                    onChange={(e) => setEditingContact({ ...editingContact, isPrimary: e.target.checked })}
+                  />
+                  <span>Primary Contact</span>
+                </label>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseEditContactModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveEditContact}
+                disabled={!editingContact.name.trim()}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Contact Modal */}
+      {showDeleteContactModal && deletingContact && (
+        <div className="modal-overlay" onClick={handleCloseDeleteContactModal}>
+          <div className="modal-content modal-content-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete Contact</h3>
+              <button className="modal-close-btn" onClick={handleCloseDeleteContactModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="delete-confirm-text">
+                Are you sure you want to delete <strong>{deletingContact.name}</strong>?
+              </p>
+              <p className="delete-confirm-note">
+                This removes the contact from the UI only (no persistence).
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseDeleteContactModal}>Cancel</button>
+              <button
+                className="delete-btn"
+                onClick={handleConfirmDeleteContact}
+              >
+                Delete
               </button>
             </div>
           </div>
@@ -2809,6 +3089,63 @@ export default function CustomerDetailPage() {
 
         .required-star {
           color: #ef4444;
+        }
+
+        /* Contact Actions */
+        .contact-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .contact-action-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          cursor: pointer;
+          transition: color 0.15s ease;
+        }
+
+        .contact-action-link:hover {
+          color: #3b82f6;
+        }
+
+        .contact-action-link.contact-action-delete:hover {
+          color: #ef4444;
+        }
+
+        /* Delete Modal */
+        .modal-content-sm {
+          max-width: 400px;
+        }
+
+        .delete-confirm-text {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.85);
+          margin: 0 0 12px;
+        }
+
+        .delete-confirm-note {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.5);
+          margin: 0;
+        }
+
+        .delete-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #ef4444;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .delete-btn:hover {
+          background: #dc2626;
         }
 
       `}</style>
