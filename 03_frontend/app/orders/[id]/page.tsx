@@ -8,11 +8,12 @@ import { CommercialMarginPanel } from "@/components/CommercialMarginPanel";
 export type OrderDetailMode = "edit" | "view";
 
 // Tab types for inline tabs
-type TabKey = "overview" | "changeOrders";
+type TabKey = "overview" | "changeOrders" | "invoices";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "changeOrders", label: "Change Orders" },
+  { key: "invoices", label: "Invoices" },
 ];
 
 // Change Order types and mock data
@@ -118,6 +119,13 @@ const MOCK_CHANGE_ORDERS: ChangeOrder[] = [
     fullSummary: "Rate increase request for James Wilson was rejected by customer. Original rate to remain in effect.",
   },
 ];
+
+// Mock customer name to ID lookup (UI-only)
+const CUSTOMER_NAME_TO_ID: Record<string, string> = {
+  "Turner Construction": "CUST-001",
+  "Bechtel Corporation": "CUST-002",
+  "Sample Customer": "CUST-XXX",
+};
 
 // Mock order detail data
 const MOCK_ORDER_DETAILS: Record<string, {
@@ -509,7 +517,19 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           <button
             key={tab.key}
             className={`tab-btn ${activeTab === tab.key ? "tab-btn-active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              // Invoices tab: immediate navigation to Invoice Hub
+              if (tab.key === "invoices") {
+                const customerIdParam = customerId ?? undefined;
+                let url = `/invoices?orderId=${orderId}`;
+                if (customerIdParam) {
+                  url += `&customerId=${customerIdParam}`;
+                }
+                router.push(url);
+                return;
+              }
+              setActiveTab(tab.key);
+            }}
           >
             {tab.label}
           </button>
@@ -735,6 +755,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           </section>
         </div>
       )}
+
 
       {/* Change Order Detail Panel (Side Panel) */}
       {selectedChangeOrder && (
@@ -2503,6 +2524,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           color: rgba(139, 92, 246, 0.8);
           font-style: italic;
         }
+
       `}</style>
     </div>
   );

@@ -264,7 +264,7 @@ const AVAILABLE_TRADES = [
 const OT_MULTIPLIER_MIN = 1.47;
 const OT_MULTIPLIER_DEFAULT = 1.5;
 
-type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes";
+type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes" | "invoices";
 type QuoteMode = "view" | "create" | "edit";
 
 // Helper to generate a new quote ID
@@ -394,6 +394,7 @@ export default function CustomerDetailPage() {
     { key: "ppe", label: "PPE" },
     { key: "orders", label: "Orders" },
     { key: "quotes", label: "Quotes" },
+    { key: "invoices", label: "Invoices" },
   ];
 
   // Quote form handlers
@@ -580,7 +581,14 @@ export default function CustomerDetailPage() {
           <button
             key={tab.key}
             className={`tab-btn ${activeTab === tab.key ? "active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              // Invoices tab: immediate navigation to Invoice Hub
+              if (tab.key === "invoices") {
+                router.push(`/invoices?customerId=${customerId}`);
+                return;
+              }
+              setActiveTab(tab.key);
+            }}
           >
             {tab.label}
             {tab.key === "contacts" && (
@@ -1281,6 +1289,7 @@ export default function CustomerDetailPage() {
             )}
           </div>
         )}
+
       </div>
 
       <style jsx>{`
@@ -2543,6 +2552,7 @@ export default function CustomerDetailPage() {
         .save-btn:hover {
           background: #2563eb;
         }
+
       `}</style>
     </div>
   );
