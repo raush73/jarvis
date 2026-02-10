@@ -373,6 +373,36 @@ export default function CustomerDetailPage() {
   }>>({});
   const [uiContactHiddenIds, setUiContactHiddenIds] = useState<Set<string>>(new Set());
 
+  // UI-only tools state (never initialized from base customer data)
+  const [uiTools, setUiTools] = useState<Array<{
+    id: string;
+    name: string;
+    notes: string;
+  }>>([]);
+
+  // UI overlays for base/mock tools (edits and deletes without mutating source)
+  const [uiToolOverrides, setUiToolOverrides] = useState<Record<string, {
+    id: string;
+    name: string;
+    notes: string;
+  }>>({});
+  const [uiToolHiddenIds, setUiToolHiddenIds] = useState<Set<string>>(new Set());
+
+  // UI-only PPE state (never initialized from base customer data)
+  const [uiPpe, setUiPpe] = useState<Array<{
+    id: string;
+    name: string;
+    notes: string;
+  }>>([]);
+
+  // UI overlays for base/mock PPE (edits and deletes without mutating source)
+  const [uiPpeOverrides, setUiPpeOverrides] = useState<Record<string, {
+    id: string;
+    name: string;
+    notes: string;
+  }>>({});
+  const [uiPpeHiddenIds, setUiPpeHiddenIds] = useState<Set<string>>(new Set());
+
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showEditContactModal, setShowEditContactModal] = useState(false);
   const [showDeleteContactModal, setShowDeleteContactModal] = useState(false);
@@ -400,6 +430,46 @@ export default function CustomerDetailPage() {
     cellPhone: "",
     notes: "",
     isPrimary: false,
+  });
+
+  // Tools modal state
+  const [showAddToolModal, setShowAddToolModal] = useState(false);
+  const [showEditToolModal, setShowEditToolModal] = useState(false);
+  const [showDeleteToolModal, setShowDeleteToolModal] = useState(false);
+  const [editingTool, setEditingTool] = useState<{
+    id: string;
+    name: string;
+    notes: string;
+    isUiTool: boolean;
+  } | null>(null);
+  const [deletingTool, setDeletingTool] = useState<{
+    id: string;
+    name: string;
+    isUiTool: boolean;
+  } | null>(null);
+  const [newTool, setNewTool] = useState({
+    name: "",
+    notes: "",
+  });
+
+  // PPE modal state
+  const [showAddPpeModal, setShowAddPpeModal] = useState(false);
+  const [showEditPpeModal, setShowEditPpeModal] = useState(false);
+  const [showDeletePpeModal, setShowDeletePpeModal] = useState(false);
+  const [editingPpe, setEditingPpe] = useState<{
+    id: string;
+    name: string;
+    notes: string;
+    isUiPpe: boolean;
+  } | null>(null);
+  const [deletingPpe, setDeletingPpe] = useState<{
+    id: string;
+    name: string;
+    isUiPpe: boolean;
+  } | null>(null);
+  const [newPpe, setNewPpe] = useState({
+    name: "",
+    notes: "",
   });
 
   // Merge customer with in-memory quotes
@@ -609,6 +679,262 @@ export default function CustomerDetailPage() {
 
     return [...baseRendered, ...uiRendered];
   }, [baseCustomer.contacts, uiContactHiddenIds, uiContactOverrides, uiContacts]);
+
+  // ========== TOOLS HANDLERS ==========
+
+  // Add Tool handlers
+  const handleOpenAddToolModal = () => {
+    setNewTool({ name: "", notes: "" });
+    setShowAddToolModal(true);
+  };
+
+  const handleCloseAddToolModal = () => {
+    setShowAddToolModal(false);
+  };
+
+  const handleSaveNewTool = () => {
+    if (!newTool.name.trim()) return;
+    const tool = {
+      id: `UI-TOOL-${Date.now()}`,
+      name: newTool.name.trim(),
+      notes: newTool.notes.trim(),
+    };
+    setUiTools([...uiTools, tool]);
+    setShowAddToolModal(false);
+  };
+
+  // Edit Tool handlers
+  const handleOpenEditToolModal = (tool: {
+    id: string;
+    name: string;
+    notes: string;
+  }, isUiTool: boolean) => {
+    setEditingTool({
+      ...tool,
+      isUiTool,
+    });
+    setShowEditToolModal(true);
+  };
+
+  const handleCloseEditToolModal = () => {
+    setShowEditToolModal(false);
+    setEditingTool(null);
+  };
+
+  const handleSaveEditTool = () => {
+    if (!editingTool || !editingTool.name.trim()) return;
+
+    const updatedTool = {
+      id: editingTool.id,
+      name: editingTool.name.trim(),
+      notes: editingTool.notes.trim(),
+    };
+
+    if (editingTool.isUiTool) {
+      // Update uiTools array
+      setUiTools(uiTools.map((t) =>
+        t.id === updatedTool.id ? updatedTool : t
+      ));
+    } else {
+      // Store in uiToolOverrides (overlay for base/mock tool)
+      setUiToolOverrides({
+        ...uiToolOverrides,
+        [updatedTool.id]: updatedTool,
+      });
+    }
+
+    setShowEditToolModal(false);
+    setEditingTool(null);
+  };
+
+  // Delete Tool handlers
+  const handleOpenDeleteToolModal = (tool: {
+    id: string;
+    name: string;
+  }, isUiTool: boolean) => {
+    setDeletingTool({
+      id: tool.id,
+      name: tool.name,
+      isUiTool,
+    });
+    setShowDeleteToolModal(true);
+  };
+
+  const handleCloseDeleteToolModal = () => {
+    setShowDeleteToolModal(false);
+    setDeletingTool(null);
+  };
+
+  const handleConfirmDeleteTool = () => {
+    if (!deletingTool) return;
+
+    if (deletingTool.isUiTool) {
+      // Remove from uiTools array
+      setUiTools(uiTools.filter((t) => t.id !== deletingTool.id));
+    } else {
+      // Add to hidden set (overlay for base/mock tool)
+      setUiToolHiddenIds(new Set([...uiToolHiddenIds, deletingTool.id]));
+    }
+
+    setShowDeleteToolModal(false);
+    setDeletingTool(null);
+  };
+
+  // Compute rendered tools: base tools (filtered, with overrides) + uiTools
+  const renderedTools = useMemo(() => {
+    // Convert base tools (strings) to objects with generated IDs
+    const baseRendered = baseCustomer.tools
+      .map((toolName, idx) => {
+        const id = `BASE-TOOL-${idx}`;
+        return {
+          id,
+          name: toolName,
+          notes: "",
+        };
+      })
+      .filter((t) => !uiToolHiddenIds.has(t.id))
+      .map((t) => ({
+        ...t,
+        ...(uiToolOverrides[t.id] || {}),
+        isUiTool: false,
+      }));
+
+    // Append uiTools
+    const uiRendered = uiTools.map((t) => ({
+      ...t,
+      isUiTool: true,
+    }));
+
+    return [...baseRendered, ...uiRendered];
+  }, [baseCustomer.tools, uiToolHiddenIds, uiToolOverrides, uiTools]);
+
+  // ========== PPE HANDLERS ==========
+
+  // Add PPE handlers
+  const handleOpenAddPpeModal = () => {
+    setNewPpe({ name: "", notes: "" });
+    setShowAddPpeModal(true);
+  };
+
+  const handleCloseAddPpeModal = () => {
+    setShowAddPpeModal(false);
+  };
+
+  const handleSaveNewPpe = () => {
+    if (!newPpe.name.trim()) return;
+    const ppe = {
+      id: `UI-PPE-${Date.now()}`,
+      name: newPpe.name.trim(),
+      notes: newPpe.notes.trim(),
+    };
+    setUiPpe([...uiPpe, ppe]);
+    setShowAddPpeModal(false);
+  };
+
+  // Edit PPE handlers
+  const handleOpenEditPpeModal = (ppe: {
+    id: string;
+    name: string;
+    notes: string;
+  }, isUiPpe: boolean) => {
+    setEditingPpe({
+      ...ppe,
+      isUiPpe,
+    });
+    setShowEditPpeModal(true);
+  };
+
+  const handleCloseEditPpeModal = () => {
+    setShowEditPpeModal(false);
+    setEditingPpe(null);
+  };
+
+  const handleSaveEditPpe = () => {
+    if (!editingPpe || !editingPpe.name.trim()) return;
+
+    const updatedPpe = {
+      id: editingPpe.id,
+      name: editingPpe.name.trim(),
+      notes: editingPpe.notes.trim(),
+    };
+
+    if (editingPpe.isUiPpe) {
+      // Update uiPpe array
+      setUiPpe(uiPpe.map((p) =>
+        p.id === updatedPpe.id ? updatedPpe : p
+      ));
+    } else {
+      // Store in uiPpeOverrides (overlay for base/mock PPE)
+      setUiPpeOverrides({
+        ...uiPpeOverrides,
+        [updatedPpe.id]: updatedPpe,
+      });
+    }
+
+    setShowEditPpeModal(false);
+    setEditingPpe(null);
+  };
+
+  // Delete PPE handlers
+  const handleOpenDeletePpeModal = (ppe: {
+    id: string;
+    name: string;
+  }, isUiPpe: boolean) => {
+    setDeletingPpe({
+      id: ppe.id,
+      name: ppe.name,
+      isUiPpe,
+    });
+    setShowDeletePpeModal(true);
+  };
+
+  const handleCloseDeletePpeModal = () => {
+    setShowDeletePpeModal(false);
+    setDeletingPpe(null);
+  };
+
+  const handleConfirmDeletePpe = () => {
+    if (!deletingPpe) return;
+
+    if (deletingPpe.isUiPpe) {
+      // Remove from uiPpe array
+      setUiPpe(uiPpe.filter((p) => p.id !== deletingPpe.id));
+    } else {
+      // Add to hidden set (overlay for base/mock PPE)
+      setUiPpeHiddenIds(new Set([...uiPpeHiddenIds, deletingPpe.id]));
+    }
+
+    setShowDeletePpeModal(false);
+    setDeletingPpe(null);
+  };
+
+  // Compute rendered PPE: base PPE (filtered, with overrides) + uiPpe
+  const renderedPpe = useMemo(() => {
+    // Convert base PPE (strings) to objects with generated IDs
+    const baseRendered = baseCustomer.ppe
+      .map((ppeName, idx) => {
+        const id = `BASE-PPE-${idx}`;
+        return {
+          id,
+          name: ppeName,
+          notes: "",
+        };
+      })
+      .filter((p) => !uiPpeHiddenIds.has(p.id))
+      .map((p) => ({
+        ...p,
+        ...(uiPpeOverrides[p.id] || {}),
+        isUiPpe: false,
+      }));
+
+    // Append uiPpe
+    const uiRendered = uiPpe.map((p) => ({
+      ...p,
+      isUiPpe: true,
+    }));
+
+    return [...baseRendered, ...uiRendered];
+  }, [baseCustomer.ppe, uiPpeHiddenIds, uiPpeOverrides, uiPpe]);
 
   const handleSaveQuote = () => {
     if (!draftQuote) return;
@@ -869,12 +1195,43 @@ export default function CustomerDetailPage() {
             <div className="panel-header">
               <h2>Customer-Level Tools</h2>
               <span className="panel-note">Tools commonly required at this customer&apos;s sites</span>
+              <button className="add-tool-btn" onClick={handleOpenAddToolModal}>
+                + Add Tool
+              </button>
             </div>
-            <ul className="item-list">
-              {customer.tools.map((tool, idx) => (
-                <li key={idx}>{tool}</li>
-              ))}
-            </ul>
+            <div className="tools-table-wrap">
+              <table className="tools-table">
+                <thead>
+                  <tr>
+                    <th>Tool Name</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {renderedTools.map((tool) => (
+                    <tr key={tool.id}>
+                      <td className="tool-name">{tool.name}</td>
+                      <td className="tool-notes">{tool.notes || "—"}</td>
+                      <td className="tool-actions">
+                        <button
+                          className="tool-action-link"
+                          onClick={() => handleOpenEditToolModal(tool, tool.isUiTool)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="tool-action-link tool-action-delete"
+                          onClick={() => handleOpenDeleteToolModal(tool, tool.isUiTool)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="placeholder-note">
               <span className="placeholder-icon">🔧</span>
               <span>Customer-level tools live here. Site-specific tools can be defined per Job Order.</span>
@@ -888,12 +1245,43 @@ export default function CustomerDetailPage() {
             <div className="panel-header">
               <h2>Customer-Level PPE</h2>
               <span className="panel-note">Standard PPE requirements for this customer</span>
+              <button className="add-ppe-btn" onClick={handleOpenAddPpeModal}>
+                + Add PPE
+              </button>
             </div>
-            <ul className="item-list">
-              {customer.ppe.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
+            <div className="ppe-table-wrap">
+              <table className="ppe-table">
+                <thead>
+                  <tr>
+                    <th>PPE Name</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {renderedPpe.map((ppe) => (
+                    <tr key={ppe.id}>
+                      <td className="ppe-name">{ppe.name}</td>
+                      <td className="ppe-notes">{ppe.notes || "—"}</td>
+                      <td className="ppe-actions">
+                        <button
+                          className="ppe-action-link"
+                          onClick={() => handleOpenEditPpeModal(ppe, ppe.isUiPpe)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="ppe-action-link ppe-action-delete"
+                          onClick={() => handleOpenDeletePpeModal(ppe, ppe.isUiPpe)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="placeholder-note">
               <span className="placeholder-icon">🦺</span>
               <span>Customer-level PPE requirements live here. Site-specific PPE can be defined per Job Order.</span>
@@ -1721,6 +2109,244 @@ export default function CustomerDetailPage() {
               <button
                 className="delete-btn"
                 onClick={handleConfirmDeleteContact}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Tool Modal */}
+      {showAddToolModal && (
+        <div className="modal-overlay" onClick={handleCloseAddToolModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Add Tool</h3>
+              <button className="modal-close-btn" onClick={handleCloseAddToolModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">Tool Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newTool.name}
+                  onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
+                  placeholder="e.g., Torque Wrench"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={newTool.notes}
+                  onChange={(e) => setNewTool({ ...newTool, notes: e.target.value })}
+                  placeholder="Additional notes about this tool..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseAddToolModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveNewTool}
+                disabled={!newTool.name.trim()}
+              >
+                Save Tool
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Tool Modal */}
+      {showEditToolModal && editingTool && (
+        <div className="modal-overlay" onClick={handleCloseEditToolModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Tool</h3>
+              <button className="modal-close-btn" onClick={handleCloseEditToolModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">Tool Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingTool.name}
+                  onChange={(e) => setEditingTool({ ...editingTool, name: e.target.value })}
+                  placeholder="e.g., Torque Wrench"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={editingTool.notes}
+                  onChange={(e) => setEditingTool({ ...editingTool, notes: e.target.value })}
+                  placeholder="Additional notes about this tool..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseEditToolModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveEditTool}
+                disabled={!editingTool.name.trim()}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Tool Modal */}
+      {showDeleteToolModal && deletingTool && (
+        <div className="modal-overlay" onClick={handleCloseDeleteToolModal}>
+          <div className="modal-content modal-content-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete Tool</h3>
+              <button className="modal-close-btn" onClick={handleCloseDeleteToolModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="delete-confirm-text">
+                Are you sure you want to delete <strong>{deletingTool.name}</strong>?
+              </p>
+              <p className="delete-confirm-note">
+                This removes the item from the UI only (no persistence).
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseDeleteToolModal}>Cancel</button>
+              <button
+                className="delete-btn"
+                onClick={handleConfirmDeleteTool}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add PPE Modal */}
+      {showAddPpeModal && (
+        <div className="modal-overlay" onClick={handleCloseAddPpeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Add PPE</h3>
+              <button className="modal-close-btn" onClick={handleCloseAddPpeModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">PPE Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newPpe.name}
+                  onChange={(e) => setNewPpe({ ...newPpe, name: e.target.value })}
+                  placeholder="e.g., Hard Hat (ANSI Type II)"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={newPpe.notes}
+                  onChange={(e) => setNewPpe({ ...newPpe, notes: e.target.value })}
+                  placeholder="Additional notes about this PPE requirement..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseAddPpeModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveNewPpe}
+                disabled={!newPpe.name.trim()}
+              >
+                Save PPE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit PPE Modal */}
+      {showEditPpeModal && editingPpe && (
+        <div className="modal-overlay" onClick={handleCloseEditPpeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit PPE</h3>
+              <button className="modal-close-btn" onClick={handleCloseEditPpeModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label className="form-label">PPE Name <span className="required-star">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingPpe.name}
+                  onChange={(e) => setEditingPpe({ ...editingPpe, name: e.target.value })}
+                  placeholder="e.g., Hard Hat (ANSI Type II)"
+                  autoFocus
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={editingPpe.notes}
+                  onChange={(e) => setEditingPpe({ ...editingPpe, notes: e.target.value })}
+                  placeholder="Additional notes about this PPE requirement..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseEditPpeModal}>Cancel</button>
+              <button
+                className="save-btn"
+                onClick={handleSaveEditPpe}
+                disabled={!editingPpe.name.trim()}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete PPE Modal */}
+      {showDeletePpeModal && deletingPpe && (
+        <div className="modal-overlay" onClick={handleCloseDeletePpeModal}>
+          <div className="modal-content modal-content-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete PPE</h3>
+              <button className="modal-close-btn" onClick={handleCloseDeletePpeModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="delete-confirm-text">
+                Are you sure you want to delete <strong>{deletingPpe.name}</strong>?
+              </p>
+              <p className="delete-confirm-note">
+                This removes the item from the UI only (no persistence).
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseDeletePpeModal}>Cancel</button>
+              <button
+                className="delete-btn"
+                onClick={handleConfirmDeletePpe}
               >
                 Delete
               </button>
@@ -3113,6 +3739,188 @@ export default function CustomerDetailPage() {
 
         .contact-action-link.contact-action-delete:hover {
           color: #ef4444;
+        }
+
+        /* Tools Table */
+        .tools-table-wrap {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px;
+          overflow: hidden;
+          margin-bottom: 20px;
+        }
+
+        .tools-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .tools-table thead {
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .tools-table th {
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          font-size: 11px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .tools-table td {
+          padding: 14px 16px;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.85);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .tools-table tr:last-child td {
+          border-bottom: none;
+        }
+
+        .tool-name {
+          font-weight: 500;
+        }
+
+        .tool-notes {
+          color: rgba(255, 255, 255, 0.5);
+          font-style: italic;
+          max-width: 300px;
+        }
+
+        .tool-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .tool-action-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          cursor: pointer;
+          transition: color 0.15s ease;
+        }
+
+        .tool-action-link:hover {
+          color: #3b82f6;
+        }
+
+        .tool-action-link.tool-action-delete:hover {
+          color: #ef4444;
+        }
+
+        /* Add Tool Button */
+        .add-tool-btn {
+          margin-left: auto;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .add-tool-btn:hover {
+          background: #2563eb;
+        }
+
+        /* PPE Table */
+        .ppe-table-wrap {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px;
+          overflow: hidden;
+          margin-bottom: 20px;
+        }
+
+        .ppe-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .ppe-table thead {
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .ppe-table th {
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          font-size: 11px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .ppe-table td {
+          padding: 14px 16px;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.85);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .ppe-table tr:last-child td {
+          border-bottom: none;
+        }
+
+        .ppe-name {
+          font-weight: 500;
+        }
+
+        .ppe-notes {
+          color: rgba(255, 255, 255, 0.5);
+          font-style: italic;
+          max-width: 300px;
+        }
+
+        .ppe-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .ppe-action-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          cursor: pointer;
+          transition: color 0.15s ease;
+        }
+
+        .ppe-action-link:hover {
+          color: #3b82f6;
+        }
+
+        .ppe-action-link.ppe-action-delete:hover {
+          color: #ef4444;
+        }
+
+        /* Add PPE Button */
+        .add-ppe-btn {
+          margin-left: auto;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .add-ppe-btn:hover {
+          background: #2563eb;
         }
 
         /* Delete Modal */
