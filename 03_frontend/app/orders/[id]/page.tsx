@@ -641,14 +641,51 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           </div>
         </section>
 
-        {/* Tools & PPE */}
-        <section className="detail-section half-section">
+        {/* Tools Required — Trade-scoped */}
+        <section className="detail-section tools-section">
           <h2>Tools Required</h2>
-          <ul className="item-list">
-            {order.tools.map((tool) => (
-              <li key={tool}>{tool}</li>
-            ))}
-          </ul>
+          <p className="tools-section-subtext">
+            Tools are selected per trade for this Order. Baseline tools are copied at creation and do not change if customer defaults change later.
+          </p>
+
+          {order.trades && order.trades.length > 0 ? (
+            order.trades.map((tradeItem) => (
+              <div key={tradeItem.trade} className="trade-tools-block">
+                <h3 className="trade-tools-block-header">Required Tools — {tradeItem.trade}</h3>
+
+                {/* Baseline tools panel */}
+                <div className="trade-tools-panel">
+                  <div className="trade-tools-panel-header">
+                    <span className="trade-tools-panel-title">Baseline tools</span>
+                    <span className="trade-tools-panel-badge badge-copied">Copied at creation</span>
+                  </div>
+                  <p className="trade-tools-panel-helper">These tools came from the selected baseline for this trade.</p>
+                  <div className="trade-tools-panel-content">
+                    <span className="trade-tools-empty-state">No baseline tools selected</span>
+                  </div>
+                </div>
+
+                {/* Job-specific additions panel */}
+                <div className="trade-tools-panel">
+                  <div className="trade-tools-panel-header">
+                    <span className="trade-tools-panel-title">Job-specific additions</span>
+                  </div>
+                  <p className="trade-tools-panel-helper">Added for this Job Order only.</p>
+                  <div className="trade-tools-panel-content">
+                    <span className="trade-tools-empty-state">No job-specific tools added</span>
+                  </div>
+                </div>
+
+                <p className="trade-tools-wiring-note">
+                  Tools snapshot for this trade is not yet wired on this Orders view. (UI-only)
+                </p>
+              </div>
+            ))
+          ) : (
+            <div className="tools-empty-state">
+              Tools by trade snapshot is not yet wired to this Orders view. (UI-only)
+            </div>
+          )}
         </section>
 
         <section className="detail-section half-section">
@@ -2523,6 +2560,110 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           font-size: 12px;
           color: rgba(139, 92, 246, 0.8);
           font-style: italic;
+        }
+
+        /* Tools Required — Trade-scoped styles */
+        .tools-section {
+          grid-column: span 2;
+        }
+
+        .tools-section-subtext {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          margin: 0 0 20px;
+          line-height: 1.5;
+        }
+
+        .trade-tools-block {
+          margin-bottom: 20px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+        }
+
+        .trade-tools-block:last-child {
+          margin-bottom: 0;
+        }
+
+        .trade-tools-block-header {
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          margin: 0 0 12px;
+        }
+
+        .trade-tools-panel {
+          margin-bottom: 12px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 6px;
+        }
+
+        .trade-tools-panel:last-of-type {
+          margin-bottom: 12px;
+        }
+
+        .trade-tools-panel-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 6px;
+        }
+
+        .trade-tools-panel-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .trade-tools-panel-badge {
+          padding: 2px 8px;
+          font-size: 10px;
+          font-weight: 500;
+          border-radius: 4px;
+        }
+
+        .trade-tools-panel-badge.badge-copied {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+        }
+
+        .trade-tools-panel-helper {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 0 0 10px;
+        }
+
+        .trade-tools-panel-content {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .trade-tools-empty-state {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.4);
+          font-style: italic;
+        }
+
+        .trade-tools-wiring-note {
+          font-size: 11px;
+          color: rgba(148, 163, 184, 0.6);
+          margin: 0;
+          font-style: italic;
+        }
+
+        .tools-empty-state {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.5);
+          font-style: italic;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          text-align: center;
         }
 
       `}</style>
