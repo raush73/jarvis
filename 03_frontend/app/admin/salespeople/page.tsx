@@ -141,9 +141,9 @@ export default function SalespeopleListPage() {
           </p>
         </div>
         <div className="header-actions">
-          <button className="btn-add" disabled title="UI shell only">
+          <Link href="/admin/salespeople/new" className="btn-add">
             + Create Salesperson
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -292,6 +292,7 @@ export default function SalespeopleListPage() {
         }
 
         .btn-add {
+          display: inline-block;
           padding: 10px 20px;
           font-size: 14px;
           font-weight: 600;
@@ -301,15 +302,11 @@ export default function SalespeopleListPage() {
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
+          text-decoration: none;
         }
 
-        .btn-add:hover:not(:disabled) {
+        .btn-add:hover {
           background: #2563eb;
-        }
-
-        .btn-add:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
         }
 
         /* Filters */
