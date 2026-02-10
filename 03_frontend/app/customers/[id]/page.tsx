@@ -266,6 +266,23 @@ const OT_MULTIPLIER_MIN = 1.47;
 const OT_MULTIPLIER_DEFAULT = 1.5;
 
 type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes" | "invoices";
+
+// Tool list item shape (UI-only, trade-scoped)
+type ToolLike = { id: string; name: string; notes: string };
+
+// Base mock tools per trade (read-only; do not mutate)
+const MOCK_TOOLS_BY_TRADE: Record<string, string[]> = {
+  Millwright: ["Torque Wrenches (Calibrated)", "Laser Alignment Kits", "Rigging Equipment", "Dial Indicators", "Portable Crane (10-ton)"],
+  Electrician: ["Multimeter", "Wire Strippers", "Fish Tape"],
+  Pipefitter: ["Pipe Threader", "Level", "Tape Measure"],
+  Welder: ["Welding Machine", "Grinder", "Clamps"],
+  Rigger: ["Slings", "Shackles", "Spreader Bar"],
+  "Crane Operator": ["Radio", "Signal Flags"],
+  "HVAC Technician": ["Manifold Gauge Set", "Vacuum Pump", "Leak Detector"],
+  Ironworker: ["Spud Wrench", "Bull Pin", "Connector"],
+  Carpenter: ["Circular Saw", "Drill", "Level"],
+  Plumber: ["Pipe Wrench", "Snake", "Torch"],
+};
 type QuoteMode = "view" | "create" | "edit";
 
 // Helper to generate a new quote ID
@@ -373,20 +390,12 @@ export default function CustomerDetailPage() {
   }>>({});
   const [uiContactHiddenIds, setUiContactHiddenIds] = useState<Set<string>>(new Set());
 
-  // UI-only tools state (never initialized from base customer data)
-  const [uiTools, setUiTools] = useState<Array<{
-    id: string;
-    name: string;
-    notes: string;
-  }>>([]);
-
-  // UI overlays for base/mock tools (edits and deletes without mutating source)
-  const [uiToolOverrides, setUiToolOverrides] = useState<Record<string, {
-    id: string;
-    name: string;
-    notes: string;
-  }>>({});
-  const [uiToolHiddenIds, setUiToolHiddenIds] = useState<Set<string>>(new Set());
+  // UI-only tools state: trade-keyed (canonical model)
+  const [uiToolsByTrade, setUiToolsByTrade] = useState<Record<string, ToolLike[]>>({});
+  const [uiToolOverridesByTrade, setUiToolOverridesByTrade] = useState<Record<string, Record<string, ToolLike>>>({});
+  const [uiToolHiddenIdsByTrade, setUiToolHiddenIdsByTrade] = useState<Record<string, Set<string>>>({});
+  // UI-only default tool selection: trade-keyed (tools marked as default baseline for that trade)
+  const [uiToolDefaultIdsByTrade, setUiToolDefaultIdsByTrade] = useState<Record<string, Set<string>>>({});
 
   // UI-only PPE state (never initialized from base customer data)
   const [uiPpe, setUiPpe] = useState<Array<{
@@ -432,21 +441,24 @@ export default function CustomerDetailPage() {
     isPrimary: false,
   });
 
-  // Tools modal state
+  // Tools modal state (trade-aware)
   const [showAddToolModal, setShowAddToolModal] = useState(false);
   const [showEditToolModal, setShowEditToolModal] = useState(false);
   const [showDeleteToolModal, setShowDeleteToolModal] = useState(false);
+  const [addToolForTrade, setAddToolForTrade] = useState<string | null>(null);
   const [editingTool, setEditingTool] = useState<{
     id: string;
     name: string;
     notes: string;
     isUiTool: boolean;
   } | null>(null);
+  const [editingToolTrade, setEditingToolTrade] = useState<string | null>(null);
   const [deletingTool, setDeletingTool] = useState<{
     id: string;
     name: string;
     isUiTool: boolean;
   } | null>(null);
+  const [deletingToolTrade, setDeletingToolTrade] = useState<string | null>(null);
   const [newTool, setNewTool] = useState({
     name: "",
     notes: "",
@@ -683,130 +695,172 @@ export default function CustomerDetailPage() {
   // ========== TOOLS HANDLERS ==========
 
   // Add Tool handlers
-  const handleOpenAddToolModal = () => {
+  const handleOpenAddToolModal = (tradeId: string) => {
+    setAddToolForTrade(tradeId);
     setNewTool({ name: "", notes: "" });
     setShowAddToolModal(true);
   };
 
   const handleCloseAddToolModal = () => {
     setShowAddToolModal(false);
+    setAddToolForTrade(null);
   };
 
   const handleSaveNewTool = () => {
-    if (!newTool.name.trim()) return;
-    const tool = {
+    if (!newTool.name.trim() || !addToolForTrade) return;
+    const tool: ToolLike = {
       id: `UI-TOOL-${Date.now()}`,
       name: newTool.name.trim(),
       notes: newTool.notes.trim(),
     };
-    setUiTools([...uiTools, tool]);
+    const list = uiToolsByTrade[addToolForTrade] || [];
+    setUiToolsByTrade({
+      ...uiToolsByTrade,
+      [addToolForTrade]: [...list, tool],
+    });
     setShowAddToolModal(false);
+    setAddToolForTrade(null);
   };
 
-  // Edit Tool handlers
-  const handleOpenEditToolModal = (tool: {
-    id: string;
-    name: string;
-    notes: string;
-  }, isUiTool: boolean) => {
+  // Edit Tool handlers (trade-scoped)
+  const handleOpenEditToolModal = (tool: ToolLike & { isUiTool?: boolean }, tradeId: string) => {
     setEditingTool({
-      ...tool,
-      isUiTool,
+      id: tool.id,
+      name: tool.name,
+      notes: tool.notes ?? "",
+      isUiTool: tool.isUiTool ?? false,
     });
+    setEditingToolTrade(tradeId);
     setShowEditToolModal(true);
   };
 
   const handleCloseEditToolModal = () => {
     setShowEditToolModal(false);
     setEditingTool(null);
+    setEditingToolTrade(null);
   };
 
   const handleSaveEditTool = () => {
-    if (!editingTool || !editingTool.name.trim()) return;
+    if (!editingTool || !editingTool.name.trim() || !editingToolTrade) return;
 
-    const updatedTool = {
+    const updatedTool: ToolLike = {
       id: editingTool.id,
       name: editingTool.name.trim(),
       notes: editingTool.notes.trim(),
     };
+    const overrides = uiToolOverridesByTrade[editingToolTrade] || {};
+    const hidden = uiToolHiddenIdsByTrade[editingToolTrade] || new Set();
+    const uiList = uiToolsByTrade[editingToolTrade] || [];
 
     if (editingTool.isUiTool) {
-      // Update uiTools array
-      setUiTools(uiTools.map((t) =>
-        t.id === updatedTool.id ? updatedTool : t
-      ));
+      setUiToolsByTrade({
+        ...uiToolsByTrade,
+        [editingToolTrade]: uiList.map((t) => (t.id === updatedTool.id ? updatedTool : t)),
+      });
     } else {
-      // Store in uiToolOverrides (overlay for base/mock tool)
-      setUiToolOverrides({
-        ...uiToolOverrides,
-        [updatedTool.id]: updatedTool,
+      setUiToolOverridesByTrade({
+        ...uiToolOverridesByTrade,
+        [editingToolTrade]: { ...overrides, [updatedTool.id]: updatedTool },
       });
     }
 
     setShowEditToolModal(false);
     setEditingTool(null);
+    setEditingToolTrade(null);
   };
 
-  // Delete Tool handlers
-  const handleOpenDeleteToolModal = (tool: {
-    id: string;
-    name: string;
-  }, isUiTool: boolean) => {
+  // Delete Tool handlers (trade-scoped)
+  const handleOpenDeleteToolModal = (tool: { id: string; name: string; isUiTool?: boolean }, tradeId: string) => {
     setDeletingTool({
       id: tool.id,
       name: tool.name,
-      isUiTool,
+      isUiTool: tool.isUiTool ?? false,
     });
+    setDeletingToolTrade(tradeId);
     setShowDeleteToolModal(true);
   };
 
   const handleCloseDeleteToolModal = () => {
     setShowDeleteToolModal(false);
     setDeletingTool(null);
+    setDeletingToolTrade(null);
   };
 
   const handleConfirmDeleteTool = () => {
-    if (!deletingTool) return;
+    if (!deletingTool || !deletingToolTrade) return;
+
+    const uiList = uiToolsByTrade[deletingToolTrade] || [];
+    const hidden = uiToolHiddenIdsByTrade[deletingToolTrade] || new Set();
 
     if (deletingTool.isUiTool) {
-      // Remove from uiTools array
-      setUiTools(uiTools.filter((t) => t.id !== deletingTool.id));
+      setUiToolsByTrade({
+        ...uiToolsByTrade,
+        [deletingToolTrade]: uiList.filter((t) => t.id !== deletingTool.id),
+      });
     } else {
-      // Add to hidden set (overlay for base/mock tool)
-      setUiToolHiddenIds(new Set([...uiToolHiddenIds, deletingTool.id]));
+      setUiToolHiddenIdsByTrade({
+        ...uiToolHiddenIdsByTrade,
+        [deletingToolTrade]: new Set([...hidden, deletingTool.id]),
+      });
+    }
+
+    // Also remove from defaults set for that trade (UI-only cleanup)
+    const currentDefaults = uiToolDefaultIdsByTrade[deletingToolTrade] ?? new Set();
+    if (currentDefaults.has(deletingTool.id)) {
+      const newDefaults = new Set(currentDefaults);
+      newDefaults.delete(deletingTool.id);
+      setUiToolDefaultIdsByTrade({
+        ...uiToolDefaultIdsByTrade,
+        [deletingToolTrade]: newDefaults,
+      });
     }
 
     setShowDeleteToolModal(false);
     setDeletingTool(null);
+    setDeletingToolTrade(null);
   };
 
-  // Compute rendered tools: base tools (filtered, with overrides) + uiTools
-  const renderedTools = useMemo(() => {
-    // Convert base tools (strings) to objects with generated IDs
-    const baseRendered = baseCustomer.tools
-      .map((toolName, idx) => {
-        const id = `BASE-TOOL-${idx}`;
-        return {
-          id,
-          name: toolName,
-          notes: "",
-        };
-      })
-      .filter((t) => !uiToolHiddenIds.has(t.id))
-      .map((t) => ({
-        ...t,
-        ...(uiToolOverrides[t.id] || {}),
-        isUiTool: false,
-      }));
+  // Toggle default status for a tool in a trade (UI-only)
+  const handleToggleToolDefault = (toolId: string, tradeId: string) => {
+    const currentDefaults = uiToolDefaultIdsByTrade[tradeId] ?? new Set();
+    const newDefaults = new Set(currentDefaults);
+    if (newDefaults.has(toolId)) {
+      newDefaults.delete(toolId);
+    } else {
+      newDefaults.add(toolId);
+    }
+    setUiToolDefaultIdsByTrade({
+      ...uiToolDefaultIdsByTrade,
+      [tradeId]: newDefaults,
+    });
+  };
 
-    // Append uiTools
-    const uiRendered = uiTools.map((t) => ({
-      ...t,
-      isUiTool: true,
-    }));
+  // Compute rendered tools per trade: base (filtered, overrides) + ui-created for that trade only
+  const renderedToolsByTrade = useMemo(() => {
+    const result: Record<string, Array<ToolLike & { isUiTool: boolean }>> = {};
+    for (const tradeId of AVAILABLE_TRADES) {
+      const baseNames = MOCK_TOOLS_BY_TRADE[tradeId] ?? [];
+      const overrides = uiToolOverridesByTrade[tradeId] ?? {};
+      const hidden = uiToolHiddenIdsByTrade[tradeId] ?? new Set();
+      const uiList = uiToolsByTrade[tradeId] ?? [];
 
-    return [...baseRendered, ...uiRendered];
-  }, [baseCustomer.tools, uiToolHiddenIds, uiToolOverrides, uiTools]);
+      const baseRendered = baseNames
+        .map((toolName, idx) => {
+          const id = `BASE-TOOL-${tradeId}-${idx}`;
+          return { id, name: toolName, notes: "" };
+        })
+        .filter((t) => !hidden.has(t.id))
+        .map((t) => ({
+          ...t,
+          ...(overrides[t.id] || {}),
+          isUiTool: false as const,
+        }));
+
+      const uiRendered = uiList.map((t) => ({ ...t, isUiTool: true as const }));
+      result[tradeId] = [...baseRendered, ...uiRendered];
+    }
+    return result;
+  }, [uiToolsByTrade, uiToolOverridesByTrade, uiToolHiddenIdsByTrade]);
 
   // ========== PPE HANDLERS ==========
 
@@ -1189,52 +1243,92 @@ export default function CustomerDetailPage() {
           </div>
         )}
 
-        {/* Tools Tab */}
+        {/* Tools Tab — trade-grouped */}
         {activeTab === "tools" && (
           <div className="tools-panel">
             <div className="panel-header">
-              <h2>Customer-Level Tools</h2>
-              <span className="panel-note">Tools commonly required at this customer&apos;s sites</span>
-              <button className="add-tool-btn" onClick={handleOpenAddToolModal}>
-                + Add Tool
-              </button>
+              <h2>Customer Tools by Trade</h2>
+              <span className="panel-note">Tools commonly required at this customer&apos;s sites, grouped by trade</span>
             </div>
-            <div className="tools-table-wrap">
-              <table className="tools-table">
-                <thead>
-                  <tr>
-                    <th>Tool Name</th>
-                    <th>Notes</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {renderedTools.map((tool) => (
-                    <tr key={tool.id}>
-                      <td className="tool-name">{tool.name}</td>
-                      <td className="tool-notes">{tool.notes || "—"}</td>
-                      <td className="tool-actions">
-                        <button
-                          className="tool-action-link"
-                          onClick={() => handleOpenEditToolModal(tool, tool.isUiTool)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="tool-action-link tool-action-delete"
-                          onClick={() => handleOpenDeleteToolModal(tool, tool.isUiTool)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {AVAILABLE_TRADES.map((tradeId) => {
+              const tools = renderedToolsByTrade[tradeId] ?? [];
+              const defaultsSet = uiToolDefaultIdsByTrade[tradeId] ?? new Set();
+              const defaultCount = tools.filter((t) => defaultsSet.has(t.id)).length;
+              const catalogCount = tools.length;
+              return (
+                <div key={tradeId} className="tools-trade-section">
+                  <div className="tools-trade-section-header">
+                    <div className="tools-trade-header-left">
+                      <h3 className="tools-trade-title">{tradeId}</h3>
+                      <span className="tools-trade-helper">
+                        Default tools are the typical baseline for this customer&apos;s {tradeId}. Job Orders may add one-off tools.
+                      </span>
+                    </div>
+                    <div className="tools-trade-header-right">
+                      <span className="tools-trade-counts">Default: {defaultCount} • Catalog: {catalogCount}</span>
+                      <button
+                        type="button"
+                        className="add-tool-btn"
+                        onClick={() => handleOpenAddToolModal(tradeId)}
+                      >
+                        + Add Tool
+                      </button>
+                    </div>
+                  </div>
+                  <div className="tools-table-wrap">
+                    <table className="tools-table">
+                      <thead>
+                        <tr>
+                          <th>Tool Name</th>
+                          <th>Notes</th>
+                          <th className="tool-default-col">Default</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tools.map((tool) => {
+                          const isDefault = defaultsSet.has(tool.id);
+                          return (
+                            <tr key={tool.id}>
+                              <td className="tool-name">{tool.name}</td>
+                              <td className="tool-notes">{tool.notes || "—"}</td>
+                              <td className="tool-default-cell">
+                                <input
+                                  type="checkbox"
+                                  className="tool-default-checkbox"
+                                  checked={isDefault}
+                                  onChange={() => handleToggleToolDefault(tool.id, tradeId)}
+                                  title={isDefault ? "Remove from defaults" : "Mark as default"}
+                                />
+                              </td>
+                              <td className="tool-actions">
+                                <button
+                                  type="button"
+                                  className="tool-action-link"
+                                  onClick={() => handleOpenEditToolModal(tool, tradeId)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="tool-action-link tool-action-delete"
+                                  onClick={() => handleOpenDeleteToolModal(tool, tradeId)}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
             <div className="placeholder-note">
               <span className="placeholder-icon">🔧</span>
-              <span>Customer-level tools live here. Site-specific tools can be defined per Job Order.</span>
+              <span>Customer-level tools are scoped by trade. Site-specific tools can be defined per Job Order.</span>
             </div>
           </div>
         )}
@@ -2117,12 +2211,12 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
-      {/* Add Tool Modal */}
-      {showAddToolModal && (
+      {/* Add Tool Modal (trade-aware) */}
+      {showAddToolModal && addToolForTrade && (
         <div className="modal-overlay" onClick={handleCloseAddToolModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Add Tool</h3>
+              <h3>Add Tool — {addToolForTrade}</h3>
               <button className="modal-close-btn" onClick={handleCloseAddToolModal}>×</button>
             </div>
             <div className="modal-body">
@@ -2162,12 +2256,12 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
-      {/* Edit Tool Modal */}
-      {showEditToolModal && editingTool && (
+      {/* Edit Tool Modal (trade-aware) */}
+      {showEditToolModal && editingTool && editingToolTrade && (
         <div className="modal-overlay" onClick={handleCloseEditToolModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Edit Tool</h3>
+              <h3>Edit Tool — {editingToolTrade}</h3>
               <button className="modal-close-btn" onClick={handleCloseEditToolModal}>×</button>
             </div>
             <div className="modal-body">
@@ -2207,12 +2301,12 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
-      {/* Delete Tool Modal */}
-      {showDeleteToolModal && deletingTool && (
+      {/* Delete Tool Modal (trade-aware) */}
+      {showDeleteToolModal && deletingTool && deletingToolTrade && (
         <div className="modal-overlay" onClick={handleCloseDeleteToolModal}>
           <div className="modal-content modal-content-sm" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Delete Tool</h3>
+              <h3>Delete Tool — {deletingToolTrade}</h3>
               <button className="modal-close-btn" onClick={handleCloseDeleteToolModal}>×</button>
             </div>
             <div className="modal-body">
@@ -3741,6 +3835,52 @@ export default function CustomerDetailPage() {
           color: #ef4444;
         }
 
+        /* Tools Tab — trade sections */
+        .tools-trade-section {
+          margin-bottom: 28px;
+        }
+
+        .tools-trade-section-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          gap: 16px;
+        }
+
+        .tools-trade-header-left {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .tools-trade-header-right {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-shrink: 0;
+        }
+
+        .tools-trade-title {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tools-trade-helper {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
+          font-style: italic;
+        }
+
+        .tools-trade-counts {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+          font-weight: 500;
+          white-space: nowrap;
+        }
+
         /* Tools Table */
         .tools-table-wrap {
           background: rgba(255, 255, 255, 0.02);
@@ -3812,6 +3952,23 @@ export default function CustomerDetailPage() {
 
         .tool-action-link.tool-action-delete:hover {
           color: #ef4444;
+        }
+
+        /* Default column */
+        .tool-default-col {
+          width: 80px;
+          text-align: center;
+        }
+
+        .tool-default-cell {
+          text-align: center;
+        }
+
+        .tool-default-checkbox {
+          width: 16px;
+          height: 16px;
+          cursor: pointer;
+          accent-color: #3b82f6;
         }
 
         /* Add Tool Button */
