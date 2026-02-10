@@ -137,6 +137,20 @@ export default function AdminPage() {
           </div>
         </Link>
 
+        {/* Tool Catalog Card - Active */}
+        <Link href="/admin/tools" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Tool Catalog</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Single source of truth for all tools.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Tool Catalog →</span>
+          </div>
+        </Link>
+
         {/* Work Comp Report Card - Active */}
         <Link href="/admin/reports/work-comp" className="admin-card active">
           <div className="card-header">
