@@ -123,6 +123,62 @@ export default function AdminPage() {
           </div>
         </Link>
 
+        {/* Salespeople Card - Active */}
+        <Link href="/admin/salespeople" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Salespeople</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Commercial owners used for Customer defaults and commission attribution.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Salespeople →</span>
+          </div>
+        </Link>
+
+        {/* Work Comp Report Card - Active */}
+        <Link href="/admin/reports/work-comp" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Work Comp Report</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Workers&apos; compensation burden analysis by state, trade, and job site.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open Work Comp Report →</span>
+          </div>
+        </Link>
+
+        {/* Gross Margin Report Card - Active */}
+        <Link href="/admin/reports/gm" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">Gross Margin Report</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Estimated vs actual gross margin analysis by order, customer, and salesperson.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open GM Report →</span>
+          </div>
+        </Link>
+
+        {/* WIP Report Card - Active */}
+        <Link href="/admin/reports/wip" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">WIP Report</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Work-in-progress analysis: unapproved hours, billing status, and risk assessment.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open WIP Report →</span>
+          </div>
+        </Link>
+
         <div className="admin-card disabled">
           <div className="card-header">
             <div className="card-title">System Settings</div>
