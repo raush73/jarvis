@@ -24,7 +24,7 @@ type Invoice = {
 // Mock invoices data
 const MOCK_INVOICES: Invoice[] = [
   {
-    id: "INV-001",
+    id: "INV-2024-0001",
     invoiceNumber: "INV-2024-0001",
     customerId: "CUST-001",
     customerName: "Turner Construction",
@@ -37,7 +37,7 @@ const MOCK_INVOICES: Invoice[] = [
     lineItemCount: 3,
   },
   {
-    id: "INV-002",
+    id: "INV-2024-0002",
     invoiceNumber: "INV-2024-0002",
     customerId: "CUST-001",
     customerName: "Turner Construction",
@@ -50,7 +50,7 @@ const MOCK_INVOICES: Invoice[] = [
     lineItemCount: 2,
   },
   {
-    id: "INV-003",
+    id: "INV-2024-0003",
     invoiceNumber: "INV-2024-0003",
     customerId: "CUST-001",
     customerName: "Turner Construction",
@@ -63,7 +63,7 @@ const MOCK_INVOICES: Invoice[] = [
     lineItemCount: 1,
   },
   {
-    id: "INV-004",
+    id: "INV-2024-0004",
     invoiceNumber: "INV-2024-0004",
     customerId: "CUST-001",
     customerName: "Turner Construction",
@@ -76,7 +76,7 @@ const MOCK_INVOICES: Invoice[] = [
     lineItemCount: 1,
   },
   {
-    id: "INV-005",
+    id: "INV-2024-0005",
     invoiceNumber: "INV-2024-0005",
     customerId: "CUST-002",
     customerName: "Bechtel Corporation",
@@ -89,7 +89,7 @@ const MOCK_INVOICES: Invoice[] = [
     lineItemCount: 5,
   },
   {
-    id: "INV-006",
+    id: "INV-2024-0006",
     invoiceNumber: "INV-2024-0006",
     customerId: "CUST-002",
     customerName: "Bechtel Corporation",
