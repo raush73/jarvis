@@ -321,17 +321,17 @@ export default function TradesPage() {
                     </span>
                   </td>
                   <td className="cell-actions">
-                    <button
+                    <Link
+                      href={`/admin/trades/${trade.id}`}
                       className="action-btn"
-                      onClick={() => handleViewTrade(trade)}
                     >
                       View
-                    </button>
+                    </Link>
                     <button
                       className="action-btn"
                       onClick={() => handleViewTrade(trade)}
                     >
-                      Edit
+                      View/Edit
                     </button>
                   </td>
                 </tr>
