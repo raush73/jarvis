@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // Mock customers data
 const MOCK_CUSTOMERS = [
@@ -97,6 +98,11 @@ export default function CustomersPage() {
           <h1>Customers</h1>
           <span className="customer-count">{MOCK_CUSTOMERS.length} customers</span>
         </div>
+        <div className="header-actions">
+          <Link href="/customers/new" className="btn-add">
+            + Create Customer
+          </Link>
+        </div>
       </div>
 
       {/* Customers Table */}
@@ -168,6 +174,29 @@ export default function CustomersPage() {
         .customer-count {
           font-size: 14px;
           color: rgba(255, 255, 255, 0.5);
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+        }
+
+        .btn-add {
+          display: inline-block;
+          padding: 10px 20px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-decoration: none;
+        }
+
+        .btn-add:hover {
+          background: #2563eb;
         }
 
         .customers-table-wrap {
