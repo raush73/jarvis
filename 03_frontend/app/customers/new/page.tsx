@@ -12,12 +12,6 @@ const SALESPERSON_OPTIONS = [
   { value: "sp-004", label: "Emily Rodriguez" },
 ];
 
-// Mock commission plan options (static)
-const COMMISSION_PLAN_OPTIONS = [
-  { value: "", label: "— Use Salesperson Default —" },
-  { value: "standard", label: "Standard Tier" },
-  { value: "custom", label: "Custom", disabled: true },
-];
 
 export default function CreateCustomerPage() {
   const router = useRouter();
@@ -27,7 +21,6 @@ export default function CreateCustomerPage() {
   const [defaultSalesperson, setDefaultSalesperson] = useState("");
 
   // Form state — Optional fields
-  const [commissionPlanOverride, setCommissionPlanOverride] = useState("");
   const [website, setWebsite] = useState("");
   const [mainPhone, setMainPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -66,9 +59,9 @@ export default function CreateCustomerPage() {
         </p>
       </div>
 
-      {/* Form Section */}
+      {/* Basic Information Section */}
       <div className="form-section">
-        <div className="section-title">Customer Information</div>
+        <div className="section-title">Basic Information</div>
         <div className="form-grid">
           {/* Customer Name */}
           <div className="form-row">
@@ -82,6 +75,9 @@ export default function CreateCustomerPage() {
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="e.g., Turner Construction"
             />
+            <span className="field-hint">
+              Legal or commonly used business name.
+            </span>
           </div>
 
           {/* Default Salesperson */}
@@ -101,32 +97,38 @@ export default function CreateCustomerPage() {
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Commission Plan Override */}
-          <div className="form-row">
-            <label className="form-label">Commission Plan Override</label>
-            <div className="select-with-badge">
-              <select
-                className="form-select"
-                value={commissionPlanOverride}
-                onChange={(e) => setCommissionPlanOverride(e.target.value)}
-              >
-                {COMMISSION_PLAN_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {commissionPlanOverride === "custom" && (
-                <span className="future-badge">future wiring</span>
-              )}
-            </div>
             <span className="field-hint">
-              Leave blank to use the salesperson&apos;s default commission plan.
+              Primary owner of this customer.
             </span>
           </div>
+        </div>
+      </div>
 
+      {/* Sales & Commission Section */}
+      <div className="form-section">
+        <div className="section-title">Sales & Commission</div>
+        <div className="form-grid">
+          {/* Commission Plan (Admin-controlled) */}
+          <div className="form-row">
+            <label className="form-label">Commission Plan</label>
+            <input
+              type="text"
+              className="form-input readonly-field"
+              value="— Use Salesperson Default —"
+              readOnly
+              disabled
+            />
+            <span className="field-hint">
+              Commission plans are set by Admin and audited.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information Section */}
+      <div className="form-section">
+        <div className="section-title">Contact Information</div>
+        <div className="form-grid">
           {/* Website */}
           <div className="form-row">
             <label className="form-label">Website</label>
@@ -324,36 +326,16 @@ export default function CreateCustomerPage() {
           color: rgba(255, 255, 255, 0.35);
         }
 
-        .select-with-badge {
-          position: relative;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .select-with-badge .form-select {
-          flex: 1;
-        }
-
-        .future-badge {
-          position: absolute;
-          right: 40px;
-          font-size: 9px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-          color: #f59e0b;
-          background: rgba(245, 158, 11, 0.12);
-          border: 1px solid rgba(245, 158, 11, 0.25);
-          padding: 2px 6px;
-          border-radius: 4px;
-          pointer-events: none;
-        }
-
         .field-hint {
           font-size: 11px;
           color: rgba(255, 255, 255, 0.4);
           font-style: italic;
+        }
+
+        .readonly-field {
+          background: rgba(255, 255, 255, 0.02);
+          color: rgba(255, 255, 255, 0.4);
+          cursor: not-allowed;
         }
 
         .form-textarea {
