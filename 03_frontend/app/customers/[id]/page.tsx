@@ -697,7 +697,7 @@ export default function CustomerDetailPage() {
                     key={order.id}
                     className="order-card"
                     onClick={() => {
-                      router.push(`/customers/${customerId}/orders/${order.id}`);
+                      router.push(`/orders/${order.id}/view?from=customer&customerId=${customerId}`);
                     }}
                   >
                     <div className="order-info">

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { CommercialMarginPanel } from "@/components/CommercialMarginPanel";
+
+// Order Detail Mode type
+export type OrderDetailMode = "edit" | "view";
 
 // Tab types for inline tabs
 type TabKey = "overview" | "changeOrders";
@@ -207,10 +210,21 @@ const DEFAULT_ORDER = {
   ],
 };
 
-export default function OrderDetailPage() {
+// Props for the shared Order Detail component
+interface OrderDetailProps {
+  mode?: OrderDetailMode;
+  backTo?: "orders" | "customer";
+  customerId?: string | null;
+}
+
+// Shared Order Detail component - used by both /orders/[id] and /orders/[id]/view
+export function OrderDetail({ mode = "edit", backTo = "orders", customerId = null }: OrderDetailProps) {
   const router = useRouter();
   const params = useParams();
   const orderId = params.id as string;
+
+  // Determine if we're in read-only mode
+  const isReadOnly = mode === "view";
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -339,9 +353,16 @@ export default function OrderDetailPage() {
     router.push("/login");
   };
 
-  const handleBackToOrders = () => {
-    router.push("/orders");
+  const handleBack = () => {
+    if (backTo === "customer" && customerId) {
+      router.push(`/customers/${customerId}`);
+    } else {
+      router.push("/orders");
+    }
   };
+
+  // Back button text based on navigation context
+  const backButtonText = backTo === "customer" ? "← Back to Customer" : "← Back to Orders";
 
   const totalOpen = order.trades.reduce((sum, t) => sum + t.open, 0);
   const totalRequired = order.trades.reduce((sum, t) => sum + t.total, 0);
@@ -460,19 +481,25 @@ export default function OrderDetailPage() {
       {/* Page Header */}
       <div className="detail-header">
         <div className="header-left">
-          <button className="back-btn" onClick={handleBackToOrders}>
-            ← Back to Orders
+          <button className="back-btn" onClick={handleBack}>
+            {backButtonText}
           </button>
           <div className="header-title">
             <h1>{order.id}</h1>
             <span className={`status-badge ${order.status.toLowerCase()}`}>{order.status}</span>
-            <span className="health-badge">Order Health: Coming soon</span>
+            {isReadOnly ? (
+              <span className="read-only-indicator">Read-Only View</span>
+            ) : (
+              <span className="health-badge">Order Health: Coming soon</span>
+            )}
           </div>
         </div>
         <div className="header-right">
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
-          </button>
+          {!isReadOnly && (
+            <button className="logout-btn" onClick={handleLogout}>
+              Logout
+            </button>
+          )}
         </div>
       </div>
 
@@ -647,13 +674,15 @@ export default function OrderDetailPage() {
           <section className="detail-section change-orders-section">
             <div className="co-section-header">
               <h2>Change Orders</h2>
-              <button
-                type="button"
-                className="create-rco-btn"
-                onClick={() => setShowCreatePanel(true)}
-              >
-                + Create Rate Change Order
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  className="create-rco-btn"
+                  onClick={() => setShowCreatePanel(true)}
+                >
+                  + Create Rate Change Order
+                </button>
+              )}
             </div>
             <div className="change-orders-table">
               <div className="co-table-header">
@@ -764,8 +793,9 @@ export default function OrderDetailPage() {
                 </div>
               )}
 
-              {/* Resend Approval Link Action (Portal Approval + Sent for Approval only) */}
-              {selectedChangeOrder.status === "Sent for Approval" &&
+              {/* Resend Approval Link Action (Portal Approval + Sent for Approval only, edit mode only) */}
+              {!isReadOnly &&
+                selectedChangeOrder.status === "Sent for Approval" &&
                 selectedChangeOrder.approvalMethod === "Portal" && (
                   <div className="co-resend-section">
                     <button
@@ -825,8 +855,8 @@ export default function OrderDetailPage() {
               {/* Approval Info */}
               <div className="co-detail-section">
                 <h4>Approval Information</h4>
-                {/* Editable Approval Method when Pending */}
-                {selectedChangeOrder.status === "Pending" && detailApprovalMethod && (
+                {/* Editable Approval Method when Pending (edit mode only) */}
+                {!isReadOnly && selectedChangeOrder.status === "Pending" && detailApprovalMethod && (
                   <div className="co-approval-method-edit">
                     <span className="co-detail-label">Approval Method</span>
                     <div className="co-approval-method-radios">
@@ -854,8 +884,8 @@ export default function OrderDetailPage() {
                     </span>
                   </div>
                 )}
-                {/* Read-only Approval Method when Sent for Approval or Approved */}
-                {(selectedChangeOrder.status === "Sent for Approval" || selectedChangeOrder.status === "Approved") && (
+                {/* Read-only Approval Method when Sent for Approval or Approved, or in view mode for Pending */}
+                {(selectedChangeOrder.status === "Sent for Approval" || selectedChangeOrder.status === "Approved" || (isReadOnly && selectedChangeOrder.status === "Pending")) && (
                   <div className="co-detail-grid">
                     <div className="co-detail-item">
                       <span className="co-detail-label">Approval Method</span>
@@ -894,8 +924,9 @@ export default function OrderDetailPage() {
                 </div>
               )}
 
-              {/* Send for Customer Approval Action (Portal) — uses detailApprovalMethod for dynamic swap */}
-              {selectedChangeOrder.status === "Pending" &&
+              {/* Send for Customer Approval Action (Portal) — uses detailApprovalMethod for dynamic swap (edit mode only) */}
+              {!isReadOnly &&
+                selectedChangeOrder.status === "Pending" &&
                 detailApprovalMethod === "Portal" && (
                   <div className="co-detail-section co-action-section">
                     <button
@@ -908,8 +939,9 @@ export default function OrderDetailPage() {
                   </div>
                 )}
 
-              {/* Upload Customer Approval Email Action (Email Authorization) — uses detailApprovalMethod for dynamic swap */}
-              {selectedChangeOrder.status === "Pending" &&
+              {/* Upload Customer Approval Email Action (Email Authorization) — uses detailApprovalMethod for dynamic swap (edit mode only) */}
+              {!isReadOnly &&
+                selectedChangeOrder.status === "Pending" &&
                 detailApprovalMethod === "Email Authorization" && (
                   <div className="co-detail-section co-action-section">
                     <button
@@ -954,8 +986,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* Create Rate Change Order Panel */}
-      {showCreatePanel && (
+      {/* Create Rate Change Order Panel (edit mode only) */}
+      {!isReadOnly && showCreatePanel && (
         <div className="co-detail-overlay" onClick={handleCancelCreate}>
           <div className="co-detail-panel create-rco-panel" onClick={(e) => e.stopPropagation()}>
             <div className="co-detail-header">
@@ -1123,8 +1155,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* Email Authorization Upload Panel */}
-      {showEmailAuthPanel && selectedChangeOrder && (
+      {/* Email Authorization Upload Panel (edit mode only) */}
+      {!isReadOnly && showEmailAuthPanel && selectedChangeOrder && (
         <div className="co-detail-overlay" onClick={handleCancelEmailAuth}>
           <div className="co-detail-panel email-auth-panel" onClick={(e) => e.stopPropagation()}>
             <div className="co-detail-header">
@@ -1298,6 +1330,16 @@ export default function OrderDetailPage() {
         }
 
         .health-badge {
+          padding: 4px 12px;
+          font-size: 11px;
+          font-weight: 500;
+          border-radius: 6px;
+          background: rgba(148, 163, 184, 0.15);
+          color: rgba(148, 163, 184, 0.8);
+          border: 1px dashed rgba(148, 163, 184, 0.3);
+        }
+
+        .read-only-indicator {
           padding: 4px 12px;
           font-size: 11px;
           font-weight: 500;
@@ -2464,4 +2506,9 @@ export default function OrderDetailPage() {
       `}</style>
     </div>
   );
+}
+
+// Default export for /orders/[id] route - edit mode
+export default function OrderDetailPage() {
+  return <OrderDetail mode="edit" backTo="orders" />;
 }
