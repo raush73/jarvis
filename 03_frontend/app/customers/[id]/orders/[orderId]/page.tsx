@@ -303,6 +303,32 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Required Tools (Snapshot) Section */}
+      {(() => {
+        const tools = (order as any)?.jobRequirements?.tools
+          || (order as any)?.requirements?.tools
+          || (order as any)?.tools;
+        const hasTools = Array.isArray(tools) && tools.length > 0;
+        return (
+          <div className="detail-section tools-snapshot-section">
+            <h2>Required Tools (Snapshot)</h2>
+            <p className="tools-helper-text">Tools are shown as a snapshot on the Job Order.</p>
+            {hasTools ? (
+              <div className="tools-list">
+                {tools.map((tool: string, idx: number) => (
+                  <span key={idx} className="tool-tag">{tool}</span>
+                ))}
+              </div>
+            ) : (
+              <div className="tools-empty-state">
+                Tools snapshot is not yet wired to this Job Order Detail view. (UI-only)
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
 {/* Shift Differential */}
 {(order.sdPayDeltaRate !== null && order.sdPayDeltaRate !== undefined) ||
  (order.sdBillDeltaRate !== null && order.sdBillDeltaRate !== undefined) ? (
@@ -751,6 +777,45 @@ export default function OrderDetailPage() {
 
         .health-dot-lg.red {
           background: #ef4444;
+        }
+
+        /* Required Tools (Snapshot) Section */
+        .tools-snapshot-section {
+          margin-bottom: 24px;
+        }
+
+        .tools-helper-text {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 0 0 12px;
+          font-style: italic;
+        }
+
+        .tools-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .tool-tag {
+          display: inline-block;
+          padding: 6px 12px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(59, 130, 246, 0.12);
+          border: 1px solid rgba(59, 130, 246, 0.25);
+          border-radius: 6px;
+        }
+
+        .tools-empty-state {
+          padding: 16px 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
+          font-style: italic;
+          text-align: center;
         }
       `}</style>
     </div>
