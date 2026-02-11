@@ -1266,13 +1266,6 @@ export default function CustomerDetailPage() {
                     </div>
                     <div className="tools-trade-header-right">
                       <span className="tools-trade-counts">Default: {defaultCount} • Catalog: {catalogCount}</span>
-                      <button
-                        type="button"
-                        className="add-tool-btn"
-                        onClick={() => handleOpenAddToolModal(tradeId)}
-                      >
-                        + Add Tool
-                      </button>
                     </div>
                   </div>
                   <div className="tools-table-wrap">
@@ -1307,14 +1300,7 @@ export default function CustomerDetailPage() {
                                   className="tool-action-link"
                                   onClick={() => handleOpenEditToolModal(tool, tradeId)}
                                 >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="tool-action-link tool-action-delete"
-                                  onClick={() => handleOpenDeleteToolModal(tool, tradeId)}
-                                >
-                                  Delete
+                                  Edit Notes
                                 </button>
                               </td>
                             </tr>
@@ -1326,10 +1312,9 @@ export default function CustomerDetailPage() {
                 </div>
               );
             })}
-            <div className="placeholder-note">
-              <span className="placeholder-icon">🔧</span>
-              <span>Customer-level tools are scoped by trade. Site-specific tools can be defined per Job Order.</span>
-            </div>
+            <p className="text-xs text-slate-400" style={{ marginTop: "1.5rem" }}>
+              Tools listed are sourced from the Tool Catalog. Checked tools define this customer&apos;s default baseline. Orders snapshot required tools at creation.
+            </p>
           </div>
         )}
 
