@@ -57,7 +57,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <style jsx>{
+      <style jsx>{`
         .login-container {
           display: flex;
           align-items: center;
@@ -176,7 +176,7 @@ export default function LoginPage() {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.35);
         }
-      }</style>
+      `}</style>
     </div>
   );
 }
