@@ -1,60 +1,16 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-
-function getApiBase(): string {
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
-  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    return "http://localhost:3001";
-  }
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  return "http://localhost:3001";
-}
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignIn = (e: any) => {
     e.preventDefault();
-    setErrorMsg(null);
-    setIsSubmitting(true);
-
-    const apiBase = getApiBase();
-
-    try {
-      const res = await fetch("https://demo.jarvisprime.io/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Login failed");
-      }
-
-      const data = await res.json();
-      const token = data.accessToken;
-
-      if (!token) {
-        throw new Error("No accessToken returned");
-      }
-
-      localStorage.setItem("jp_accessToken", token);
-      router.push("/orders");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Network error. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.push('/orders');
   };
 
   return (
@@ -86,23 +42,22 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder=".............."
+              placeholder="••••••••••••"
               autoComplete="current-password"
             />
           </div>
 
-          <button type="submit" className="sign-in-btn" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign In"}
+          <button type="submit" className="sign-in-btn">
+            Sign In
           </button>
-          {errorMsg && <p className="error-msg">{errorMsg}</p>}
         </form>
 
         <div className="login-footer">
-          <span>Demo mode - any credentials accepted</span>
+          <span>Demo mode — any credentials accepted</span>
         </div>
       </div>
 
-      <style jsx>{`
+      <style jsx>{
         .login-container {
           display: flex;
           align-items: center;
@@ -210,24 +165,6 @@ export default function LoginPage() {
           box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
         }
 
-        .sign-in-btn:active {
-          transform: translateY(0);
-        }
-
-        .sign-in-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .error-msg {
-          font-size: 13px;
-          color: #f87171;
-          margin: 12px 0 0;
-          padding: 0;
-          line-height: 1.4;
-        }
-
         .login-footer {
           margin-top: 24px;
           padding-top: 20px;
@@ -239,7 +176,7 @@ export default function LoginPage() {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.35);
         }
-      `}</style>
+      }</style>
     </div>
   );
 }
