@@ -1,15 +1,17 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
+
+import { apiFetch } from "@/lib/api";
 
 // Mock job orders data
 const MOCK_ORDERS = [
   {
     id: "ORD-2024-001",
     customer: "Turner Construction",
-    site: "Downtown Tower — Los Angeles, CA",
+    site: "Downtown Tower â€” Los Angeles, CA",
     startDate: "2024-02-15",
     trades: { mw: { filled: 7, total: 10 }, pw: { filled: 18, total: 30 } },
     lastUpdated: "2 hours ago",
@@ -17,7 +19,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-002",
     customer: "Skanska USA",
-    site: "Metro Hospital — San Diego, CA",
+    site: "Metro Hospital â€” San Diego, CA",
     startDate: "2024-02-18",
     trades: { mw: { filled: 4, total: 6 }, pw: { filled: 12, total: 15 } },
     lastUpdated: "5 hours ago",
@@ -25,7 +27,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-003",
     customer: "McCarthy Building",
-    site: "Tech Campus Phase 2 — Phoenix, AZ",
+    site: "Tech Campus Phase 2 â€” Phoenix, AZ",
     startDate: "2024-02-20",
     trades: { mw: { filled: 10, total: 12 }, pw: { filled: 25, total: 40 } },
     lastUpdated: "1 day ago",
@@ -33,7 +35,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-004",
     customer: "DPR Construction",
-    site: "Data Center NV-01 — Las Vegas, NV",
+    site: "Data Center NV-01 â€” Las Vegas, NV",
     startDate: "2024-02-22",
     trades: { mw: { filled: 15, total: 20 }, pw: { filled: 8, total: 10 } },
     lastUpdated: "3 days ago",
@@ -41,7 +43,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-005",
     customer: "Hensel Phelps",
-    site: "Airport Terminal Expansion — Denver, CO",
+    site: "Airport Terminal Expansion â€” Denver, CO",
     startDate: "2024-03-01",
     trades: { mw: { filled: 0, total: 8 }, pw: { filled: 5, total: 20 } },
     lastUpdated: "5 days ago",
@@ -49,7 +51,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-006",
     customer: "Holder Construction",
-    site: "University Research Lab — Austin, TX",
+    site: "University Research Lab â€” Austin, TX",
     startDate: "2024-03-05",
     trades: { mw: { filled: 3, total: 5 }, pw: { filled: 10, total: 12 } },
     lastUpdated: "1 week ago",
@@ -73,7 +75,25 @@ function TradeBadge({ label, filled, total }: { label: string; filled: number; t
 export default function OrdersPage() {
   const router = useRouter();
 
-  // Force re-render on hash change
+  const [orders, setOrders] = useState<any[]>(MOCK_ORDERS);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const data = await apiFetch<any[]>("/orders");
+        if (alive && Array.isArray(data) && data.length) setOrders(data);
+      } catch (e) {
+        console.warn("GET /orders failed; using MOCK_ORDERS", e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+// Force re-render on hash change
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -89,9 +109,9 @@ export default function OrdersPage() {
       : "";
 
   // Determine active filter from currentHash
-  // "recruiting" or "vetting" (backwards compat) → Has Openings
-  // "fully-staffed" or "staffed" → Fully Staffed
-  // otherwise → All Active
+  // "recruiting" or "vetting" (backwards compat) â†’ Has Openings
+  // "fully-staffed" or "staffed" â†’ Fully Staffed
+  // otherwise â†’ All Active
   const activeFilter =
     currentHash === "recruiting" || currentHash === "vetting"
       ? "has-openings"
@@ -100,24 +120,27 @@ export default function OrdersPage() {
       : "all-active";
 
   // Helper: calculate total openings for an order
-  const getOpenSlots = (order: typeof MOCK_ORDERS[0]) => {
-    return Object.values(order.trades).reduce(
-      (sum, t) => sum + (t.total - t.filled),
-      0
-    );
+  const getOpenSlots = (order: any) => {
+    const trades =
+      order?.trades && typeof order.trades === "object" ? order.trades : {};
+    return Object.values(trades).reduce((sum: number, t: any) => {
+      const total = Number(t?.total ?? 0);
+      const filled = Number(t?.filled ?? 0);
+      return sum + (total - filled);
+    }, 0);
   };
 
   const visibleOrders = useMemo(() => {
     switch (activeFilter) {
       case "has-openings":
         // Orders where Openings O > 0 (some slots still unfilled)
-        return MOCK_ORDERS.filter((order) => getOpenSlots(order) > 0);
+        return orders.filter((order) => getOpenSlots(order) > 0);
       case "fully-staffed":
         // Orders where Openings O = 0 (all slots filled)
-        return MOCK_ORDERS.filter((order) => getOpenSlots(order) === 0);
+        return orders.filter((order) => getOpenSlots(order) === 0);
       default:
         // All Active: show all orders
-        return MOCK_ORDERS;
+        return orders;
     }
   }, [activeFilter]);
   const handleLogout = () => {
@@ -450,4 +473,5 @@ export default function OrdersPage() {
     </div>
   );
 }
+
 
