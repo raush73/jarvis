@@ -1386,7 +1386,7 @@ export default function CustomerDetailPage() {
                     key={order.id}
                     className="order-card"
                     onClick={() => {
-                      router.push(`/orders/${order.id}/view?from=customer&customerId=${customerId}`);
+                      router.push(`/orders/${order.id}`);
                     }}
                   >
                     <div className="order-info">
@@ -4102,3 +4102,4 @@ export default function CustomerDetailPage() {
     </div>
   );
 }
+
