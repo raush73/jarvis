@@ -47,6 +47,19 @@ type ChangeOrder = {
 // Mock employees for dropdown
 const MOCK_EMPLOYEES = ["John Smith", "Mike Johnson", "Sarah Lee"];
 
+// UI-only advisory threshold (Margin Floor)
+const MARGIN_FLOOR_PCT = 18;
+
+// Mock base pay/bill rates for RCO preview (UI-only, no backend)
+function getBaseRates(employeeName: string): { pay: number; bill: number } {
+  const MOCK_RATES: Record<string, { pay: number; bill: number }> = {
+    "John Smith": { pay: 28, bill: 38 },
+    "Mike Johnson": { pay: 32, bill: 42 },
+    "Sarah Lee": { pay: 26, bill: 36 },
+  };
+  return MOCK_RATES[employeeName] ?? { pay: 28, bill: 38 };
+}
+
 const MOCK_CHANGE_ORDERS: ChangeOrder[] = [
   {
     id: "CO-001",
@@ -248,7 +261,8 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
   const [createForm, setCreateForm] = useState({
     employee: "",
     deltaType: "hourly" as DeltaType,
-    deltaAmount: "",
+    payDeltaAmount: "",
+    billDeltaAmount: "",
     effectiveDate: "",
     notes: "",
     approvalMethod: "Portal" as ApprovalMethod,
@@ -279,7 +293,8 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
     setCreateForm({
       employee: "",
       deltaType: "hourly",
-      deltaAmount: "",
+      payDeltaAmount: "",
+      billDeltaAmount: "",
       effectiveDate: "",
       notes: "",
       approvalMethod: "Portal",
@@ -293,16 +308,15 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
     return `CO-${String(num).padStart(3, "0")}`;
   };
 
-  // Format delta string
-  const formatDelta = (amount: string, type: DeltaType) => {
-    const prefix = "+$";
+  // Format delta string (Pay + Bill dual format)
+  const formatDelta = (payAmount: string, billAmount: string, type: DeltaType) => {
     const suffix = type === "hourly" ? " / hr" : " / shift";
-    return `${prefix}${amount}${suffix}`;
+    return `Pay +$${payAmount}${suffix} | Bill +$${billAmount}${suffix}`;
   };
 
   // Handle Save Draft
   const handleSaveDraft = () => {
-    if (!createForm.employee || !createForm.deltaAmount || !createForm.effectiveDate) {
+    if (!createForm.employee || !createForm.payDeltaAmount || !createForm.billDeltaAmount || !createForm.effectiveDate) {
       return; // Basic required field check
     }
     const newOrder: ChangeOrder = {
@@ -310,7 +324,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
       status: "Draft",
       employee: createForm.employee,
       changeType: "Rate Change",
-      delta: formatDelta(createForm.deltaAmount, createForm.deltaType),
+      delta: formatDelta(createForm.payDeltaAmount, createForm.billDeltaAmount, createForm.deltaType),
       effectiveDate: createForm.effectiveDate,
       requestedBy: "Internal",
       approvalMethod: createForm.approvalMethod,
@@ -326,7 +340,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
 
   // Handle Mark Pending
   const handleMarkPending = () => {
-    if (!createForm.employee || !createForm.deltaAmount || !createForm.effectiveDate) {
+    if (!createForm.employee || !createForm.payDeltaAmount || !createForm.billDeltaAmount || !createForm.effectiveDate) {
       return; // Basic required field check
     }
     const newOrder: ChangeOrder = {
@@ -334,7 +348,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
       status: "Pending",
       employee: createForm.employee,
       changeType: "Rate Change",
-      delta: formatDelta(createForm.deltaAmount, createForm.deltaType),
+      delta: formatDelta(createForm.payDeltaAmount, createForm.billDeltaAmount, createForm.deltaType),
       effectiveDate: createForm.effectiveDate,
       requestedBy: "Internal",
       approvalMethod: createForm.approvalMethod,
@@ -1074,6 +1088,36 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
                 </select>
               </div>
 
+              {/* Current Rates (display-only) */}
+              {createForm.employee ? (
+                <div className="rco-preview-panel">
+                  <h4>Current Rates</h4>
+                  {(() => {
+                    const { pay: basePay, bill: baseBill } = getBaseRates(createForm.employee);
+                    const gmOld = baseBill - basePay;
+                    const marginOld = baseBill <= 0
+                      ? "—"
+                      : ((baseBill - basePay) / baseBill) * 100;
+
+                    return (
+                      <div className="rco-preview-grid">
+                        <div>Current Pay Rate: ${basePay.toFixed(2)}</div>
+                        <div>Current Bill Rate: ${baseBill.toFixed(2)}</div>
+                        <div>Current GM (per hr): ${gmOld.toFixed(2)}</div>
+                        <div>
+                          Current Margin %:{" "}
+                          {marginOld === "—" ? "—" : `${marginOld.toFixed(2)}%`}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <p className="rco-preview-muted">
+                  Select employee to view current rates.
+                </p>
+              )}
+
               {/* Change Type (Read-only) */}
               <div className="create-form-field">
                 <label className="create-form-label">Change Type</label>
@@ -1105,22 +1149,176 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
                 </div>
               </div>
 
-              {/* Delta Amount */}
+              {/* Pay Delta Amount */}
               <div className="create-form-field">
-                <label className="create-form-label">Delta Amount *</label>
+                <label className="create-form-label">Pay Delta Amount *</label>
                 <div className="create-form-input-wrapper">
                   <span className="create-form-input-prefix">$</span>
                   <input
                     type="number"
                     className="create-form-input create-form-input-with-prefix"
-                    placeholder="0.00"
-                    value={createForm.deltaAmount}
-                    onChange={(e) => setCreateForm({ ...createForm, deltaAmount: e.target.value })}
+                    placeholder="e.g. 3.00"
+                    value={createForm.payDeltaAmount}
+                    onChange={(e) => setCreateForm({ ...createForm, payDeltaAmount: e.target.value })}
                     min="0"
                     step="0.01"
                   />
                 </div>
               </div>
+
+              {/* Bill Delta Amount */}
+              <div className="create-form-field">
+                <label className="create-form-label">Bill Delta Amount *</label>
+                <div className="create-form-input-wrapper">
+                  <span className="create-form-input-prefix">$</span>
+                  <input
+                    type="number"
+                    className="create-form-input create-form-input-with-prefix"
+                    placeholder="e.g. 3.00"
+                    value={createForm.billDeltaAmount}
+                    onChange={(e) => setCreateForm({ ...createForm, billDeltaAmount: e.target.value })}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+
+              {/* Resulting Rates Preview (display-only) */}
+              {createForm.employee && createForm.payDeltaAmount && createForm.billDeltaAmount && (
+                <div className="rco-preview-panel rco-preview-result">
+                  <h4>Resulting Rates Preview</h4>
+                  {(() => {
+                    const { pay: basePay, bill: baseBill } = getBaseRates(createForm.employee);
+                    const assumedShiftHours = 10;
+
+                    let payDeltaHr: number;
+                    let billDeltaHr: number;
+                    if (createForm.deltaType === "hourly") {
+                      payDeltaHr = Number(createForm.payDeltaAmount);
+                      billDeltaHr = Number(createForm.billDeltaAmount);
+                    } else {
+                      payDeltaHr = Number(createForm.payDeltaAmount) / assumedShiftHours;
+                      billDeltaHr = Number(createForm.billDeltaAmount) / assumedShiftHours;
+                    }
+
+                    const newPay = basePay + payDeltaHr;
+                    const newBill = baseBill + billDeltaHr;
+
+                    const gmOld = baseBill - basePay;
+                    const gmNew = newBill - newPay;
+
+                    const marginOld =
+                      baseBill <= 0 ? "—" : ((baseBill - basePay) / baseBill) * 100;
+                    const marginNew =
+                      newBill <= 0 ? "—" : ((newBill - newPay) / newBill) * 100;
+
+                    return (
+                      <div className="rco-preview-grid">
+                        <div>New Pay Rate: ${newPay.toFixed(2)}</div>
+                        <div>New Bill Rate: ${newBill.toFixed(2)}</div>
+                        <div>New GM (per hr): ${gmNew.toFixed(2)}</div>
+                        <div>
+                          New Margin %:{" "}
+                          {marginNew === "—" ? "—" : `${marginNew.toFixed(2)}%`}
+                        </div>
+
+                        <hr />
+
+                        <div>Pay: ${basePay.toFixed(2)} → ${newPay.toFixed(2)}</div>
+                        <div>Bill: ${baseBill.toFixed(2)} → ${newBill.toFixed(2)}</div>
+                        <div>GM: ${gmOld.toFixed(2)} → ${gmNew.toFixed(2)}</div>
+                        <div>
+                          Margin:{" "}
+                          {marginOld === "—" ? "—" : `${marginOld.toFixed(2)}%`} →{" "}
+                          {marginNew === "—" ? "—" : `${marginNew.toFixed(2)}%`}
+                        </div>
+
+                        {/* Advisories */}
+                        <div className="rco-advisories">
+                          <h5 className="rco-advisories-label">Advisories</h5>
+                          <div className="rco-advisory-row">
+                            {(() => {
+                              const newMarginPct =
+                                newBill <= 0 ? null : (gmNew / newBill) * 100;
+                              if (newMarginPct === null) {
+                                return (
+                                  <span className="rco-badge rco-badge-info">
+                                    Margin: —
+                                  </span>
+                                );
+                              }
+                              if (newMarginPct >= MARGIN_FLOOR_PCT) {
+                                return (
+                                  <span className="rco-badge rco-badge-ok">
+                                    ✅ Margin OK
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="rco-badge rco-badge-warn">
+                                  ⚠️ Margin Below Floor
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <div className="rco-advisory-row">
+                            {(() => {
+                              const spreadOld = gmOld;
+                              const spreadNew = gmNew;
+                              const spreadDelta = spreadNew - spreadOld;
+                              const spreadCompressionPct =
+                                spreadOld === 0
+                                  ? null
+                                  : ((spreadNew - spreadOld) / spreadOld) * 100;
+
+                              let spreadBadge: React.ReactNode;
+                              if (spreadDelta < 0) {
+                                spreadBadge = (
+                                  <span className="rco-badge rco-badge-warn">
+                                    ⚠️ Spread Compressed{" "}
+                                    (-${Math.abs(spreadDelta).toFixed(2)}/hr)
+                                  </span>
+                                );
+                              } else if (spreadDelta === 0) {
+                                spreadBadge = (
+                                  <span className="rco-badge rco-badge-info">
+                                    ℹ️ Spread Unchanged
+                                  </span>
+                                );
+                              } else {
+                                spreadBadge = (
+                                  <span className="rco-badge rco-badge-ok">
+                                    ✅ Spread Expanded{" "}
+                                    (+${spreadDelta.toFixed(2)}/hr)
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <div className="rco-spread-block">
+                                  <div className="rco-spread-line">
+                                    Spread: ${spreadOld.toFixed(2)} → ${spreadNew.toFixed(2)} (Δ {spreadDelta >= 0 ? "+" : ""}${spreadDelta.toFixed(2)}/hr)
+                                    {spreadCompressionPct != null && (
+                                      <> (Δ {spreadCompressionPct.toFixed(2)}%)</>
+                                    )}
+                                  </div>
+                                  {spreadBadge}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {createForm.deltaType === "shift" && (
+                          <div className="rco-preview-shift-note">
+                            (Shift delta assumed 10.0 hrs for preview)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* Effective Date */}
               <div className="create-form-field">
@@ -2664,6 +2862,97 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           border: 1px dashed rgba(255, 255, 255, 0.1);
           border-radius: 6px;
           text-align: center;
+        }
+
+        /* RCO Create drawer rate preview panels */
+        .rco-preview-panel {
+          margin-top: 16px;
+          padding: 14px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 8px;
+          background: rgba(255,255,255,0.02);
+        }
+
+        .rco-preview-grid {
+          display: grid;
+          gap: 6px;
+          font-size: 14px;
+        }
+
+        .rco-preview-muted {
+          font-size: 13px;
+          opacity: 0.6;
+        }
+
+        .rco-preview-shift-note {
+          font-size: 12px;
+          opacity: 0.6;
+          font-style: italic;
+        }
+
+        /* RCO Advisories */
+        .rco-advisories {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+          grid-column: 1 / -1;
+        }
+
+        .rco-advisories-label {
+          margin: 0 0 4px 0;
+          font-size: 11px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .rco-advisory-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .rco-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          font-size: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .rco-badge-ok {
+          background: rgba(34, 197, 94, 0.12);
+          color: #4ade80;
+          border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .rco-badge-warn {
+          background: rgba(245, 158, 11, 0.12);
+          color: #fbbf24;
+          border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .rco-badge-info {
+          background: rgba(59, 130, 246, 0.12);
+          color: #93c5fd;
+          border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .rco-spread-block {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .rco-spread-line {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.8);
         }
 
       `}</style>
