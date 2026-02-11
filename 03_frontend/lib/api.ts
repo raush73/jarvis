@@ -1,8 +1,9 @@
-﻿export const API_BASE =
+export const API_BASE =
   typeof window !== "undefined"
-    ? ""
+    ? (window.location.hostname === "localhost"
+        ? "http://localhost:3001"
+        : "https://demo.jarvisprime.io")
     : "http://localhost:3001";
-
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -36,4 +37,3 @@ export async function apiFetch<T>(
 
   return (await res.json()) as T;
 }
-
