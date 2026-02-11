@@ -29,38 +29,23 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     const apiBase = getApiBase();
-    const url = `${apiBase}/auth/login`;
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch("https://demo.jarvisprime.io/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const raw = await res.text();
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        setErrorMsg(`Login failed (${res.status}). Response was not JSON. Response: ${raw.slice(0, 500)}`);
-        return;
-      }
-
       if (!res.ok) {
-        const msg = typeof data?.message === "string" ? data.message : `Login failed (${res.status}).`;
-        setErrorMsg(msg);
-        return;
+        throw new Error("Login failed");
       }
 
-      const d = data as Record<string, unknown>;
-      const nested = d?.data as Record<string, unknown> | undefined;
-      const token =
-        (d?.accessToken ?? d?.token ?? d?.jwt ?? nested?.accessToken ?? nested?.token ?? nested?.jwt) as string | undefined;
+      const data = await res.json();
+      const token = data.accessToken;
 
-      if (!token || typeof token !== "string") {
-        setErrorMsg("Login succeeded but no token was returned.");
-        return;
+      if (!token) {
+        throw new Error("No accessToken returned");
       }
 
       localStorage.setItem("jp_accessToken", token);
@@ -101,19 +86,19 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
+              placeholder=".............."
               autoComplete="current-password"
             />
           </div>
 
           <button type="submit" className="sign-in-btn" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in…" : "Sign In"}
+            {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
           {errorMsg && <p className="error-msg">{errorMsg}</p>}
         </form>
 
         <div className="login-footer">
-          <span>Demo mode — any credentials accepted</span>
+          <span>Demo mode - any credentials accepted</span>
         </div>
       </div>
 
