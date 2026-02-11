@@ -3,15 +3,73 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+function getApiBase(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://localhost:3001";
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:3001";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    // UI-only: route to /orders
-    router.push("/orders");
+    setErrorMsg(null);
+    setIsSubmitting(true);
+
+    const apiBase = getApiBase();
+    const url = `${apiBase}/auth/login`;
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const raw = await res.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        setErrorMsg(`Login failed (${res.status}). Response was not JSON. Response: ${raw.slice(0, 500)}`);
+        return;
+      }
+
+      if (!res.ok) {
+        const msg = typeof data?.message === "string" ? data.message : `Login failed (${res.status}).`;
+        setErrorMsg(msg);
+        return;
+      }
+
+      const d = data as Record<string, unknown>;
+      const nested = d?.data as Record<string, unknown> | undefined;
+      const token =
+        (d?.accessToken ?? d?.token ?? d?.jwt ?? nested?.accessToken ?? nested?.token ?? nested?.jwt) as string | undefined;
+
+      if (!token || typeof token !== "string") {
+        setErrorMsg("Login succeeded but no token was returned.");
+        return;
+      }
+
+      localStorage.setItem("jp_accessToken", token);
+      router.push("/orders");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -48,9 +106,10 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="sign-in-btn">
-            Sign In
+          <button type="submit" className="sign-in-btn" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in…" : "Sign In"}
           </button>
+          {errorMsg && <p className="error-msg">{errorMsg}</p>}
         </form>
 
         <div className="login-footer">
@@ -168,6 +227,20 @@ export default function LoginPage() {
 
         .sign-in-btn:active {
           transform: translateY(0);
+        }
+
+        .sign-in-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .error-msg {
+          font-size: 13px;
+          color: #f87171;
+          margin: 12px 0 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .login-footer {
