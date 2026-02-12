@@ -1,9 +1,6 @@
-﻿"use client";
-
-import { useEffect, useMemo, useState } from "react";
-
-import { useRouter } from "next/navigation";
-
+'use client';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from 'next/navigation';
 import { apiFetch } from "@/lib/api";
 
 // Mock job orders data
@@ -11,7 +8,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-001",
     customer: "Turner Construction",
-    site: "Downtown Tower â€” Los Angeles, CA",
+    site: "Downtown Tower ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Los Angeles, CA",
     startDate: "2024-02-15",
     trades: { mw: { filled: 7, total: 10 }, pw: { filled: 18, total: 30 } },
     lastUpdated: "2 hours ago",
@@ -19,7 +16,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-002",
     customer: "Skanska USA",
-    site: "Metro Hospital â€” San Diego, CA",
+    site: "Metro Hospital ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â San Diego, CA",
     startDate: "2024-02-18",
     trades: { mw: { filled: 4, total: 6 }, pw: { filled: 12, total: 15 } },
     lastUpdated: "5 hours ago",
@@ -27,7 +24,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-003",
     customer: "McCarthy Building",
-    site: "Tech Campus Phase 2 â€” Phoenix, AZ",
+    site: "Tech Campus Phase 2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Phoenix, AZ",
     startDate: "2024-02-20",
     trades: { mw: { filled: 10, total: 12 }, pw: { filled: 25, total: 40 } },
     lastUpdated: "1 day ago",
@@ -35,7 +32,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-004",
     customer: "DPR Construction",
-    site: "Data Center NV-01 â€” Las Vegas, NV",
+    site: "Data Center NV-01 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Las Vegas, NV",
     startDate: "2024-02-22",
     trades: { mw: { filled: 15, total: 20 }, pw: { filled: 8, total: 10 } },
     lastUpdated: "3 days ago",
@@ -43,7 +40,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-005",
     customer: "Hensel Phelps",
-    site: "Airport Terminal Expansion â€” Denver, CO",
+    site: "Airport Terminal Expansion ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Denver, CO",
     startDate: "2024-03-01",
     trades: { mw: { filled: 0, total: 8 }, pw: { filled: 5, total: 20 } },
     lastUpdated: "5 days ago",
@@ -51,7 +48,7 @@ const MOCK_ORDERS = [
   {
     id: "ORD-2024-006",
     customer: "Holder Construction",
-    site: "University Research Lab â€” Austin, TX",
+    site: "University Research Lab ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Austin, TX",
     startDate: "2024-03-05",
     trades: { mw: { filled: 3, total: 5 }, pw: { filled: 10, total: 12 } },
     lastUpdated: "1 week ago",
@@ -75,6 +72,11 @@ function TradeBadge({ label, filled, total }: { label: string; filled: number; t
 export default function OrdersPage() {
   const router = useRouter();
 
+  
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) router.push('/login');
+  }, [router]);
   const [orders, setOrders] = useState<any[]>(MOCK_ORDERS);
 
   useEffect(() => {
@@ -109,9 +111,9 @@ export default function OrdersPage() {
       : "";
 
   // Determine active filter from currentHash
-  // "recruiting" or "vetting" (backwards compat) â†’ Has Openings
-  // "fully-staffed" or "staffed" â†’ Fully Staffed
-  // otherwise â†’ All Active
+  // "recruiting" or "vetting" (backwards compat) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Has Openings
+  // "fully-staffed" or "staffed" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Fully Staffed
+  // otherwise ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All Active
   const activeFilter =
     currentHash === "recruiting" || currentHash === "vetting"
       ? "has-openings"

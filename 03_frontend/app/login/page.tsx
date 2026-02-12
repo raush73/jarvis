@@ -7,10 +7,37 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSignIn = (e: any) => {
+  const handleSignIn = async (e: any) => {
     e.preventDefault();
-    router.push('/orders');
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.accessToken) {
+        const msg =
+          data?.message ||
+          (res.status === 401 ? 'Invalid credentials' : 'Sign in failed');
+        throw new Error(msg);
+      }
+
+      localStorage.setItem('accessToken', data.accessToken);
+      router.push('/orders');
+    } catch (err: any) {
+      setError(err?.message || 'Sign in failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,18 +69,20 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
+              placeholder="************"
               autoComplete="current-password"
             />
           </div>
 
-          <button type="submit" className="sign-in-btn">
-            Sign In
+          {error ? <div className="login-error">{error}</div> : null}
+
+          <button type="submit" className="sign-in-btn" disabled={loading}>
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
         <div className="login-footer">
-          <span>Demo mode — any credentials accepted</span>
+          <span>Demo mode - any credentials accepted</span>
         </div>
       </div>
 
@@ -147,6 +176,15 @@ export default function LoginPage() {
           background: rgba(59, 130, 246, 0.08);
         }
 
+        .login-error {
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          color: rgba(255, 255, 255, 0.9);
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+        }
+
         .sign-in-btn {
           height: 46px;
           margin-top: 8px;
@@ -163,6 +201,13 @@ export default function LoginPage() {
         .sign-in-btn:hover {
           transform: translateY(-1px);
           box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .sign-in-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
         }
 
         .login-footer {
