@@ -1,9 +1,19 @@
+/**
+ * API base strategy:
+ * - Local dev (hostname=localhost): talk directly to backend on 3000
+ * - Deployed (demo.jarvisprime.io): call SAME-ORIGIN /api/* (nginx proxies /api -> backend)
+ *
+ * Optional override:
+ *   NEXT_PUBLIC_API_BASE can force a full base URL if ever needed.
+ */
 export const API_BASE =
   typeof window !== "undefined"
-    ? (window.location.hostname === "localhost"
-        ? "http://localhost:3001"
-        : "https://demo.jarvisprime.io")
-    : "http://localhost:3001";
+    ? (process.env.NEXT_PUBLIC_API_BASE ??
+        (window.location.hostname === "localhost"
+          ? "http://127.0.0.1:3000"
+          : "/api"))
+    : (process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:3000");
+
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
