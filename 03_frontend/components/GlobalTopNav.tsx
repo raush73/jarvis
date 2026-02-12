@@ -1,5 +1,6 @@
 "use client";
 
+import { clearAccessToken } from "@/lib/api";
 import { useRouter, usePathname } from "next/navigation";
 
 const DOMAINS = [
@@ -47,6 +48,23 @@ export default function GlobalTopNav() {
             {domain.label}
           </button>
         ))}
+      </div>
+      {/* Logout Button */}
+      <div style={{ marginLeft: "auto", paddingRight: "16px" }}>
+        <button
+          type="button"
+          onClick={() => { clearAccessToken(); router.push("/login"); }}
+          style={{
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.3)",
+            color: "#fff",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            cursor: "pointer"
+          }}
+        >
+          Logout
+        </button>
       </div>
     </nav>
   );

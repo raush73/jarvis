@@ -23,6 +23,15 @@ export function getAccessToken(): string | null {
   }
 }
 
+export function clearAccessToken(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("jp_accessToken");
+  } catch {
+    // ignore
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {}
@@ -41,6 +50,10 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
+    // If auth is invalid/expired, clear token so UI can recover cleanly
+    if (res.status === 401 || res.status === 403) {
+      clearAccessToken();
+    }
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status} ${res.statusText}: ${text}`);
   }

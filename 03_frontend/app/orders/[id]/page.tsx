@@ -371,10 +371,6 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
   // Get order data or use default
   const order = MOCK_ORDER_DETAILS[orderId] || { ...DEFAULT_ORDER, id: orderId };
 
-  const handleLogout = () => {
-    router.push("/login");
-  };
-
   const handleBack = () => {
     if (backTo === "customer" && customerId) {
       router.push(`/customers/${customerId}`);
@@ -515,13 +511,6 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
               <span className="health-badge">Order Health: Coming soon</span>
             )}
           </div>
-        </div>
-        <div className="header-right">
-          {!isReadOnly && (
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
-          )}
         </div>
       </div>
 
@@ -1610,23 +1599,7 @@ export function OrderDetail({ mode = "edit", backTo = "orders", customerId = nul
           gap: 12px;
         }
 
-        .logout-btn {
-          padding: 8px 18px;
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 500;
-          color: rgba(255, 255, 255, 0.7);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .logout-btn:hover {
-          background: rgba(239, 68, 68, 0.15);
-          border-color: rgba(239, 68, 68, 0.3);
-          color: #f87171;
-        }
+        
 
         .detail-grid {
           display: grid;
