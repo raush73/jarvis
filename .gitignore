@@ -12,4 +12,7 @@ _quarantine_untracked_*/
 tools/
 
 # Patch files
-phase15_safety_patch.diff
+phase15_safety_patch.diffnode_modules/
+reports/
+_audit/
+*.BACKUP-*
