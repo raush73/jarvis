@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState, useEffect, useMemo } from "react";
 
 // Mock customers data
 const MOCK_CUSTOMERS = [
@@ -87,8 +88,31 @@ const MOCK_CUSTOMERS = [
   },
 ];
 
+const UNIQUE_SALESPEOPLE = Array.from(
+  new Set(MOCK_CUSTOMERS.map((c) => c.ownerSalespersonName).filter(Boolean))
+).sort();
+
 export default function CustomersPage() {
   const router = useRouter();
+
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "customer" | "prospect">("all");
+  const [salespersonFilter, setSalespersonFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "created" | "revenue">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(MOCK_CUSTOMERS.length / pageSize)),
+    [pageSize]
+  );
 
   return (
     <div className="customers-container">
@@ -102,6 +126,86 @@ export default function CustomersPage() {
           <Link href="/customers/new" className="btn-add">
             + Create Customer
           </Link>
+        </div>
+      </div>
+
+      {/* Controls Row */}
+      <div className="controls-row">
+        <input
+          type="text"
+          placeholder="Search customers..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="control-search"
+        />
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as "all" | "customer" | "prospect")}
+          className="control-select"
+        >
+          <option value="all">All</option>
+          <option value="customer">Customers</option>
+          <option value="prospect">Prospects</option>
+        </select>
+        <select
+          value={salespersonFilter}
+          onChange={(e) => setSalespersonFilter(e.target.value)}
+          className="control-select"
+        >
+          <option value="all">All</option>
+          {UNIQUE_SALESPEOPLE.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as "name" | "created" | "revenue")}
+          className="control-select"
+        >
+          <option value="name">Name</option>
+          <option value="created">Created</option>
+          <option value="revenue">Revenue</option>
+        </select>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+          className="control-select"
+        >
+          <option value="asc">Asc</option>
+          <option value="desc">Desc</option>
+        </select>
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPage(1);
+          }}
+          className="control-select"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+        <div className="pagination-controls">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="control-btn"
+          >
+            Prev
+          </button>
+          <span className="page-display">Page {page}</span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="control-btn"
+          >
+            Next
+          </button>
         </div>
       </div>
 
@@ -179,6 +283,76 @@ export default function CustomersPage() {
         .header-actions {
           display: flex;
           align-items: center;
+        }
+
+        .controls-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 20px;
+          margin-bottom: 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+          flex-wrap: wrap;
+        }
+
+        .control-search {
+          flex: 1;
+          min-width: 180px;
+          padding: 10px 14px;
+          font-size: 14px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+        }
+
+        .control-search::placeholder {
+          color: rgba(255, 255, 255, 0.4);
+        }
+
+        .control-select {
+          padding: 10px 14px;
+          font-size: 14px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        .pagination-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-left: auto;
+        }
+
+        .control-btn {
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .control-btn:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .control-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .page-display {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.6);
         }
 
         .btn-add {
