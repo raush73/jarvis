@@ -12,65 +12,64 @@ Infra: AWS EC2 + Nginx reverse proxy + PM2
 | Training Backend | 3002 |
 
 ## Guardrails (MANDATORY - PLATFORM AWARE)
-Before wiring, diagnosing, or deploying:
 
-- Windows/local: npm run audit:api
-- EC2/Linux: run in order:
-  1) npm run guardian:schema
-  2) npm run sentinel:infra
-  3) npm run log:triage
+Windows/local:
+- npm run audit:api
 
-## Immediate Objective
-Use Auditor backlog + guardrails to accelerate wiring without stalls.
+EC2/Linux (run in order when deploying/wiring backend):
+1) npm run guardian:schema
+2) npm run sentinel:infra
+3) npm run log:triage
 
 ---
-## SESSION UPDATE (2026-02-15) - BuildBots + Customer Search Priority
 
-### BuildBots installed (4 bots) - DISCOVERY PATHS
-Bots live under: bots/
+## SESSION UPDATE (2026-02-16)
 
-1) API Contract Auditor
-   - Folder: bots/api-contract-auditor/
-   - Run: npm run audit:api
+### Packet 5 ? Customer Search + Filters
 
-2) Schema Drift Guardian
-   - Folder: bots/schema-drift-guardian/
-   - Run: npm run guardian:schema
+STATUS: UI SHELL COMPLETE
 
-3) Infra Sentinel
-   - Folder: bots/infra-sentinel/
-   - Run: npm run sentinel:infra
+Completed:
+- Search input with 350ms debounce
+- Type filter (All / Customer / Prospect)
+- Salesperson filter (derived from mock data)
+- Sort selector (Name / Created / Revenue)
+- Order selector (Asc / Desc)
+- Page size selector (25 / 50 / 100)
+- Pagination controls (Prev / Next + Page display)
+- Styled-jsx scoped controls row
+- No backend wiring performed
+- MOCK_CUSTOMERS still active
+- No schema changes
+- No governance file drift
 
-4) Log Triage Bot
-   - Folder: bots/log-triage/
-   - Run: npm run log:triage
+### Local Dev Status
 
-Governance files relevant to bots (read-first):
-- governance/BOT_STACK.md
-- governance/BUILD_STATE.md
-- governance/LOCKED_INVARIANTS.md
-- governance/HANDOFF_CURRENT.md (this file)
+Resolved:
+- Turbopack root mis-detection
+- Tailwind resolution conflict
+- Local 
+pm run dev functioning
+- EC2 deployment verified
+- PM2 frontend restarted successfully
 
-### Guardrail execution discipline (platform-aware)
-- Windows/local: audit:api is the primary local guardrail.
-- EC2/Linux-only by nature: sentinel:infra, log:triage (expects Linux tools/logs).
-- Schema Guardian is most stable when run where Prisma+DB tooling is already standardized (EC2).
+---
 
-### Immediate Next Build Objective (MUST START HERE)
-Customer List: implement Search + Filters FIRST (before deeper customer wiring).
+## CURRENT POSITION
 
-Customer list must scale to thousands of Customers/Prospects:
-- Add Search input (debounced)
-- Filters:
-  - Type: All / Customer / Prospect
-  - Salesperson
-- Sorting scaffold (Name now; revenue-based sorts later)
-- Design for server-side query params + pagination (do not rely on client-only filtering long-term)
+Next Objective:
+Wire /api/customers to replace MOCK_CUSTOMERS with real data (training DB).
 
-Resume point:
-- Packet 5 (Customer UI): wire /api/customers and build Search/Filters UI first.
+Scope:
+Frontend ? backend wiring only.
+No schema edits.
+No new UI expansion.
+No refactors.
 
-### Repo state expectation
-- Repo should remain clean after bot/tooling work; avoid BOM/encoding changes.
-- Do NOT downgrade Node.
-- Avoid experimental loaders unless explicitly approved.
+---
+
+## Repo Expectation
+- Clean working tree before next feature
+- No package.json edits unless explicitly required
+- No bot modifications
+
