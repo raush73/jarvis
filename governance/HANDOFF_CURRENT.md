@@ -73,3 +73,38 @@ No refactors.
 - No package.json edits unless explicitly required
 - No bot modifications
 
+
+---
+
+## SESSION START PROTOCOL (MANDATORY FOR NEXT AXEL)
+
+Before making ANY changes:
+
+1) Michael must print this file using:
+
+   cd E:\JARVIS
+   Get-Content governance\HANDOFF_CURRENT.md
+
+2) Michael will paste the full contents into the new session.
+
+3) Axel MUST:
+   - Read the entire file
+   - Confirm current objective
+   - Confirm repo expected clean
+   - Confirm scope boundaries
+   - Confirm no drift
+
+4) Axel must respond with:
+
+ACKNOWLEDGED:
+- Handoff file read
+- Objective confirmed
+- Repo state assumed clean
+- Scope locked
+
+If any of the above cannot be confirmed, STOP.
+
+No work may begin until acknowledgment is complete.
+
+---
+
