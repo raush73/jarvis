@@ -76,6 +76,44 @@ No refactors.
 
 ---
 
+## SESSION UPDATE (2026-02-16) — Clean Align + Restore Point + Next: Customer Wiring
+
+### What we did (locked facts)
+- DECISION: Use EC2 as the primary execution surface going forward (avoid local runtime due to local↔EC2 comms bugs). Local repo remains aligned as a restore surface.
+- VERIFIED: Local and EC2 repos are identical and clean (main...origin/main; no working tree changes):
+  - Backend commit: 1d9f3b5ffafc59ce5f1b9d136d6388eaf162c1bd
+  - Frontend commit: 9ef9e10f2baf7b2187d037dbe1ae590f5b7a71c7
+- BACKEND: Salespeople endpoint work already committed and pushed:
+  - Commit: “Users: add /users/salespeople endpoint (role=sales)”
+  - Endpoint: GET /users/salespeople (role=sales)
+- RESTORE POINT (NON-MIRROR, immutable):
+  - Path: D:\JARVIS_RESTORE_POINTS\2026-02-16_1744_Clean_Aligned
+  - Robocopy summary: 7,816 dirs; 69,979 files; 1.501 GB; 0 FAILED; duration ~0:05:41
+  - RESTORE_INFO.txt written inside restore point recording commit hashes + “Local and EC2 aligned, clean working tree.”
+
+### What we do next (scope locked)
+Objective: Begin Packet 5 “Customer wiring tab” — wire UI to real API data (training DB) and replace MOCK_CUSTOMERS.
+Scope boundaries:
+- Frontend↔backend wiring only
+- NO schema edits
+- NO UI expansion/refactors
+- NO bot modifications
+- NO package.json/package-lock edits unless explicitly required
+
+### Required EC2 verification run order (locked)
+EC2/Linux (run in order when wiring/deploying backend):
+1) npm run guardian:schema
+2) npm run sentinel:infra
+3) npm run log:triage
+
+### First actions tomorrow (surgical)
+1) EC2: confirm repos clean + up to date (backend + frontend).
+2) EC2: confirm training backend login works and GET /users/salespeople returns 200.
+3) Determine the existing customers API endpoint (use what exists; do not introduce schema changes).
+4) Frontend: replace MOCK_CUSTOMERS with API fetch; preserve existing Packet 5 controls + debounce behavior.
+5) Verify filters/sort/pagination work with real data; no UI feature expansion.
+
+---
 ## SESSION START PROTOCOL (MANDATORY FOR NEXT AXEL)
 
 Before making ANY changes:
