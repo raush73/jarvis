@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
+import { apiFetch } from "@/lib/api";
 
 // Mock customers data
 const MOCK_CUSTOMERS = [
@@ -88,9 +89,7 @@ const MOCK_CUSTOMERS = [
   },
 ];
 
-const UNIQUE_SALESPEOPLE = Array.from(
-  new Set(MOCK_CUSTOMERS.map((c) => c.ownerSalespersonName).filter(Boolean))
-).sort();
+const UNIQUE_SALESPEOPLE: string[] = [];
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -104,13 +103,40 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await apiFetch("/customers");
+        if (!alive) return;
+        setCustomers(Array.isArray(data) ? data : []);
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load customers.");
+        setCustomers([]);
+      } finally {
+        if (!alive) return;
+        setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchInput), 350);
     return () => clearTimeout(t);
   }, [searchInput]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(MOCK_CUSTOMERS.length / pageSize)),
+    () => Math.max(1, Math.ceil(customers.length / pageSize)),
     [pageSize]
   );
 
@@ -120,7 +146,7 @@ export default function CustomersPage() {
       <div className="customers-header">
         <div className="header-left">
           <h1>Customers</h1>
-          <span className="customer-count">{MOCK_CUSTOMERS.length} customers</span>
+          <span className="customer-count">{customers.length} customers</span>
         </div>
         <div className="header-actions">
           <Link href="/customers/new" className="btn-add">
@@ -222,7 +248,7 @@ export default function CustomersPage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_CUSTOMERS.map((customer) => (
+            {customers.map((customer) => (
               <tr
                 key={customer.id}
                 onClick={() => router.push(`/customers/${customer.id}`)}

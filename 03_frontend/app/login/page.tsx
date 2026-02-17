@@ -31,7 +31,7 @@ export default function LoginPage() {
         throw new Error(msg);
       }
 
-      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('jp_accessToken', data.accessToken);
       router.push('/orders');
     } catch (err: any) {
       setError(err?.message || 'Sign in failed');

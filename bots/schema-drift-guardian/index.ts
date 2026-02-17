@@ -15,7 +15,7 @@ import { discoverDatabases } from './discover-databases';
 import { generateReport, EnvironmentReport } from './generate-report';
 import { introspectDatabaseSchema } from './introspect-db';
 
-const REPO_ROOT = path.resolve(__dirname, '../..');
+const REPO_ROOT = path.resolve(__dirname, '../../..', 'jarvis-backend');
 const REPORTS_DIR = path.join(REPO_ROOT, 'reports');
 const TMP_DIR = path.join(REPO_ROOT, 'bots', 'schema-drift-guardian', 'tmp');
 

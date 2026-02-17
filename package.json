@@ -3,12 +3,13 @@
   "private": true,
   "scripts": {
     "audit:api": "ts-node bots/api-contract-auditor/index.ts",
-    "guardian:schema": "ts-node bots/schema-drift-guardian/index.ts",
-    "sentinel:infra": "ts-node bots/infra-sentinel/index.ts",
-    "log:triage": "ts-node bots/log-triage/index.ts"
+    "guardian:schema": "tsx bots/schema-drift-guardian/index.ts",
+    "sentinel:infra": "tsx bots/infra-sentinel/index.ts",
+    "log:triage": "tsx bots/log-triage/index.ts"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3"
   }
 }

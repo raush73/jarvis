@@ -14,10 +14,8 @@ export type DatabaseDiscovery = {
 };
 
 const ENV_FILES: Array<{ name: string; file: string }> = [
-  { name: 'default', file: '.env' },
   { name: 'training', file: '.env.training' },
   { name: 'prod', file: '.env.prod' },
-  { name: 'demo', file: '.env.demo' },
 ];
 
 export async function discoverDatabases(

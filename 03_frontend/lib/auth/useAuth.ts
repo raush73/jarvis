@@ -1,17 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 export type AuthState = {
   isAuthenticated: boolean;
   demoTitle: string;
 };
 
+const TOKEN_KEY = "jp_accessToken";
+
 /**
- * Placeholder auth hook (UI-only).
- * This is intentionally hard-coded for demo mode.
- * Future wiring will replace the values here without touching feature pages.
+ * Lightweight auth hook for the frontend.
+ * Source of truth for "authenticated" is presence of the access token in localStorage.
  */
 export function useAuth(): AuthState {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const token = window.localStorage.getItem(TOKEN_KEY);
+      setIsAuthenticated(Boolean(token));
+    } catch {
+      // If localStorage is unavailable, treat as unauthenticated.
+      setIsAuthenticated(false);
+    }
+  }, []);
+
   return {
-    isAuthenticated: false,
-    demoTitle: "Demo mode - sign in required",
+    isAuthenticated,
+    demoTitle: isAuthenticated ? "Demo mode" : "Demo mode - sign in required",
   };
 }
-
