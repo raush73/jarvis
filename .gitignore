@@ -16,3 +16,5 @@ phase15_safety_patch.diffnode_modules/
 reports/
 _audit/
 *.BACKUP-*
+
+node_modules/

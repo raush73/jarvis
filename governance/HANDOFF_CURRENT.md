@@ -1,148 +1,76 @@
-# HANDOFF_CURRENT - Jarvis Prime Session Continuity
+# JARVIS PRIME — GOVERNANCE HANDOFF (SYSTEM OF RECORD)
+Date: 2026-02-17
+Environment: EC2 demo.jarvisprime.io (Amazon Linux 2023)
+Timezone: America/Chicago
+Owner: Michael (Architect)
+Assistant: Axel (Governor)
 
-## Build Environment
-Primary Drive: E:\JARVIS
-Infra: AWS EC2 + Nginx reverse proxy + PM2
+--------------------------------------------------------------------
+SECTION 0 — CURRENT VERIFIED STATE
+--------------------------------------------------------------------
 
-## Active Runtime Ports (EC2)
-| Service | Port |
-|---------|------|
-| Prod Backend | 3000 |
-| Frontend | 3001 |
-| Training Backend | 3002 |
+Backend:
+- Running on EC2 training port 3002
+- Auth login confirmed working
+- JWT issued successfully
+- GET /customers returns HTTP 200
+- Data confirmed from training database
 
-## Guardrails (MANDATORY - PLATFORM AWARE)
+Frontend:
+- Root: /opt/jarvis-frontend/03_frontend
+- Customers list page currently uses MOCK_CUSTOMERS
+- Customer detail page currently MOCK
+- lib/api.ts correctly attaches Authorization header using localStorage key "jp_accessToken"
+- useAuth.ts NOT wired to token (always returns isAuthenticated: false)
 
-Windows/local:
-- npm run audit:api
+Deployment:
+- Frontend expects SAME-ORIGIN "/api"
+- nginx (or rewrites) must proxy "/api" to backend:3002
 
-EC2/Linux (run in order when deploying/wiring backend):
-1) npm run guardian:schema
-2) npm run sentinel:infra
-3) npm run log:triage
+--------------------------------------------------------------------
+SECTION 1 — WHAT CAUSED STALLS
+--------------------------------------------------------------------
 
----
+- Heredoc terminator truncation during large paste
+- Truncated quoted python -c commands
+- SSH session drop mid-paste
+- Not actual system corruption
 
-## SESSION UPDATE (2026-02-16)
+System itself is stable.
+Only paste mechanics caused interruption.
 
-### Packet 5 ? Customer Search + Filters
+--------------------------------------------------------------------
+SECTION 2 — CANONICAL NEXT STEPS (STRICT ORDER)
+--------------------------------------------------------------------
 
-STATUS: UI SHELL COMPLETE
+STEP 1 — Wire useAuth.ts
+- isAuthenticated = true when localStorage has non-empty "jp_accessToken"
+- Update demo banner accordingly
 
-Completed:
-- Search input with 350ms debounce
-- Type filter (All / Customer / Prospect)
-- Salesperson filter (derived from mock data)
-- Sort selector (Name / Created / Revenue)
-- Order selector (Asc / Desc)
-- Page size selector (25 / 50 / 100)
-- Pagination controls (Prev / Next + Page display)
-- Styled-jsx scoped controls row
-- No backend wiring performed
-- MOCK_CUSTOMERS still active
-- No schema changes
-- No governance file drift
+STEP 2 — Confirm "/api" routing
+- nginx proxy to backend:3002
+  OR
+- Temporary explicit NEXT_PUBLIC_API_BASE
 
-### Local Dev Status
+STEP 3 — Wire Customers LIST page
+- Replace MOCK_CUSTOMERS
+- useEffect -> apiFetch('/customers')
+- Render UUID ids from backend
 
-Resolved:
-- Turbopack root mis-detection
-- Tailwind resolution conflict
-- Local 
-pm run dev functioning
-- EC2 deployment verified
-- PM2 frontend restarted successfully
+STEP 4 — Build & restart frontend
+- npm run build
+- pm2 restart jarvis-frontend
+- Verify live data renders
 
----
+STEP 5 — Wire Customer detail page (after list confirmed)
 
-## CURRENT POSITION
+--------------------------------------------------------------------
+SECTION 3 — GOVERNANCE RULE
+--------------------------------------------------------------------
 
-Next Objective:
-Wire /api/customers to replace MOCK_CUSTOMERS with real data (training DB).
+EC2 is the runtime system of record.
+Local repo is staging only.
+No large quoted python -c blocks for file writes.
+Use cat > file + Ctrl+D for safe handoff updates.
 
-Scope:
-Frontend ? backend wiring only.
-No schema edits.
-No new UI expansion.
-No refactors.
-
----
-
-## Repo Expectation
-- Clean working tree before next feature
-- No package.json edits unless explicitly required
-- No bot modifications
-
-
----
-
-## SESSION UPDATE (2026-02-16) — Clean Align + Restore Point + Next: Customer Wiring
-
-### What we did (locked facts)
-- DECISION: Use EC2 as the primary execution surface going forward (avoid local runtime due to local↔EC2 comms bugs). Local repo remains aligned as a restore surface.
-- VERIFIED: Local and EC2 repos are identical and clean (main...origin/main; no working tree changes):
-  - Backend commit: 1d9f3b5ffafc59ce5f1b9d136d6388eaf162c1bd
-  - Frontend commit: 9ef9e10f2baf7b2187d037dbe1ae590f5b7a71c7
-- BACKEND: Salespeople endpoint work already committed and pushed:
-  - Commit: “Users: add /users/salespeople endpoint (role=sales)”
-  - Endpoint: GET /users/salespeople (role=sales)
-- RESTORE POINT (NON-MIRROR, immutable):
-  - Path: D:\JARVIS_RESTORE_POINTS\2026-02-16_1744_Clean_Aligned
-  - Robocopy summary: 7,816 dirs; 69,979 files; 1.501 GB; 0 FAILED; duration ~0:05:41
-  - RESTORE_INFO.txt written inside restore point recording commit hashes + “Local and EC2 aligned, clean working tree.”
-
-### What we do next (scope locked)
-Objective: Begin Packet 5 “Customer wiring tab” — wire UI to real API data (training DB) and replace MOCK_CUSTOMERS.
-Scope boundaries:
-- Frontend↔backend wiring only
-- NO schema edits
-- NO UI expansion/refactors
-- NO bot modifications
-- NO package.json/package-lock edits unless explicitly required
-
-### Required EC2 verification run order (locked)
-EC2/Linux (run in order when wiring/deploying backend):
-1) npm run guardian:schema
-2) npm run sentinel:infra
-3) npm run log:triage
-
-### First actions tomorrow (surgical)
-1) EC2: confirm repos clean + up to date (backend + frontend).
-2) EC2: confirm training backend login works and GET /users/salespeople returns 200.
-3) Determine the existing customers API endpoint (use what exists; do not introduce schema changes).
-4) Frontend: replace MOCK_CUSTOMERS with API fetch; preserve existing Packet 5 controls + debounce behavior.
-5) Verify filters/sort/pagination work with real data; no UI feature expansion.
-
----
-## SESSION START PROTOCOL (MANDATORY FOR NEXT AXEL)
-
-Before making ANY changes:
-
-1) Michael must print this file using:
-
-   cd E:\JARVIS
-   Get-Content governance\HANDOFF_CURRENT.md
-
-2) Michael will paste the full contents into the new session.
-
-3) Axel MUST:
-   - Read the entire file
-   - Confirm current objective
-   - Confirm repo expected clean
-   - Confirm scope boundaries
-   - Confirm no drift
-
-4) Axel must respond with:
-
-ACKNOWLEDGED:
-- Handoff file read
-- Objective confirmed
-- Repo state assumed clean
-- Scope locked
-
-If any of the above cannot be confirmed, STOP.
-
-No work may begin until acknowledgment is complete.
-
----
-
+END OF HANDOFF
