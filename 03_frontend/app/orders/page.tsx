@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from 'next/navigation';
 // Mock job orders data
@@ -74,14 +74,19 @@ function TradeBadge({ label, filled, total }: { label: string; filled: number; t
 export default function OrdersPage() {
   const router = useRouter();
 
-  // HARD TOKEN GATE
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('accessToken');
+  // HARD TOKEN GATE (safe version)
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('jp_accessToken');
     if (!token) {
       router.replace('/login');
-      return null;
+    } else {
+      setAuthorized(true);
     }
-  }
+  }, [router]);
+
+  const isAuthorized = authorized === true;
 // Force re-render on hash change
   const [, forceUpdate] = useState(0);
 
@@ -132,6 +137,11 @@ export default function OrdersPage() {
         return orders;
     }
   }, [activeFilter]);
+
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="orders-container">
@@ -453,5 +463,6 @@ export default function OrdersPage() {
     </div>
   );
 }
+
 
 
