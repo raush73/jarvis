@@ -18,3 +18,5 @@ _audit/
 *.BACKUP-*
 
 node_modules/
+
+_logs/
