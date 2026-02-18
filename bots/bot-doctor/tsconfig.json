@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "../../dist/bots"
+  },
+  "include": ["./**/*.ts", "../infra-sentinel/**/*.ts", "../schema-drift-guardian/**/*.ts", "../log-triage/**/*.ts"],
+  "exclude": ["node_modules"]
+}
