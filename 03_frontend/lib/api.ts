@@ -1,18 +1,14 @@
-/**
+﻿/**
  * API base strategy:
- * - Local dev (hostname=localhost): talk directly to backend on 3000
- * - Deployed (demo.jarvisprime.io): call SAME-ORIGIN /api/* (nginx proxies /api -> backend)
+ * - ALWAYS use SAME-ORIGIN /api/* so Next can proxy to backend (avoids CORS)
  *
  * Optional override:
  *   NEXT_PUBLIC_API_BASE can force a full base URL if ever needed.
  */
 export const API_BASE =
   typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_API_BASE ??
-        (window.location.hostname === "localhost"
-          ? "http://127.0.0.1:3000"
-          : "/api"))
-    : (process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:3000");
+    ? (process.env.NEXT_PUBLIC_API_BASE ?? "/api")
+    : (process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:3002");
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -50,7 +46,6 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    // If auth is invalid/expired, clear token so UI can recover cleanly
     if (res.status === 401 || res.status === 403) {
       clearAccessToken();
     }
