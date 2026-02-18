@@ -10,7 +10,8 @@
     "bot:drift": "npx tsx bots/schema-drift-guardian/index.ts",
     "bot:triage": "npx tsx bots/log-triage/index.ts --mode recommend",
     "bot:doctor": "npx tsx bots/bot-doctor/index.ts",
-    "bot:ui-drift": "npx tsx bots/ui-shell-drift-guardian/index.ts"
+    "bot:ui-drift": "npx tsx bots/ui-shell-drift-guardian/index.ts",
+    "bot:wiring": "npx tsx bots/wiring-assistant/index.ts"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
