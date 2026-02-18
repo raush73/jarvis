@@ -91,6 +91,12 @@ const MOCK_CUSTOMERS = [
 
 const UNIQUE_SALESPEOPLE: string[] = [];
 
+function formatUpdatedAt(value: any): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
 export default function CustomersPage() {
   const router = useRouter();
 
@@ -237,41 +243,38 @@ export default function CustomersPage() {
 
       {/* Customers Table */}
       <div className="customers-table-wrap">
-        <table className="customers-table">
-          <thead>
-            <tr>
-              <th>Customer Name</th>
-              <th>Location</th>
-              <th>Main Phone</th>
-              <th>Default Salesperson</th>
-              <th>Last Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.map((customer) => (
-              <tr
-                key={customer.id}
-                onClick={() => router.push(`/customers/${customer.id}`)}
-                className="customer-row"
-              >
-                <td className="customer-name">
-                  <span className="name-text">{customer.name}</span>
-                  <span className="customer-id">{customer.id}</span>
-                </td>
-                <td className="location">
-                  {customer.city}, {customer.state}
-                </td>
-                <td className="phone">{customer.mainPhone}</td>
-                <td className="salesperson">
-                  <span className="salesperson-name">{customer.ownerSalespersonName}</span>
-                  <span className="read-only-indicator">read-only</span>
-                </td>
-                <td className="last-updated">{customer.lastUpdated}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+  <table className="customers-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Location</th>
+        <th>Main Phone</th>
+        <th>Default Salesperson</th>
+        <th>Last Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {customers.map((customer) => (
+        <tr
+          key={customer.id}
+          onClick={() => router.push(`/customers/${customer.id}`)}
+          style={{ cursor: "pointer" }}
+        >
+          <td>
+            <div className="cell-primary">{customer.name}</div>
+            {customer.websiteUrl ? (
+              <div className="cell-sub">{customer.websiteUrl}</div>
+            ) : null}
+          </td>
+          <td>{customer.location ?? "—"}</td>
+          <td>{customer.mainPhone ?? "—"}</td>
+          <td>{customer.defaultSalesperson?.fullName ?? "—"}</td>
+          <td>{formatUpdatedAt(customer.updatedAt)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
       <style jsx>{`
         .customers-container {
