@@ -99,15 +99,13 @@ async function runSchemaDrift(): Promise<string> {
     const { compareSchemas } = await import('./compare-schemas');
     const { introspectDatabaseSchema } = await import('./introspect-db');
 
-    const schemaRepoRoot = path.resolve(
-      __dirname,
-      '../../..',
-      'jarvis-backend',
-    );
+    if (!fs.existsSync(BACKEND_ROOT)) {
+      return `NO_GO: backend root not found at ${BACKEND_ROOT}`;
+    }
     const tmpDir = path.join(__dirname, 'tmp');
-    const prismaSchemaPath = await findPrismaSchemaPath(schemaRepoRoot);
+    const prismaSchemaPath = await findPrismaSchemaPath(BACKEND_ROOT);
     const prismaSchema = await parsePrismaSchema(prismaSchemaPath);
-    const discovery = await discoverDatabases(schemaRepoRoot);
+    const discovery = await discoverDatabases(BACKEND_ROOT);
     if (discovery.databases.length === 0) return 'no databases discovered';
 
     const drifts: string[] = [];
@@ -115,7 +113,7 @@ async function runSchemaDrift(): Promise<string> {
       const introspection = await introspectDatabaseSchema({
         environment: env,
         prismaSchemaPath,
-        repoRoot: schemaRepoRoot,
+        repoRoot: BACKEND_ROOT,
         tmpDir,
       });
       const drift = compareSchemas(prismaSchema, introspection.schema);
@@ -157,7 +155,9 @@ export async function run(): Promise<DriftReport> {
   const schemaDrift = await runSchemaDrift();
 
   const hasIssues =
-    frontendUsedNotInBackend.length > 0 || schemaDrift.includes('findings');
+    frontendUsedNotInBackend.length > 0 ||
+    schemaDrift.includes('findings') ||
+    schemaDrift.startsWith('NO_GO:');
 
   const report: DriftReport = {
     status: hasIssues ? 'NO_GO' : 'GO',
