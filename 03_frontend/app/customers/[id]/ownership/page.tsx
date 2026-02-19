@@ -31,7 +31,7 @@ function buildLabel(sp: SalespersonRecord): string {
   return name || sp.email || sp.id;
 }
 
-export default function CustomerSalesPage() {
+export default function CustomerOwnershipPage() {
   const params = useParams();
   const router = useRouter();
   const customerId = params.id as string;
@@ -101,10 +101,10 @@ export default function CustomerSalesPage() {
 
   if (loading) {
     return (
-      <div className="customer-sales-container">
-        <div className="loading-banner">Loading sales ownership&hellip;</div>
+      <div className="ownership-container">
+        <div className="loading-banner">Loading ownership&hellip;</div>
         <style jsx>{`
-          .customer-sales-container {
+          .ownership-container {
             padding: 24px 40px 60px;
             max-width: 800px;
             margin: 0 auto;
@@ -125,7 +125,7 @@ export default function CustomerSalesPage() {
   }
 
   return (
-    <div className="customer-sales-container">
+    <div className="ownership-container">
       {/* Header */}
       <div className="page-header">
         <Link href={`/customers/${customerId}`} className="back-link">
@@ -133,7 +133,7 @@ export default function CustomerSalesPage() {
         </Link>
         <div className="header-row">
           <div className="header-info">
-            <h1>Sales Ownership</h1>
+            <h1>Ownership</h1>
             <div className="customer-badge-row">
               <span className="customer-name">{customerName}</span>
               <span className="customer-id">{customerId}</span>
@@ -145,7 +145,7 @@ export default function CustomerSalesPage() {
       {error && <div className="error-banner">{error}</div>}
 
       {/* Main Content */}
-      <section className="sales-section">
+      <section className="ownership-section">
         <div className="section-header">
           <h2>Default / Main Salesperson</h2>
         </div>
@@ -211,7 +211,7 @@ export default function CustomerSalesPage() {
       </div>
 
       <style jsx>{`
-        .customer-sales-container {
+        .ownership-container {
           padding: 24px 40px 60px;
           max-width: 800px;
           margin: 0 auto;
@@ -279,8 +279,8 @@ export default function CustomerSalesPage() {
           margin-bottom: 20px;
         }
 
-        /* Sales Section */
-        .sales-section,
+        /* Ownership Section */
+        .ownership-section,
         .info-section {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
