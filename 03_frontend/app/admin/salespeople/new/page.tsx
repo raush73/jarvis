@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 // Role options matching Admin Users pattern
 type SalespersonRole = "Salesperson" | "Recruiter" | "Dispatcher" | "Admin";
@@ -28,19 +29,40 @@ export default function CreateSalespersonPage() {
   const [defaultOnNewCustomers, setDefaultOnNewCustomers] = useState(false);
   const [active, setActive] = useState(true);
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  // Validation - Role is required but has a default, so just check name fields
-  const canSubmit = firstName.trim() !== "" && lastName.trim() !== "" && role !== null;
+  const canSubmit = firstName.trim() !== "" && lastName.trim() !== "";
 
-  // Handle create
-  const handleCreate = () => {
-    if (!canSubmit) return;
-
-    // Generate mock id
-    const mockId = `sp_${Date.now()}`;
-
-    // Navigate to detail page (no persistence)
-    router.push(`/admin/salespeople/${mockId}`);
+  const handleCreate = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await apiFetch("/salespeople", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email?.trim() || undefined,
+          phone: phone?.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        router.push("/admin/salespeople");
+      } else {
+        let msg = "Failed to create salesperson";
+        try {
+          const body = await res.json();
+          if (body?.message) msg = body.message;
+        } catch {}
+        setError(msg);
+      }
+    } catch {
+      setError("Failed to create salesperson");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -209,9 +231,13 @@ export default function CreateSalespersonPage() {
         </div>
       </div>
 
+      {error && (
+        <p style={{ color: "#ef4444", fontSize: "13px", margin: "0 0 12px" }}>{error}</p>
+      )}
+
       {/* Form Actions */}
       <div className="form-actions">
-        <p className="helper-text">UI-only: saving will be wired later.</p>
+        <div />
         <div className="action-buttons">
           <button type="button" className="cancel-btn" onClick={handleCancel}>
             Cancel
@@ -220,9 +246,9 @@ export default function CreateSalespersonPage() {
             type="button"
             className="create-btn"
             onClick={handleCreate}
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
           >
-            Create Salesperson
+            {submitting ? "Creating\u2026" : "Create Salesperson"}
           </button>
         </div>
       </div>
