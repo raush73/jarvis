@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import { formatPhone } from "@/lib/format";
+import { apiFetch } from "@/lib/api";
 
 // Trade row type for labor plan
 type TradeRow = {
@@ -347,6 +349,29 @@ export default function CustomerDetailPage() {
   const router = useRouter();
   const params = useParams();
   const customerId = params.id as string;
+
+  const [headerLoading, setHeaderLoading] = useState(true);
+  const [headerError, setHeaderError] = useState("");
+  const [liveCustomer, setLiveCustomer] = useState<any>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setHeaderLoading(true);
+      setHeaderError("");
+      try {
+        const data = await apiFetch<any>(`/customers/${customerId}`);
+        if (!alive) return;
+        setLiveCustomer(data);
+      } catch (e: any) {
+        if (!alive) return;
+        setHeaderError(e?.message ?? "Failed to load customer.");
+      } finally {
+        if (alive) setHeaderLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [customerId]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("contacts");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
@@ -1079,8 +1104,22 @@ export default function CustomerDetailPage() {
     setDraftQuote({ ...draftQuote, trades: newTrades });
   };
 
+  const headerName = liveCustomer?.name ?? customer.name;
+  const headerId = liveCustomer?.id ?? customer.id;
+  const headerLocation = liveCustomer?.location ?? `${customer.city}, ${customer.state}`;
+  const headerPhone = liveCustomer?.mainPhone ?? customer.mainPhone;
+  const headerWebsite = liveCustomer?.websiteUrl ?? customer.website;
+  const headerSalesperson = liveCustomer?.defaultSalesperson?.fullName ?? customer.ownerSalespersonName;
+
   return (
     <div className="customer-detail-container">
+      {headerLoading && (
+        <div className="header-loading-banner">Loading customer&hellip;</div>
+      )}
+      {headerError && (
+        <div className="header-error-banner">{headerError}</div>
+      )}
+
       {/* Page Header */}
       <div className="detail-header">
         <div className="header-left">
@@ -1088,8 +1127,8 @@ export default function CustomerDetailPage() {
             ← Back to Customers
           </button>
           <div className="header-title">
-            <h1>{customer.name}</h1>
-            <span className="customer-id-badge">{customer.id}</span>
+            <h1>{headerName}</h1>
+            <span className="customer-id-badge">{headerId}</span>
             <span className={`status-badge ${customer.status.toLowerCase()}`}>{customer.status}</span>
           </div>
         </div>
@@ -1100,23 +1139,23 @@ export default function CustomerDetailPage() {
         <div className="summary-item">
           <span className="summary-label">Default Salesperson</span>
           <div className="summary-value-row">
-            <span className="summary-value">{customer.ownerSalespersonName}</span>
-            <span className="read-only-badge">Read-only</span>
+            <span className="summary-value">{headerSalesperson}</span>
+            <Link href={`/customers/${customerId}/ownership`} className="ownership-link">Ownership</Link>
           </div>
         </div>
         <div className="summary-item">
           <span className="summary-label">Main Phone</span>
-          <span className="summary-value mono">{formatPhone(customer.mainPhone)}</span>
+          <span className="summary-value mono">{formatPhone(headerPhone)}</span>
         </div>
         <div className="summary-item">
           <span className="summary-label">Website</span>
-          <a href={customer.website} className="summary-link" target="_blank" rel="noopener noreferrer">
-            {customer.website.replace(/^https?:\/\//, "")}
+          <a href={headerWebsite} className="summary-link" target="_blank" rel="noopener noreferrer">
+            {(headerWebsite ?? "").replace(/^https?:\/\//, "") || "\u2014"}
           </a>
         </div>
         <div className="summary-item address-item">
-          <span className="summary-label">Address</span>
-          <span className="summary-value">{customer.address}</span>
+          <span className="summary-label">Location</span>
+          <span className="summary-value">{headerLocation || "\u2014"}</span>
         </div>
       </div>
 
@@ -2559,6 +2598,45 @@ export default function CustomerDetailPage() {
           border-radius: 4px;
           text-transform: uppercase;
           letter-spacing: 0.3px;
+        }
+
+        .ownership-link {
+          font-size: 11px;
+          padding: 3px 10px;
+          background: rgba(59, 130, 246, 0.12);
+          color: #60a5fa;
+          border: 1px solid rgba(59, 130, 246, 0.25);
+          border-radius: 5px;
+          text-decoration: none;
+          font-weight: 600;
+          transition: all 0.15s ease;
+        }
+
+        .ownership-link:hover {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .header-loading-banner {
+          background: rgba(245, 158, 11, 0.1);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          border-radius: 8px;
+          padding: 10px 16px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #f59e0b;
+          text-align: center;
+          margin-bottom: 16px;
+        }
+
+        .header-error-banner {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          padding: 10px 16px;
+          font-size: 13px;
+          color: #ef4444;
+          margin-bottom: 16px;
         }
 
         .summary-link {
