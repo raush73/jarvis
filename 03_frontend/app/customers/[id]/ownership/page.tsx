@@ -57,13 +57,13 @@ export default function CustomerOwnershipPage() {
         if (!alive) return;
 
         setCustomerName(customer.name ?? "");
-        setSelectedValue(customer.defaultSalespersonUserId ?? "");
+        setSelectedValue((customer as any).defaultSalespersonId ?? "");
 
         const eligible = (Array.isArray(salespeople) ? salespeople : []).filter(
-          (sp) => sp.isActive && sp.userId != null
+          (sp) => sp.isActive
         );
         setOptions(
-          eligible.map((sp) => ({ value: sp.userId!, label: buildLabel(sp) }))
+          eligible.map((sp) => ({ value: sp.id, label: buildLabel(sp) }))
         );
       } catch (e: any) {
         if (!alive) return;
@@ -160,7 +160,7 @@ export default function CustomerOwnershipPage() {
             >
               <option value="">None</option>
               {options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
+                <option key={opt.value} value={opt.value} className="bg-slate-900 text-white bg-slate-900 text-white">
                   {opt.label}
                 </option>
               ))}

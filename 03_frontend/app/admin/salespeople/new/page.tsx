@@ -47,7 +47,7 @@ export default function CreateSalespersonPage() {
           email: email?.trim() || undefined,
           phone: phone?.trim() || undefined,
         }),
-      });
+      }) as Response;
       if (res.ok) {
         router.push("/admin/salespeople");
       } else {
