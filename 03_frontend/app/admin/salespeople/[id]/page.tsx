@@ -1,123 +1,166 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
-// Types
-type SalespersonStatus = "Active" | "Inactive";
-
-type Salesperson = {
+type SalespersonRecord = {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  status: SalespersonStatus;
-  defaultCommissionPlan: string;
-  defaultOnNewCustomers: boolean;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  isActive: boolean;
+  userId: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-type CustomerOwned = {
-  id: string;
-  name: string;
-  state: string;
-  openOrders: number;
-  lastOrder: string;
-};
-
-// Mock data
-const MOCK_SALESPEOPLE: Record<string, Salesperson> = {
-  "SLP-001": {
-    id: "SLP-001",
-    name: "Steve Mitchell",
-    email: "steve.mitchell@mw4h.com",
-    phone: "(555) 234-5678",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    defaultOnNewCustomers: true,
-    createdAt: "2024-03-15",
-    updatedAt: "2026-01-28",
-  },
-  "SLP-002": {
-    id: "SLP-002",
-    name: "David Park",
-    email: "david.park@mw4h.com",
-    phone: "(555) 345-6789",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    defaultOnNewCustomers: false,
-    createdAt: "2025-01-05",
-    updatedAt: "2026-01-20",
-  },
-  "SLP-003": {
-    id: "SLP-003",
-    name: "Lisa Hernandez",
-    email: "lisa.hernandez@mw4h.com",
-    phone: "(555) 456-7890",
-    status: "Inactive",
-    defaultCommissionPlan: "Standard Tier",
-    defaultOnNewCustomers: false,
-    createdAt: "2024-05-22",
-    updatedAt: "2025-12-01",
-  },
-  "SLP-004": {
-    id: "SLP-004",
-    name: "Marcus Chen",
-    email: "marcus.chen@mw4h.com",
-    phone: "(555) 567-8901",
-    status: "Active",
-    defaultCommissionPlan: "Senior Tier",
-    defaultOnNewCustomers: true,
-    createdAt: "2024-08-20",
-    updatedAt: "2026-01-15",
-  },
-};
-
-const MOCK_CUSTOMERS_OWNED: CustomerOwned[] = [
-  { id: "CUST-001", name: "Acme Construction", state: "TX", openOrders: 3, lastOrder: "2026-02-08" },
-  { id: "CUST-002", name: "BuildRight Inc", state: "TX", openOrders: 1, lastOrder: "2026-02-05" },
-  { id: "CUST-003", name: "Metro Builders", state: "CA", openOrders: 2, lastOrder: "2026-02-01" },
-  { id: "CUST-004", name: "Summit Contractors", state: "FL", openOrders: 0, lastOrder: "2026-01-20" },
-  { id: "CUST-005", name: "Precision Plumbing", state: "TX", openOrders: 1, lastOrder: "2026-01-28" },
-];
-
 export default function SalespersonDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const salespersonId = params.id as string;
 
-  // Get salesperson data (fallback to first mock if not found)
-  const salesperson = MOCK_SALESPEOPLE[salespersonId] || MOCK_SALESPEOPLE["SLP-001"];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // UI-only toggle state
-  const [defaultOnNew, setDefaultOnNew] = useState(salesperson.defaultOnNewCustomers);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
-  // Status badge style
-  const getStatusStyle = (status: SalespersonStatus) => {
-    if (status === "Active") {
-      return { bg: "rgba(34, 197, 94, 0.12)", color: "#22c55e", border: "rgba(34, 197, 94, 0.25)" };
+  const [recordId, setRecordId] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
+  const [updatedAt, setUpdatedAt] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await apiFetch<SalespersonRecord>(
+          `/salespeople/${salespersonId}`
+        );
+        if (!alive) return;
+        setFirstName(data.firstName ?? "");
+        setLastName(data.lastName ?? "");
+        setEmail(data.email ?? "");
+        setPhone(data.phone ?? "");
+        setIsActive(data.isActive ?? true);
+        setRecordId(data.id);
+        setCreatedAt(data.createdAt ?? "");
+        setUpdatedAt(data.updatedAt ?? "");
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load salesperson.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [salespersonId]);
+
+  const canSubmit = firstName.trim() !== "" && lastName.trim() !== "";
+
+  const handleSave = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await apiFetch(`/salespeople/${salespersonId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          isActive,
+        }),
+      });
+      router.push("/admin/salespeople");
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to update salesperson.");
+    } finally {
+      setSubmitting(false);
     }
-    return { bg: "rgba(107, 114, 128, 0.12)", color: "#6b7280", border: "rgba(107, 114, 128, 0.25)" };
   };
+
+  const getStatusStyle = (active: boolean) => {
+    if (active) {
+      return {
+        bg: "rgba(34, 197, 94, 0.12)",
+        color: "#22c55e",
+        border: "rgba(34, 197, 94, 0.25)",
+      };
+    }
+    return {
+      bg: "rgba(107, 114, 128, 0.12)",
+      color: "#6b7280",
+      border: "rgba(107, 114, 128, 0.25)",
+    };
+  };
+
+  const formatDate = (iso: string) => {
+    if (!iso) return "\u2014";
+    try {
+      return new Date(iso).toLocaleDateString();
+    } catch {
+      return iso;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="detail-container">
+        <div className="shell-banner">Loading salesperson\u2026</div>
+        <style jsx>{`
+          .detail-container {
+            padding: 24px 40px 60px;
+            max-width: 1000px;
+            margin: 0 auto;
+          }
+          .shell-banner {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #f59e0b;
+            text-align: center;
+            margin-bottom: 24px;
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="detail-container">
       {/* UI Shell Banner */}
       <div className="shell-banner">
-        UI shell (mocked) — Internal management view — not visible to Sales roles.
+        Salesperson edit — Internal management view — not visible to Sales
+        roles.
       </div>
 
       {/* Header */}
       <div className="page-header">
         <Link href="/admin/salespeople" className="back-link">
-          ← Back to Salespeople
+          &larr; Back to Salespeople
         </Link>
         <h1>Salesperson Detail</h1>
         <p className="subtitle">
           View and manage salesperson profile and customer assignments.
         </p>
       </div>
+
+      {error && <div className="error-banner">{error}</div>}
 
       {/* Main Content Grid */}
       <div className="content-grid">
@@ -128,35 +171,68 @@ export default function SalespersonDetailPage() {
           </div>
           <div className="card-body">
             <div className="info-row">
-              <span className="info-label">Name</span>
-              <span className="info-value">{salesperson.name}</span>
+              <span className="info-label">First Name</span>
+              <input
+                type="text"
+                className="edit-input"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="info-row">
+              <span className="info-label">Last Name</span>
+              <input
+                type="text"
+                className="edit-input"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
             </div>
             <div className="info-row">
               <span className="info-label">Email</span>
-              <span className="info-value email">{salesperson.email}</span>
+              <input
+                type="email"
+                className="edit-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div className="info-row">
               <span className="info-label">Phone</span>
-              <span className="info-value">{salesperson.phone}</span>
+              <input
+                type="tel"
+                className="edit-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
             <div className="info-row">
               <span className="info-label">Status</span>
               <span className="info-value">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={() => setIsActive(!isActive)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
                 <span
                   className="status-badge"
                   style={{
-                    backgroundColor: getStatusStyle(salesperson.status).bg,
-                    color: getStatusStyle(salesperson.status).color,
-                    borderColor: getStatusStyle(salesperson.status).border,
+                    backgroundColor: getStatusStyle(isActive).bg,
+                    color: getStatusStyle(isActive).color,
+                    borderColor: getStatusStyle(isActive).border,
+                    marginLeft: "10px",
                   }}
                 >
-                  {salesperson.status}
+                  {isActive ? "Active" : "Inactive"}
                 </span>
               </span>
             </div>
             <div className="info-row">
               <span className="info-label">ID</span>
-              <span className="info-value mono">{salesperson.id}</span>
+              <span className="info-value mono">{recordId}</span>
             </div>
           </div>
         </div>
@@ -169,25 +245,39 @@ export default function SalespersonDetailPage() {
           <div className="card-body">
             <div className="info-row">
               <span className="info-label">Default Commission Plan</span>
-              <span className="info-value">{salesperson.defaultCommissionPlan}</span>
+              <span className="info-value">{"\u2014"}</span>
             </div>
             <div className="info-row toggle-row">
               <span className="info-label">Default on New Customers</span>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={defaultOnNew}
-                  onChange={() => setDefaultOnNew(!defaultOnNew)}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-              <span className="toggle-hint">(UI only)</span>
+              <span className="toggle-hint">(future wiring)</span>
             </div>
           </div>
           <div className="card-footer">
-            <span className="audit-text">Created: {salesperson.createdAt}</span>
-            <span className="audit-text">Updated: {salesperson.updatedAt}</span>
+            <span className="audit-text">
+              Created: {formatDate(createdAt)}
+            </span>
+            <span className="audit-text">
+              Updated: {formatDate(updatedAt)}
+            </span>
           </div>
+        </div>
+      </div>
+
+      {/* Save / Cancel */}
+      <div className="form-actions">
+        <div />
+        <div className="action-buttons">
+          <Link href="/admin/salespeople" className="cancel-btn">
+            Cancel
+          </Link>
+          <button
+            type="button"
+            className="save-btn"
+            onClick={handleSave}
+            disabled={!canSubmit || submitting}
+          >
+            {submitting ? "Saving\u2026" : "Save Changes"}
+          </button>
         </div>
       </div>
 
@@ -195,30 +285,11 @@ export default function SalespersonDetailPage() {
       <div className="section">
         <div className="section-header">
           <h2>Customers Owned</h2>
-          <span className="section-count">{MOCK_CUSTOMERS_OWNED.length} customers</span>
+          <span className="badge-future">FUTURE</span>
         </div>
-        <div className="table-section">
-          <div className="table-wrap">
-            <table className="customers-table">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>State</th>
-                  <th>Open Orders</th>
-                  <th>Last Order</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_CUSTOMERS_OWNED.map((cust) => (
-                  <tr key={cust.id}>
-                    <td className="cell-name">{cust.name}</td>
-                    <td className="cell-state">{cust.state}</td>
-                    <td className="cell-orders">{cust.openOrders}</td>
-                    <td className="cell-date">{cust.lastOrder}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="placeholder-panel">
+          <div className="placeholder-text">
+            Customer ownership list will appear here once wired to backend data.
           </div>
         </div>
       </div>
@@ -230,9 +301,10 @@ export default function SalespersonDetailPage() {
           <span className="badge-future">FUTURE</span>
         </div>
         <div className="placeholder-panel">
-          <div className="placeholder-icon">📊</div>
+          <div className="placeholder-icon">&#x1F4CA;</div>
           <div className="placeholder-text">
-            Commission history and earnings summary will appear here once wired to backend data.
+            Commission history and earnings summary will appear here once wired
+            to backend data.
           </div>
           <div className="placeholder-note">
             Powered by approved snapshots (future wiring).
@@ -290,6 +362,17 @@ export default function SalespersonDetailPage() {
           font-size: 14px;
           color: rgba(255, 255, 255, 0.55);
           margin: 0;
+        }
+
+        /* Error Banner */
+        .error-banner {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          padding: 10px 16px;
+          font-size: 13px;
+          color: #ef4444;
+          margin-bottom: 20px;
         }
 
         /* Content Grid */
@@ -352,23 +435,41 @@ export default function SalespersonDetailPage() {
         .info-label {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.5);
+          flex-shrink: 0;
+          margin-right: 16px;
         }
 
         .info-value {
           font-size: 13px;
           color: #fff;
           font-weight: 500;
-        }
-
-        .info-value.email {
-          color: rgba(255, 255, 255, 0.7);
-          font-weight: 400;
+          display: flex;
+          align-items: center;
         }
 
         .info-value.mono {
           font-family: monospace;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Edit Input */
+        .edit-input {
+          padding: 6px 10px;
+          font-size: 13px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          transition: border-color 0.15s ease;
+          text-align: right;
+          max-width: 220px;
+          width: 100%;
+        }
+
+        .edit-input:focus {
+          outline: none;
+          border-color: #3b82f6;
         }
 
         .status-badge {
@@ -390,6 +491,7 @@ export default function SalespersonDetailPage() {
           display: inline-block;
           width: 44px;
           height: 24px;
+          flex-shrink: 0;
         }
 
         .toggle input {
@@ -436,6 +538,62 @@ export default function SalespersonDetailPage() {
           margin-left: auto;
         }
 
+        /* Form Actions */
+        .form-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 4px;
+          padding-bottom: 28px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          margin-bottom: 0;
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 12px;
+        }
+
+        .cancel-btn {
+          display: inline-block;
+          padding: 10px 20px;
+          font-size: 14px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 8px;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+
+        .cancel-btn:hover {
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .save-btn {
+          padding: 10px 20px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          background: #3b82f6;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .save-btn:hover:not(:disabled) {
+          background: #2563eb;
+        }
+
+        .save-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         /* Sections */
         .section {
           margin-bottom: 28px;
@@ -455,11 +613,6 @@ export default function SalespersonDetailPage() {
           margin: 0;
         }
 
-        .section-count {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
         .badge-future {
           font-size: 10px;
           font-weight: 700;
@@ -470,72 +623,6 @@ export default function SalespersonDetailPage() {
           background: rgba(148, 163, 184, 0.12);
           color: rgba(148, 163, 184, 0.8);
           border: 1px solid rgba(148, 163, 184, 0.2);
-        }
-
-        /* Table */
-        .table-section {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .table-wrap {
-          overflow-x: auto;
-        }
-
-        .customers-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .customers-table thead {
-          background: rgba(255, 255, 255, 0.03);
-        }
-
-        .customers-table th {
-          padding: 12px 16px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.5);
-          text-transform: uppercase;
-          letter-spacing: 0.4px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .customers-table td {
-          padding: 12px 16px;
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.85);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        }
-
-        .customers-table tr:last-child td {
-          border-bottom: none;
-        }
-
-        .customers-table tbody tr:hover {
-          background: rgba(59, 130, 246, 0.04);
-        }
-
-        .cell-name {
-          font-weight: 500;
-          color: #fff !important;
-        }
-
-        .cell-state {
-          color: rgba(255, 255, 255, 0.6) !important;
-        }
-
-        .cell-orders {
-          font-weight: 500;
-          color: #3b82f6 !important;
-        }
-
-        .cell-date {
-          font-size: 12px !important;
-          color: rgba(255, 255, 255, 0.5) !important;
         }
 
         /* Placeholder Panel */

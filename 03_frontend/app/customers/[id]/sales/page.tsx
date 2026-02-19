@@ -1,57 +1,148 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
-// Mock salespeople list
-const MOCK_SALESPEOPLE = [
-  { id: "SP-001", name: "Jordan Miles" },
-  { id: "SP-002", name: "Taylor Brooks" },
-  { id: "SP-003", name: "Morgan Chen" },
-  { id: "SP-004", name: "Casey Rivera" },
-  { id: "SP-005", name: "Alex Nguyen" },
-];
-
-// Mock customer data
-const MOCK_CUSTOMER_DATA: Record<string, { name: string; defaultSalesperson: string }> = {
-  "CUST-001": { name: "Turner Construction", defaultSalesperson: "SP-001" },
-  "CUST-002": { name: "Skanska USA", defaultSalesperson: "SP-002" },
-  "CUST-003": { name: "McCarthy Building", defaultSalesperson: "SP-003" },
+type CustomerData = {
+  id: string;
+  name: string;
+  defaultSalespersonUserId: string | null;
+  defaultSalesperson: { id: string; fullName: string; email: string } | null;
 };
 
-const DEFAULT_CUSTOMER_DATA = { name: "Sample Customer", defaultSalesperson: "SP-001" };
+type SalespersonRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  isActive: boolean;
+  userId: string | null;
+};
+
+type DropdownOption = {
+  value: string;
+  label: string;
+};
+
+function buildLabel(sp: SalespersonRecord): string {
+  const name = `${sp.firstName ?? ""} ${sp.lastName ?? ""}`.trim();
+  return name || sp.email || sp.id;
+}
 
 export default function CustomerSalesPage() {
   const params = useParams();
+  const router = useRouter();
   const customerId = params.id as string;
 
-  const customerData = MOCK_CUSTOMER_DATA[customerId] || DEFAULT_CUSTOMER_DATA;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const [selectedSalesperson, setSelectedSalesperson] = useState(
-    customerData.defaultSalesperson
-  );
+  const [customerName, setCustomerName] = useState("");
+  const [selectedValue, setSelectedValue] = useState<string>("");
+  const [options, setOptions] = useState<DropdownOption[]>([]);
 
-  const selectedName =
-    MOCK_SALESPEOPLE.find((sp) => sp.id === selectedSalesperson)?.name || "—";
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [customer, salespeople] = await Promise.all([
+          apiFetch<CustomerData>(`/customers/${customerId}`),
+          apiFetch<SalespersonRecord[]>("/salespeople"),
+        ]);
+        if (!alive) return;
+
+        setCustomerName(customer.name ?? "");
+        setSelectedValue(customer.defaultSalespersonUserId ?? "");
+
+        const eligible = (Array.isArray(salespeople) ? salespeople : []).filter(
+          (sp) => sp.isActive && sp.userId != null
+        );
+        setOptions(
+          eligible.map((sp) => ({ value: sp.userId!, label: buildLabel(sp) }))
+        );
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load data.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [customerId]);
+
+  const selectedLabel =
+    options.find((o) => o.value === selectedValue)?.label || "\u2014";
+
+  const handleSave = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await apiFetch(`/customers/${customerId}/default-salesperson`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          salespersonUserId: selectedValue || null,
+        }),
+      });
+      router.push(`/customers/${customerId}`);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save salesperson assignment.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="customer-sales-container">
+        <div className="loading-banner">Loading sales ownership&hellip;</div>
+        <style jsx>{`
+          .customer-sales-container {
+            padding: 24px 40px 60px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .loading-banner {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #f59e0b;
+            text-align: center;
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="customer-sales-container">
       {/* Header */}
       <div className="page-header">
         <Link href={`/customers/${customerId}`} className="back-link">
-          ← Back to Customer
+          &larr; Back to Customer
         </Link>
         <div className="header-row">
           <div className="header-info">
             <h1>Sales Ownership</h1>
             <div className="customer-badge-row">
-              <span className="customer-name">{customerData.name}</span>
+              <span className="customer-name">{customerName}</span>
               <span className="customer-id">{customerId}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {error && <div className="error-banner">{error}</div>}
 
       {/* Main Content */}
       <section className="sales-section">
@@ -63,25 +154,26 @@ export default function CustomerSalesPage() {
           <div className="card-label">Customer Owner</div>
           <div className="salesperson-select-wrap">
             <select
-              value={selectedSalesperson}
-              onChange={(e) => setSelectedSalesperson(e.target.value)}
+              value={selectedValue}
+              onChange={(e) => setSelectedValue(e.target.value)}
               className="salesperson-select"
             >
-              {MOCK_SALESPEOPLE.map((sp) => (
-                <option key={sp.id} value={sp.id}>
-                  {sp.name}
+              <option value="">None</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
               ))}
             </select>
-            <span className="current-selection">{selectedName}</span>
+            <span className="current-selection">{selectedLabel}</span>
           </div>
         </div>
 
         <div className="help-note">
           <span className="help-icon">i</span>
           <span>
-            This salesperson is used as the default on new orders for this customer
-            unless overridden at the order level.
+            This salesperson is used as the default on new orders for this
+            customer unless overridden at the order level.
           </span>
         </div>
       </section>
@@ -95,22 +187,26 @@ export default function CustomerSalesPage() {
 
         <div className="info-card">
           <p>
-            Commission splits are configured at the <strong>Order level</strong>.
-            The salesperson assigned here becomes the default for new orders, but
-            commission splits can be customized per order.
+            Commission splits are configured at the <strong>Order level</strong>
+            . The salesperson assigned here becomes the default for new orders,
+            but commission splits can be customized per order.
           </p>
           <p>
-            To view or edit commission splits for a specific order, navigate to the
-            order and open the <strong>Sales</strong> tab.
+            To view or edit commission splits for a specific order, navigate to
+            the order and open the <strong>Sales</strong> tab.
           </p>
         </div>
       </section>
 
       {/* Save Footer */}
       <div className="save-footer">
-        <span className="ui-only-label">UI-only shell — no persistence</span>
-        <button className="save-btn" disabled>
-          Save Changes
+        <button
+          type="button"
+          className="save-btn"
+          onClick={handleSave}
+          disabled={submitting}
+        >
+          {submitting ? "Saving\u2026" : "Save Changes"}
         </button>
       </div>
 
@@ -170,6 +266,17 @@ export default function CustomerSalesPage() {
           background: rgba(59, 130, 246, 0.15);
           color: #3b82f6;
           border-radius: 5px;
+        }
+
+        /* Error Banner */
+        .error-banner {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          padding: 10px 16px;
+          font-size: 13px;
+          color: #ef4444;
+          margin-bottom: 20px;
         }
 
         /* Sales Section */
@@ -310,27 +417,27 @@ export default function CustomerSalesPage() {
           margin-top: 24px;
         }
 
-        .ui-only-label {
-          font-size: 11px;
-          color: rgba(148, 163, 184, 0.7);
-          padding: 4px 10px;
-          background: rgba(148, 163, 184, 0.1);
-          border: 1px dashed rgba(148, 163, 184, 0.25);
-          border-radius: 6px;
-        }
-
         .save-btn {
           padding: 10px 24px;
           font-size: 14px;
           font-weight: 600;
-          color: rgba(255, 255, 255, 0.4);
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #fff;
+          background: #3b82f6;
+          border: none;
           border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .save-btn:hover:not(:disabled) {
+          background: #2563eb;
+        }
+
+        .save-btn:disabled {
+          opacity: 0.5;
           cursor: not-allowed;
         }
       `}</style>
     </div>
   );
 }
-
