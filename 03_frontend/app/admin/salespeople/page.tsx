@@ -1,112 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
-// Types
 type SalespersonStatus = "Active" | "Inactive";
 
-type Salesperson = {
-  id: string;
-  name: string;
-  email: string;
-  status: SalespersonStatus;
-  defaultCommissionPlan: string;
-  customersOwned: number;
-  lastActivity: string;
-};
-
-// Mock data
-const MOCK_SALESPEOPLE: Salesperson[] = [
-  {
-    id: "SLP-001",
-    name: "Steve Mitchell",
-    email: "steve.mitchell@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 24,
-    lastActivity: "2026-02-09",
-  },
-  {
-    id: "SLP-002",
-    name: "David Park",
-    email: "david.park@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 18,
-    lastActivity: "2026-02-08",
-  },
-  {
-    id: "SLP-003",
-    name: "Lisa Hernandez",
-    email: "lisa.hernandez@mw4h.com",
-    status: "Inactive",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 12,
-    lastActivity: "2025-11-15",
-  },
-  {
-    id: "SLP-004",
-    name: "Marcus Chen",
-    email: "marcus.chen@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Senior Tier",
-    customersOwned: 31,
-    lastActivity: "2026-02-10",
-  },
-  {
-    id: "SLP-005",
-    name: "Angela Torres",
-    email: "angela.torres@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 15,
-    lastActivity: "2026-02-07",
-  },
-  {
-    id: "SLP-006",
-    name: "Brian Foster",
-    email: "brian.foster@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Senior Tier",
-    customersOwned: 28,
-    lastActivity: "2026-02-09",
-  },
-  {
-    id: "SLP-007",
-    name: "Jennifer Walsh",
-    email: "jennifer.walsh@mw4h.com",
-    status: "Active",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 9,
-    lastActivity: "2026-02-06",
-  },
-  {
-    id: "SLP-008",
-    name: "Kevin Nguyen",
-    email: "kevin.nguyen@mw4h.com",
-    status: "Inactive",
-    defaultCommissionPlan: "Standard Tier",
-    customersOwned: 5,
-    lastActivity: "2025-10-20",
-  },
-];
-
 export default function SalespeopleListPage() {
-  // Filter state
+  const [salespeople, setSalespeople] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter logic
-  const filteredSalespeople = MOCK_SALESPEOPLE.filter((sp) => {
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await apiFetch("/salespeople");
+        if (!alive) return;
+        const raw = Array.isArray(data) ? data : [];
+        const mapped = raw.map((r: any) => {
+          const fullName = `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim();
+          return {
+            id: r.id,
+            name: fullName || "\u2014",
+            email: r.email ?? "\u2014",
+            status: r.isActive != null ? (r.isActive ? "Active" : "Inactive") : "Inactive",
+            defaultCommissionPlan: "\u2014",
+            customersOwned: 0,
+            lastActivity: "\u2014",
+          };
+        });
+        setSalespeople(mapped);
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load salespeople.");
+        setSalespeople([]);
+      } finally {
+        if (!alive) return;
+        setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filteredSalespeople = salespeople.filter((sp) => {
     if (statusFilter !== "All" && sp.status !== statusFilter) {
       return false;
     }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       if (
-        !sp.name.toLowerCase().includes(query) &&
-        !sp.email.toLowerCase().includes(query)
+        !(sp.name ?? "").toLowerCase().includes(query) &&
+        !(sp.email ?? "").toLowerCase().includes(query)
       ) {
         return false;
       }
