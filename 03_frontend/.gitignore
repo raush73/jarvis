@@ -43,3 +43,6 @@ _logs/
 03_frontend/
 .tmp/
 ../_logs/
+
+# local scratch
+_trash/
