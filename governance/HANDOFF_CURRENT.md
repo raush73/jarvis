@@ -1,119 +1,95 @@
-﻿# JARVIS PRIME — GOVERNANCE SESSION HANDOFF
-Date: 2026-02-18
-Architect: Michael
-Branch: wip/customers-wiring-2026-02-17
-Environment: LOCAL (training DB)
-Status: STABLE / UNBLOCKED
+# 🔒 JARVIS PRIME — FULL SYSTEM HANDOFF
+
+**Date:** 2026-02-20  
+**Primary Drive:** `E:\JARVIS` (D:\JARVIS = BACKUP ONLY)  
+**Branch:** `wip/customers-wiring-2026-02-17`  
+**Frontend (local):** `http://localhost:3001`  
+**Backend API/Auth (local):** `http://127.0.0.1:3002`  
+**DB:** RDS `jarvis_training` (schema=public)  
+**Non-negotiable:** No schema drift. No migrations. Review before build. Michael runs commands. Axel audits.
 
 ---
 
-## SYSTEM STATE SUMMARY
+## ✅ What Was Completed
 
-### Backend
-- Running on: http://127.0.0.1:3002
-- /readyz returns {"ok":true}
-- Connected to RDS database: jarvis_training
-- Real dataset confirmed:
-  - 83 Customers
-  - 191 CustomerContacts
+### 1) Backend — Option B Envelope + Total Count (Enterprise Contract)
 
-### Frontend
-- Running on: http://localhost:3000
-- Authentication working (jp_accessToken present)
-- Customers page now calls /api/customers (Next proxy)
-- No CORS errors
-- Dataset loads correctly (83 customers visible)
+GET /customers now returns:
 
-### Proxy Layer
-New route added:
-app/api/customers/route.ts
+{
+  "data": [ ...customers ],
+  "meta": { "total": 83, "take": 25, "skip": 0 }
+}
 
-Purpose:
-Proxy GET /api/customers → backend 127.0.0.1:3002/customers
-Authorization header forwarded.
+Locked semantics:
+- meta.total = filtered total (pre-pagination)
+- take <= 100
+- Supports: search, state, salespersonId, sort, order, take, skip
 
-### API Base Correction
-lib/api.ts updated:
-Browser now defaults to SAME-ORIGIN "/api"
-No more hardcoded localhost:3000 backend calls.
-Eliminates CORS + wrong-port issues.
-
-### Git Status
-Commit:
-4dcd869
-Message:
-"Customers: use /api proxy and add /api/customers route (local training data)"
-Branch pushed successfully.
-
-Backend repo clean.
-Frontend repo clean (logs ignored).
+Backend latest commit: 58a5373
 
 ---
 
-# CURRENT PRIORITIES (LOCKED ORDER)
+### 2) Frontend — Customers Hub Wired to Envelope + Server Pagination
 
-## 1. Remove "Logged-Out Demo Mode" Banner
-The banner is no longer valid because:
-- Local auth works
-- Token is present
-- Real data is loading
+Customers Hub now:
+- Requests /customers with take, skip, search, sort, order
+- Parses { data, meta }
+- Uses meta.total for pagination
+- Sort options aligned to backend
+- Windows dropdown styling fix applied
 
-Banner logic must reflect true auth state instead of hostname.
-
----
-
-## 2. Fill Customer List Columns (Main Screen)
-
-Columns currently incomplete:
-- Location
-- Main Phone
-- Default Salesperson
-- Last Updated
-
-These must be wired to real backend fields (no filler data).
-
-This completes Packet 1 — Customers List view.
+Frontend commits:
+- d72eac0 — proxy forwards query params
+- f54f610 — envelope consumption + server pagination
 
 ---
 
-## 3. Wire Customer Detail → Real Contacts
+### 3) Proxy Forwarding
 
-Current state:
-- Customer detail page shows filler contacts (John Smith / Jane Doe)
+app/api/customers/route.ts forwards inbound query string to:
 
-Required:
-- Fetch real CustomerContact records
-- Replace filler data
-- Display real contacts tied to selected customer
-
-This completes Packet 1 — Customer Detail view.
+http://127.0.0.1:3002/customers?<same query>
 
 ---
 
-# NEXT SESSION START INSTRUCTION
+## 🔑 Training Auth
 
-1. Confirm backend is running.
-2. Confirm 83 customers load at localhost.
-3. Remove demo banner logic.
-4. Wire list columns.
-5. Wire contact detail.
+User: michael+demo@mw4h.com  
+Password: TrainingPass123!
 
-No schema changes.
-No migrations.
-No database modifications.
-
-Only frontend wiring and UI correctness.
+Backend health:
+/readyz → {"ok":true}
 
 ---
 
-# SYSTEM STABILITY
+## 📦 Packet Status
 
-Auth: GREEN
-Dataset: GREEN
-Proxy: GREEN
-CORS: RESOLVED
-Drift: NONE
-Blockers: NONE
+1. Internal Orders — UI shells complete
+2. Recruiting — Shell only
+3. Employee My Work — Shell only
+4. Time Entry — UI-only working
+5. Customer Portal — Shell only
+6. Money — Not touched
+7. Admin/Safety — Not touched
 
-Jarvis Prime is stable and ready for UI refinement.
+Today impacted:
+Customers Hub + Customers API + Proxy
 
+---
+
+## 🎯 Next Locked Work
+
+1. Wire State filter → state
+2. Wire Salesperson filter → salespersonId
+3. URL query param persistence
+4. Column fidelity improvements
+
+---
+
+## Session End State
+
+Backend: 58a5373 pushed  
+Frontend: d72eac0 + f54f610 pushed  
+
+Next session begins with filter wiring.
