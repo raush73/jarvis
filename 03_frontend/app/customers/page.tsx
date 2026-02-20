@@ -268,7 +268,7 @@ export default function CustomersPage() {
           </td>
           <td>{customer.location ?? "—"}</td>
           <td>{customer.mainPhone ?? "—"}</td>
-          <td>{customer.defaultSalesperson?.fullName ?? "—"}</td>
+          <td>{customer.defaultSalesperson ? `${customer.defaultSalesperson.firstName} ${customer.defaultSalesperson.lastName}` : "—"}</td>
           <td>{formatUpdatedAt(customer.updatedAt)}</td>
         </tr>
       ))}

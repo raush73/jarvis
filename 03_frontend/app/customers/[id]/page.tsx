@@ -511,6 +511,14 @@ export default function CustomerDetailPage() {
 
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
+  const liveDefaultSalespersonName = (() => {
+    const sp = liveCustomer?.defaultSalesperson;
+    if (!sp) return null;
+    const fullName = typeof sp.fullName === "string" ? sp.fullName.trim() : "";
+    const firstLast = `${sp.firstName ?? ""} ${sp.lastName ?? ""}`.trim();
+    return fullName || firstLast || sp.email || sp.id || null;
+  })();
+  const effectiveOwnerName = liveDefaultSalespersonName ?? customer.ownerSalespersonName;
 
   // Collect UI-only draft orders from sessionStorage
   const draftOrders = useMemo(() => {
@@ -561,7 +569,7 @@ export default function CustomerDetailPage() {
 
   // Quote form handlers
   const handleCreateQuote = () => {
-    setDraftQuote(createEmptyDraft(customer.ownerSalespersonName));
+    setDraftQuote(createEmptyDraft(effectiveOwnerName));
     setMode("create");
     setSelectedQuoteId(null);
   };
@@ -1109,7 +1117,17 @@ export default function CustomerDetailPage() {
   const headerLocation = liveCustomer?.location ?? `${customer.city}, ${customer.state}`;
   const headerPhone = liveCustomer?.mainPhone ?? customer.mainPhone;
   const headerWebsite = liveCustomer?.websiteUrl ?? customer.website;
-  const headerSalesperson = liveCustomer?.defaultSalesperson?.fullName ?? customer.ownerSalespersonName;
+  const headerSalesperson = effectiveOwnerName;
+  const isMockCustomer = Boolean(MOCK_CUSTOMER_DETAILS[customerId]);
+  const liveAddress =
+    typeof liveCustomer?.address === "string" ? liveCustomer.address.trim() : "";
+  const liveLocation =
+    typeof liveCustomer?.location === "string" ? liveCustomer.location.trim() : "";
+  const liveStreetAddress =
+    liveAddress && liveAddress !== liveLocation ? liveAddress : null;
+  const headerStreetAddress = liveCustomer
+    ? liveStreetAddress
+    : (customer.address ?? null);
 
   return (
     <div className="customer-detail-container">
@@ -1137,10 +1155,19 @@ export default function CustomerDetailPage() {
       {/* Summary Row */}
       <div className="summary-row">
         <div className="summary-item">
-          <span className="summary-label">Default Salesperson</span>
+          <span className="summary-label">Ownership</span>
           <div className="summary-value-row">
-            <span className="summary-value">{headerSalesperson}</span>
-            <Link href={`/customers/${customerId}/ownership`} className="ownership-link">Ownership</Link>
+            {headerSalesperson ? (
+              <Link
+                href={`/customers/${customerId}/ownership`}
+                className="ownership-link"
+                aria-label="Edit customer ownership"
+              >
+                {headerSalesperson}
+              </Link>
+            ) : (
+              <span className="summary-value">—</span>
+            )}
           </div>
         </div>
         <div className="summary-item">
@@ -1155,7 +1182,13 @@ export default function CustomerDetailPage() {
         </div>
         <div className="summary-item address-item">
           <span className="summary-label">Location</span>
-          <span className="summary-value">{headerLocation || "\u2014"}</span>
+          <div className="summary-value address-block">
+            <div className={headerStreetAddress ? "" : "address-missing"}>
+              {headerStreetAddress ??
+                (isMockCustomer ? "—" : "Street address not on file")}
+            </div>
+            <div className="address-city">{headerLocation || "\u2014"}</div>
+          </div>
         </div>
       </div>
 
@@ -1985,7 +2018,7 @@ export default function CustomerDetailPage() {
                                   },
                                   commissionSplits: [
                                     {
-                                      person: customer.ownerSalespersonName,
+                                      person: effectiveOwnerName,
                                       role: "Sales",
                                       splitPct: 100,
                                     },
@@ -2590,6 +2623,24 @@ export default function CustomerDetailPage() {
           gap: 10px;
         }
 
+        .address-block {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .address-missing {
+          color: rgba(255, 255, 255, 0.5);
+          font-style: italic;
+        }
+
+        .address-city {
+          color: rgba(255, 255, 255, 0.75);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
         .read-only-badge {
           font-size: 9px;
           padding: 2px 6px;
@@ -2601,20 +2652,30 @@ export default function CustomerDetailPage() {
         }
 
         .ownership-link {
-          font-size: 11px;
-          padding: 3px 10px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #60a5fa;
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          border-radius: 5px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          padding: 8px 12px;
+          background: rgba(59, 130, 246, 0.14);
+          color: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(59, 130, 246, 0.35);
+          border-radius: 8px;
           text-decoration: none;
-          font-weight: 600;
+          font-weight: 700;
           transition: all 0.15s ease;
+          cursor: pointer;
+          line-height: 1;
         }
 
         .ownership-link:hover {
-          background: rgba(59, 130, 246, 0.2);
-          border-color: rgba(59, 130, 246, 0.4);
+          background: rgba(59, 130, 246, 0.22);
+          border-color: rgba(59, 130, 246, 0.55);
+          transform: translateY(-1px);
+        }
+
+        .ownership-link:active {
+          transform: translateY(0);
         }
 
         .header-loading-banner {

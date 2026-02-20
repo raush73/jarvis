@@ -8,8 +8,8 @@ import { apiFetch } from "@/lib/api";
 type CustomerData = {
   id: string;
   name: string;
-  defaultSalespersonUserId: string | null;
-  defaultSalesperson: { id: string; fullName: string; email: string } | null;
+  defaultSalespersonId: string | null;
+  defaultSalesperson: { id: string; firstName: string; lastName: string; email: string } | null;
 };
 
 type SalespersonRecord = {
@@ -57,7 +57,7 @@ export default function CustomerOwnershipPage() {
         if (!alive) return;
 
         setCustomerName(customer.name ?? "");
-        setSelectedValue((customer as any).defaultSalespersonId ?? "");
+        setSelectedValue(customer.defaultSalespersonId ?? "");
 
         const eligible = (Array.isArray(salespeople) ? salespeople : []).filter(
           (sp) => sp.isActive
@@ -88,7 +88,7 @@ export default function CustomerOwnershipPage() {
       await apiFetch(`/customers/${customerId}/default-salesperson`, {
         method: "PATCH",
         body: JSON.stringify({
-          salespersonUserId: selectedValue || null,
+          salespersonId: selectedValue || null,
         }),
       });
       router.push(`/customers/${customerId}`);
