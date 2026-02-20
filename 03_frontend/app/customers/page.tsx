@@ -5,90 +5,6 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 
-// Mock customers data
-const MOCK_CUSTOMERS = [
-  {
-    id: "CUST-001",
-    name: "Turner Construction",
-    city: "Los Angeles",
-    state: "CA",
-    mainPhone: "(213) 555-1000",
-    website: "https://turnerconstruction.com",
-    ownerSalespersonName: "Jordan Miles",
-    lastUpdated: "2 hours ago",
-  },
-  {
-    id: "CUST-002",
-    name: "Skanska USA",
-    city: "San Diego",
-    state: "CA",
-    mainPhone: "(619) 555-2000",
-    website: "https://skanska.com",
-    ownerSalespersonName: "Sarah Chen",
-    lastUpdated: "5 hours ago",
-  },
-  {
-    id: "CUST-003",
-    name: "McCarthy Building",
-    city: "Phoenix",
-    state: "AZ",
-    mainPhone: "(602) 555-3000",
-    website: "https://mccarthy.com",
-    ownerSalespersonName: "Marcus Johnson",
-    lastUpdated: "1 day ago",
-  },
-  {
-    id: "CUST-004",
-    name: "DPR Construction",
-    city: "Las Vegas",
-    state: "NV",
-    mainPhone: "(702) 555-4000",
-    website: "https://dpr.com",
-    ownerSalespersonName: "Jordan Miles",
-    lastUpdated: "2 days ago",
-  },
-  {
-    id: "CUST-005",
-    name: "Hensel Phelps",
-    city: "Denver",
-    state: "CO",
-    mainPhone: "(303) 555-5000",
-    website: "https://henselphelps.com",
-    ownerSalespersonName: "Emily Rodriguez",
-    lastUpdated: "3 days ago",
-  },
-  {
-    id: "CUST-006",
-    name: "Holder Construction",
-    city: "Austin",
-    state: "TX",
-    mainPhone: "(512) 555-6000",
-    website: "https://holderconstruction.com",
-    ownerSalespersonName: "Sarah Chen",
-    lastUpdated: "5 days ago",
-  },
-  {
-    id: "CUST-007",
-    name: "Whiting-Turner Contracting",
-    city: "Seattle",
-    state: "WA",
-    mainPhone: "(206) 555-7000",
-    website: "https://whiting-turner.com",
-    ownerSalespersonName: "Marcus Johnson",
-    lastUpdated: "1 week ago",
-  },
-  {
-    id: "CUST-008",
-    name: "Mortenson Construction",
-    city: "Minneapolis",
-    state: "MN",
-    mainPhone: "(612) 555-8000",
-    website: "https://mortenson.com",
-    ownerSalespersonName: "Emily Rodriguez",
-    lastUpdated: "2 weeks ago",
-  },
-];
-
 const UNIQUE_SALESPEOPLE: string[] = [];
 
 function formatUpdatedAt(value: any): string {
@@ -104,12 +20,13 @@ export default function CustomersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "customer" | "prospect">("all");
   const [salespersonFilter, setSalespersonFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"name" | "created" | "revenue">("name");
+  const [sortBy, setSortBy] = useState<"name" | "createdAt" | "updatedAt">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
   const [customers, setCustomers] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,13 +36,27 @@ export default function CustomersPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await apiFetch("/customers");
+        const skip = (page - 1) * pageSize;
+        const params = new URLSearchParams({
+          take: String(pageSize),
+          skip: String(skip),
+          sort: sortBy,
+          order: sortOrder,
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await apiFetch<{
+          data: any[];
+          meta: { total: number; take: number; skip: number };
+        }>(`/customers?${params.toString()}`);
         if (!alive) return;
-        setCustomers(Array.isArray(data) ? data : []);
+        setCustomers(Array.isArray(res.data) ? res.data : []);
+        setTotalCount(res.meta?.total ?? 0);
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message ?? "Failed to load customers.");
         setCustomers([]);
+        setTotalCount(0);
       } finally {
         if (!alive) return;
         setLoading(false);
@@ -134,16 +65,19 @@ export default function CustomersPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [debouncedSearch, sortBy, sortOrder, page, pageSize]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput), 350);
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPage(1);
+    }, 350);
     return () => clearTimeout(t);
   }, [searchInput]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(customers.length / pageSize)),
-    [pageSize]
+    () => Math.max(1, Math.ceil(totalCount / pageSize)),
+    [totalCount, pageSize]
   );
 
   return (
@@ -152,7 +86,7 @@ export default function CustomersPage() {
       <div className="customers-header">
         <div className="header-left">
           <h1>Customers</h1>
-          <span className="customer-count">{customers.length} customers</span>
+          <span className="customer-count">{totalCount} customers</span>
         </div>
         <div className="header-actions">
           <Link href="/customers/new" className="btn-add">
@@ -193,16 +127,16 @@ export default function CustomersPage() {
         </select>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as "name" | "created" | "revenue")}
+          onChange={(e) => { setSortBy(e.target.value as "name" | "createdAt" | "updatedAt"); setPage(1); }}
           className="control-select"
         >
           <option value="name">Name</option>
-          <option value="created">Created</option>
-          <option value="revenue">Revenue</option>
+          <option value="createdAt">Created</option>
+          <option value="updatedAt">Last Updated</option>
         </select>
         <select
           value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+          onChange={(e) => { setSortOrder(e.target.value as "asc" | "desc"); setPage(1); }}
           className="control-select"
         >
           <option value="asc">Asc</option>
@@ -229,7 +163,7 @@ export default function CustomersPage() {
           >
             Prev
           </button>
-          <span className="page-display">Page {page}</span>
+          <span className="page-display">Page {page} of {totalPages}</span>
           <button
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -349,6 +283,11 @@ export default function CustomersPage() {
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 8px;
           cursor: pointer;
+        }
+
+        .control-select option {
+          background: #1e293b;
+          color: #f1f5f9;
         }
 
         .pagination-controls {
