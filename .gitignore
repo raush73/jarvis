@@ -22,7 +22,8 @@ node_modules/
 _logs/
 
 # Allow committing backend utility scripts (keep rest of 02_backend ignored)
-!02_backend/
+02_backend/*
 !02_backend/scripts/
 !02_backend/scripts/**
+
 
