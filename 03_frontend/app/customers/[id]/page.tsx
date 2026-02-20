@@ -707,10 +707,31 @@ export default function CustomerDetailPage() {
 
   // Compute rendered contacts: base contacts (filtered, with overrides) + uiContacts
   const renderedContacts = useMemo(() => {
+    const liveContactsRaw = Array.isArray(liveCustomer?.contacts)
+      ? liveCustomer.contacts
+      : null;
+    const liveBaseContacts = (liveContactsRaw ?? []).map((c: any) => {
+      const first = (c?.firstName ?? "").toString().trim();
+      const last = (c?.lastName ?? "").toString().trim();
+      const fullName = `${first} ${last}`.trim() || "—";
+      return {
+        id: (c?.id ?? `LIVE-CONTACT-${fullName}`).toString(),
+        name: fullName,
+        title: (c?.jobTitle ?? "").toString().trim(),
+        email: (c?.email ?? "").toString().trim(),
+        officePhone: (c?.officePhone ?? "").toString().trim(),
+        cellPhone: (c?.cellPhone ?? "").toString().trim(),
+        notes: "",
+        isPrimary: false,
+      };
+    });
+
     // Start with base contacts, filter out hidden, apply overrides
-    const baseRendered = baseCustomer.contacts
-      .filter((c) => !uiContactHiddenIds.has(c.id))
-      .map((c) => ({
+    const baseSource =
+      liveBaseContacts.length > 0 ? liveBaseContacts : baseCustomer.contacts;
+    const baseRendered = baseSource
+      .filter((c: any) => !uiContactHiddenIds.has(c.id))
+      .map((c: any) => ({
         ...c,
         ...(uiContactOverrides[c.id] || {}),
         isUiContact: false,
@@ -723,7 +744,13 @@ export default function CustomerDetailPage() {
     }));
 
     return [...baseRendered, ...uiRendered];
-  }, [baseCustomer.contacts, uiContactHiddenIds, uiContactOverrides, uiContacts]);
+  }, [
+    liveCustomer?.contacts,
+    baseCustomer.contacts,
+    uiContactHiddenIds,
+    uiContactOverrides,
+    uiContacts,
+  ]);
 
   // ========== TOOLS HANDLERS ==========
 
@@ -1240,7 +1267,7 @@ export default function CustomerDetailPage() {
           >
             {tab.label}
             {tab.key === "contacts" && (
-              <span className="tab-count">{customer.contacts.length}</span>
+              <span className="tab-count">{renderedContacts.length}</span>
             )}
             {tab.key === "orders" && (
               <span className="tab-count">{customer.orders.length}</span>
