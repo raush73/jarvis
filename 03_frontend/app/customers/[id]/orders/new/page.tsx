@@ -180,24 +180,27 @@ export default function CreateOrderPage() {
     ppe: [],
   });
 
-  // Registry-backed PPE and Tool types
-  const [ppeRegistry, setPpeRegistry] = useState<any[]>([]);
-  const [toolRegistry, setToolRegistry] = useState<any[]>([]);
+  // Registry-backed PPE and Tool types (Layer 1 dictionaries)
+  const [ppeTypes, setPpeTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
+  const [toolTypes, setToolTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
+  const [registryLoaded, setRegistryLoaded] = useState(false);
 
   useEffect(() => {
     async function loadRegistry() {
       try {
         const [ppe, tools] = await Promise.all([
-          apiFetch("/ppe-types?activeOnly=true"),
-          apiFetch("/tool-types?activeOnly=true"),
+          apiFetch<Array<{ id: string; name: string; active?: boolean }>>("/ppe-types?activeOnly=true"),
+          apiFetch<Array<{ id: string; name: string; active?: boolean }>>("/tool-types?activeOnly=true"),
         ]);
 
-        setPpeRegistry(Array.isArray(ppe) ? ppe : []);
-        setToolRegistry(Array.isArray(tools) ? tools : []);
+        setPpeTypes(Array.isArray(ppe) ? ppe : []);
+        setToolTypes(Array.isArray(tools) ? tools : []);
       } catch (err) {
-        console.error("Failed to load registry data", err);
-        setPpeRegistry([]);
-        setToolRegistry([]);
+        console.error("Failed to load PPE/Tool registries", err);
+        setPpeTypes([]);
+        setToolTypes([]);
+      } finally {
+        setRegistryLoaded(true);
       }
     }
 
@@ -327,11 +330,11 @@ export default function CreateOrderPage() {
   };
 
   // Job requirements handlers
-  const toggleTool = (tool: string) => {
-    const newTools = jobRequirements.tools.includes(tool)
-      ? jobRequirements.tools.filter((t) => t !== tool)
-      : [...jobRequirements.tools, tool];
-    setJobRequirements({ ...jobRequirements, tools: newTools });
+  const toggleTool = (toolTypeId: string) => {
+    const next = jobRequirements.tools.includes(toolTypeId)
+      ? jobRequirements.tools.filter((t) => t !== toolTypeId)
+      : [...jobRequirements.tools, toolTypeId];
+    setJobRequirements({ ...jobRequirements, tools: next });
   };
 
   const toggleUseCustomerToolList = () => {
@@ -355,11 +358,11 @@ export default function CreateOrderPage() {
     setJobRequirements({ ...jobRequirements, certifications: newCerts });
   };
 
-  const togglePPE = (item: string) => {
-    const newPPE = jobRequirements.ppe.includes(item)
-      ? jobRequirements.ppe.filter((p) => p !== item)
-      : [...jobRequirements.ppe, item];
-    setJobRequirements({ ...jobRequirements, ppe: newPPE });
+  const togglePPE = (ppeTypeId: string) => {
+    const next = jobRequirements.ppe.includes(ppeTypeId)
+      ? jobRequirements.ppe.filter((p) => p !== ppeTypeId)
+      : [...jobRequirements.ppe, ppeTypeId];
+    setJobRequirements({ ...jobRequirements, ppe: next });
   };
 
   const customerTools: string[] = [];
@@ -776,13 +779,11 @@ export default function CreateOrderPage() {
 
           {/* Trade-specific tool display (UI-only) */}
           {(() => {
-            // Local alias mapping for trade name normalization (UI-only)
             const TRADE_DISPLAY_ALIAS: Record<string, string> = {
               Millwrights: "Millwright",
               Electricians: "Electrician",
             };
 
-            // Local MW4H baseline per trade (UI-only, does not modify MW4H_STANDARD_TOOLS)
             const MW4H_BASELINE_BY_TRADE: Record<string, string[]> = {
               Millwright: ["Hard Hat", "FR Clothing", "Steel Toe Boots", "Safety Glasses", "Gloves", "Basic Hand Tools"],
               Electrician: ["Hard Hat", "FR Clothing", "Steel Toe Boots", "Safety Glasses", "Gloves", "Basic Hand Tools"],
@@ -790,7 +791,8 @@ export default function CreateOrderPage() {
 
             const tradesToDisplay = ["Millwrights", "Electricians"];
 
-            // Helper: get baseline list for a trade based on current toggle state
+            const toolIdToName = new Map(toolTypes.map((t) => [t.id, t.name]));
+
             const getBaselineForTrade = (displayTrade: string): string[] => {
               const normalizedTrade = TRADE_DISPLAY_ALIAS[displayTrade] || displayTrade;
               if (jobRequirements.useCustomerToolList) {
@@ -801,12 +803,11 @@ export default function CreateOrderPage() {
               return [];
             };
 
-            // Helper: compute baseline and job-specific tools for a trade
             const computeTradeToolGroups = (displayTrade: string) => {
-              const baselineList = getBaselineForTrade(displayTrade);
-              const selectedTools = jobRequirements.tools;
-              const baselineTools = selectedTools.filter((t) => baselineList.includes(t));
-              const jobSpecificTools = selectedTools.filter((t) => !baselineList.includes(t));
+              const baselineNames = getBaselineForTrade(displayTrade);
+              const selected = jobRequirements.tools.map((id) => ({ id, name: toolIdToName.get(id) || id }));
+              const baselineTools = selected.filter((t) => baselineNames.includes(t.name));
+              const jobSpecificTools = selected.filter((t) => !baselineNames.includes(t.name));
               return { baselineTools, jobSpecificTools };
             };
 
@@ -825,7 +826,6 @@ export default function CreateOrderPage() {
                         Baseline tools are copied into this Job Order and will not change if customer defaults change later.
                       </p>
 
-                      {/* Baseline tools group */}
                       <div className="trade-tools-group">
                         <div className="trade-tools-group-header">
                           <span className="trade-tools-group-title">Baseline tools</span>
@@ -835,8 +835,8 @@ export default function CreateOrderPage() {
                         <div className="trade-tools-list">
                           {baselineTools.length > 0 ? (
                             baselineTools.map((tool) => (
-                              <span key={tool} className="trade-tool-item">
-                                <span className="trade-tool-name">{tool}</span>
+                              <span key={tool.id} className="trade-tool-item">
+                                <span className="trade-tool-name">{tool.name}</span>
                                 <span className="trade-tool-badge badge-baseline">Baseline</span>
                               </span>
                             ))
@@ -846,7 +846,6 @@ export default function CreateOrderPage() {
                         </div>
                       </div>
 
-                      {/* Job-specific additions group */}
                       <div className="trade-tools-group">
                         <div className="trade-tools-group-header">
                           <span className="trade-tools-group-title">Job-specific additions</span>
@@ -855,8 +854,8 @@ export default function CreateOrderPage() {
                         <div className="trade-tools-list">
                           {jobSpecificTools.length > 0 ? (
                             jobSpecificTools.map((tool) => (
-                              <span key={tool} className="trade-tool-item">
-                                <span className="trade-tool-name">{tool}</span>
+                              <span key={tool.id} className="trade-tool-item">
+                                <span className="trade-tool-name">{tool.name}</span>
                                 <span className="trade-tool-badge badge-job-specific">Job-specific</span>
                               </span>
                             ))
@@ -873,16 +872,22 @@ export default function CreateOrderPage() {
           })()}
 
           <div className="checkbox-grid">
-            {toolRegistry.map((item) => (
-              <label key={item.id} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={jobRequirements.tools.includes(item.name)}
-                  onChange={() => toggleTool(item.name)}
-                />
-                <span>{item.name}</span>
-              </label>
-            ))}
+            {toolTypes.length === 0 ? (
+              <div style={{ color: "rgba(255,255,255,0.45)", fontStyle: "italic", padding: "8px 0" }}>
+                {registryLoaded ? "No Tool Types found. Add them in Admin → Tools." : "Loading Tool Types..."}
+              </div>
+            ) : (
+              toolTypes.map((item) => (
+                <label key={item.id} className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={jobRequirements.tools.includes(item.id)}
+                    onChange={() => toggleTool(item.id)}
+                  />
+                  <span>{item.name}</span>
+                </label>
+              ))
+            )}
           </div>
         </div>
 
@@ -907,16 +912,22 @@ export default function CreateOrderPage() {
         <div className="requirements-subsection">
           <h3>Required PPE</h3>
           <div className="checkbox-grid">
-            {ppeRegistry.map((item) => (
-              <label key={item.id} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={jobRequirements.ppe.includes(item.name)}
-                  onChange={() => togglePPE(item.name)}
-                />
-                <span>{item.name}</span>
-              </label>
-            ))}
+            {ppeTypes.length === 0 ? (
+              <div style={{ color: "rgba(255,255,255,0.45)", fontStyle: "italic", padding: "8px 0" }}>
+                {registryLoaded ? "No PPE Types found. Add them in Admin → PPE." : "Loading PPE Types..."}
+              </div>
+            ) : (
+              ppeTypes.map((item) => (
+                <label key={item.id} className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={jobRequirements.ppe.includes(item.id)}
+                    onChange={() => togglePPE(item.id)}
+                  />
+                  <span>{item.name}</span>
+                </label>
+              ))
+            )}
           </div>
         </div>
       </div>
