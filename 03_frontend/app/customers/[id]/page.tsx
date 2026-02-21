@@ -426,8 +426,26 @@ export default function CustomerDetailPage() {
   const [ppeTypes, setPpeTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
   const [ppeTypesLoaded, setPpeTypesLoaded] = useState(false);
 
-  // Customer PPE policy: selected PPE Type IDs + notes (Layer 2, UI-only)
-  const [selectedPpeItems, setSelectedPpeItems] = useState<Array<{ ppeTypeId: string; notes: string }>>([]);
+  // Customer PPE requirements (Layer 2: persisted via backend)
+  const [customerPpeReqs, setCustomerPpeReqs] = useState<Array<{
+    id: string;
+    ppeTypeId: string;
+    notes: string | null;
+    ppeType?: { id: string; name: string };
+  }>>([]);
+  const [customerPpeLoaded, setCustomerPpeLoaded] = useState(false);
+
+  const loadCustomerPpeReqs = async () => {
+    try {
+      const data = await apiFetch<any>(`/customers/${customerId}/ppe-requirements`);
+      setCustomerPpeReqs(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      console.error("Failed to load customer PPE requirements:", e);
+      setCustomerPpeReqs([]);
+    } finally {
+      setCustomerPpeLoaded(true);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -450,6 +468,10 @@ export default function CustomerDetailPage() {
     })();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    loadCustomerPpeReqs();
+  }, [customerId]);
 
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showEditContactModal, setShowEditContactModal] = useState(false);
@@ -508,11 +530,13 @@ export default function CustomerDetailPage() {
   const [showEditPpeModal, setShowEditPpeModal] = useState(false);
   const [showDeletePpeModal, setShowDeletePpeModal] = useState(false);
   const [editingPpeItem, setEditingPpeItem] = useState<{
+    reqId: string;
     ppeTypeId: string;
     ppeName: string;
     notes: string;
   } | null>(null);
   const [deletingPpeItem, setDeletingPpeItem] = useState<{
+    reqId: string;
     ppeTypeId: string;
     ppeName: string;
   } | null>(null);
@@ -976,18 +1000,30 @@ export default function CustomerDetailPage() {
     setShowAddPpeModal(false);
   };
 
-  const handleSaveNewPpe = () => {
+  const handleSaveNewPpe = async () => {
     if (!addPpeTypeId) return;
-    if (selectedPpeItems.some((p) => p.ppeTypeId === addPpeTypeId)) {
+    if (customerPpeReqs.some((p) => p.ppeTypeId === addPpeTypeId)) {
       setAddPpeDuplicateWarning(true);
       return;
     }
-    setSelectedPpeItems([...selectedPpeItems, { ppeTypeId: addPpeTypeId, notes: addPpeNotes.trim() }]);
-    setShowAddPpeModal(false);
+    try {
+      await apiFetch(`/customers/${customerId}/ppe-requirements`, {
+        method: "POST",
+        body: JSON.stringify({ ppeTypeId: addPpeTypeId, notes: addPpeNotes.trim() || null }),
+      });
+      setShowAddPpeModal(false);
+      loadCustomerPpeReqs();
+    } catch (e: any) {
+      if (e?.status === 409 || e?.message?.includes("409")) {
+        setAddPpeDuplicateWarning(true);
+      } else {
+        console.error("Failed to add PPE requirement:", e);
+      }
+    }
   };
 
-  const handleOpenEditPpeModal = (ppeTypeId: string, ppeName: string, notes: string) => {
-    setEditingPpeItem({ ppeTypeId, ppeName, notes });
+  const handleOpenEditPpeModal = (reqId: string, ppeTypeId: string, ppeName: string, notes: string) => {
+    setEditingPpeItem({ reqId, ppeTypeId, ppeName, notes });
     setShowEditPpeModal(true);
   };
 
@@ -996,19 +1032,23 @@ export default function CustomerDetailPage() {
     setEditingPpeItem(null);
   };
 
-  const handleSaveEditPpe = () => {
+  const handleSaveEditPpe = async () => {
     if (!editingPpeItem) return;
-    setSelectedPpeItems(selectedPpeItems.map((p) =>
-      p.ppeTypeId === editingPpeItem.ppeTypeId
-        ? { ...p, notes: editingPpeItem.notes.trim() }
-        : p
-    ));
-    setShowEditPpeModal(false);
-    setEditingPpeItem(null);
+    try {
+      await apiFetch(`/customers/${customerId}/ppe-requirements/${editingPpeItem.reqId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: editingPpeItem.notes.trim() || null }),
+      });
+      setShowEditPpeModal(false);
+      setEditingPpeItem(null);
+      loadCustomerPpeReqs();
+    } catch (e: any) {
+      console.error("Failed to update PPE requirement:", e);
+    }
   };
 
-  const handleOpenDeletePpeModal = (ppeTypeId: string, ppeName: string) => {
-    setDeletingPpeItem({ ppeTypeId, ppeName });
+  const handleOpenDeletePpeModal = (reqId: string, ppeTypeId: string, ppeName: string) => {
+    setDeletingPpeItem({ reqId, ppeTypeId, ppeName });
     setShowDeletePpeModal(true);
   };
 
@@ -1017,24 +1057,28 @@ export default function CustomerDetailPage() {
     setDeletingPpeItem(null);
   };
 
-  const handleConfirmDeletePpe = () => {
+  const handleConfirmDeletePpe = async () => {
     if (!deletingPpeItem) return;
-    setSelectedPpeItems(selectedPpeItems.filter((p) => p.ppeTypeId !== deletingPpeItem.ppeTypeId));
-    setShowDeletePpeModal(false);
-    setDeletingPpeItem(null);
+    try {
+      await apiFetch(`/customers/${customerId}/ppe-requirements/${deletingPpeItem.reqId}`, {
+        method: "DELETE",
+      });
+      setShowDeletePpeModal(false);
+      setDeletingPpeItem(null);
+      loadCustomerPpeReqs();
+    } catch (e: any) {
+      console.error("Failed to delete PPE requirement:", e);
+    }
   };
 
-  // Derive rendered PPE from dictionary + selected IDs
+  // Derive rendered PPE from persisted requirements
   const renderedPpe = useMemo(() => {
     const typeMap = new Map(ppeTypes.map((t) => [t.id, t]));
-    return selectedPpeItems
-      .map((item) => {
-        const dictEntry = typeMap.get(item.ppeTypeId);
-        if (!dictEntry) return null;
-        return { ppeTypeId: item.ppeTypeId, name: dictEntry.name, notes: item.notes };
-      })
-      .filter((x): x is { ppeTypeId: string; name: string; notes: string } => x !== null);
-  }, [ppeTypes, selectedPpeItems]);
+    return customerPpeReqs.map((row) => {
+      const name = row.ppeType?.name ?? typeMap.get(row.ppeTypeId)?.name ?? row.ppeTypeId;
+      return { reqId: row.id, ppeTypeId: row.ppeTypeId, name, notes: row.notes || "" };
+    });
+  }, [ppeTypes, customerPpeReqs]);
 
   const handleSaveQuote = () => {
     if (!draftQuote) return;
@@ -1419,7 +1463,13 @@ export default function CustomerDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {renderedPpe.length === 0 ? (
+                  {!customerPpeLoaded ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: "24px 16px", color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>
+                        Loading customer PPE…
+                      </td>
+                    </tr>
+                  ) : renderedPpe.length === 0 ? (
                     <tr>
                       <td colSpan={3} style={{ textAlign: "center", padding: "24px 16px", color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>
                         No PPE configured yet.
@@ -1427,19 +1477,19 @@ export default function CustomerDetailPage() {
                     </tr>
                   ) : (
                     renderedPpe.map((ppe) => (
-                      <tr key={ppe.ppeTypeId}>
+                      <tr key={ppe.reqId}>
                         <td className="ppe-name">{ppe.name}</td>
                         <td className="ppe-notes">{ppe.notes || "—"}</td>
                         <td className="ppe-actions">
                           <button
                             className="ppe-action-link"
-                            onClick={() => handleOpenEditPpeModal(ppe.ppeTypeId, ppe.name, ppe.notes)}
+                            onClick={() => handleOpenEditPpeModal(ppe.reqId, ppe.ppeTypeId, ppe.name, ppe.notes)}
                           >
                             Edit
                           </button>
                           <button
                             className="ppe-action-link ppe-action-delete"
-                            onClick={() => handleOpenDeletePpeModal(ppe.ppeTypeId, ppe.name)}
+                            onClick={() => handleOpenDeletePpeModal(ppe.reqId, ppe.ppeTypeId, ppe.name)}
                           >
                             Delete
                           </button>
