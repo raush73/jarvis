@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 // OT Multiplier constraints
 const OT_MULTIPLIER_MIN = 1.47;
@@ -76,25 +77,6 @@ function generateOrderId(): string {
   return `ORD-${year}-${num}`;
 }
 
-// Mock data for job requirements
-const MOCK_TOOLS = [
-  "Torque Wrench",
-  "Dial Indicator",
-  "Laser Alignment Tool",
-  "Hydraulic Jack",
-  "Rigging Equipment",
-  "Multimeter",
-  "Pipe Threader",
-  "Welding Equipment",
-];
-
-const MOCK_CUSTOMER_TOOLS: Record<string, string[]> = {
-  Millwright: ["Torque Wrench", "Dial Indicator", "Laser Alignment Tool"],
-  Electrician: ["Multimeter", "Wire Strippers", "Conduit Bender"],
-  Pipefitter: ["Pipe Threader", "Pipe Cutter", "Level"],
-  Welder: ["Welding Equipment", "Grinder", "Chipping Hammer"],
-};
-
 const MOCK_CERTIFICATIONS = [
   "OSHA 10",
   "OSHA 30",
@@ -104,17 +86,6 @@ const MOCK_CERTIFICATIONS = [
   "Fall Protection",
   "Forklift Certified",
   "Rigging Certified",
-];
-
-const MOCK_PPE = [
-  "Hard Hat",
-  "FR Clothing",
-  "Steel Toe Boots",
-  "Safety Glasses",
-  "Gloves",
-  "High-Vis Vest",
-  "Hearing Protection",
-  "Respirator",
 ];
 
 // MW4H Standard Tool List (mock)
@@ -208,6 +179,30 @@ export default function CreateOrderPage() {
     certifications: [],
     ppe: [],
   });
+
+  // Registry-backed PPE and Tool types
+  const [ppeRegistry, setPpeRegistry] = useState<any[]>([]);
+  const [toolRegistry, setToolRegistry] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadRegistry() {
+      try {
+        const [ppe, tools] = await Promise.all([
+          apiFetch("/ppe-types?activeOnly=true"),
+          apiFetch("/tool-types?activeOnly=true"),
+        ]);
+
+        setPpeRegistry(Array.isArray(ppe) ? ppe : []);
+        setToolRegistry(Array.isArray(tools) ? tools : []);
+      } catch (err) {
+        console.error("Failed to load registry data", err);
+        setPpeRegistry([]);
+        setToolRegistry([]);
+      }
+    }
+
+    loadRegistry();
+  }, []);
 
   useEffect(() => {
     if (!orderId) return;
@@ -367,8 +362,7 @@ export default function CreateOrderPage() {
     setJobRequirements({ ...jobRequirements, ppe: newPPE });
   };
 
-  // Get customer tools based on first trade line
-  const customerTools = MOCK_CUSTOMER_TOOLS[tradeLines[0]?.trade] || [];
+  const customerTools: string[] = [];
 
   // Form validation
   const canSubmit = orderName.trim() !== "" && !commissionError;
@@ -800,7 +794,7 @@ export default function CreateOrderPage() {
             const getBaselineForTrade = (displayTrade: string): string[] => {
               const normalizedTrade = TRADE_DISPLAY_ALIAS[displayTrade] || displayTrade;
               if (jobRequirements.useCustomerToolList) {
-                return MOCK_CUSTOMER_TOOLS[normalizedTrade] || [];
+                return [];
               } else if (jobRequirements.useMW4HStandardToolList) {
                 return MW4H_BASELINE_BY_TRADE[normalizedTrade] || [];
               }
@@ -879,14 +873,14 @@ export default function CreateOrderPage() {
           })()}
 
           <div className="checkbox-grid">
-            {MOCK_TOOLS.map((tool) => (
-              <label key={tool} className="checkbox-label">
+            {toolRegistry.map((item) => (
+              <label key={item.id} className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={jobRequirements.tools.includes(tool)}
-                  onChange={() => toggleTool(tool)}
+                  checked={jobRequirements.tools.includes(item.name)}
+                  onChange={() => toggleTool(item.name)}
                 />
-                <span>{tool}</span>
+                <span>{item.name}</span>
               </label>
             ))}
           </div>
@@ -913,14 +907,14 @@ export default function CreateOrderPage() {
         <div className="requirements-subsection">
           <h3>Required PPE</h3>
           <div className="checkbox-grid">
-            {MOCK_PPE.map((item) => (
-              <label key={item} className="checkbox-label">
+            {ppeRegistry.map((item) => (
+              <label key={item.id} className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={jobRequirements.ppe.includes(item)}
-                  onChange={() => togglePPE(item)}
+                  checked={jobRequirements.ppe.includes(item.name)}
+                  onChange={() => togglePPE(item.name)}
                 />
-                <span>{item}</span>
+                <span>{item.name}</span>
               </label>
             ))}
           </div>
