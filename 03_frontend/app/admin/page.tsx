@@ -151,6 +151,20 @@ export default function AdminPage() {
           </div>
         </Link>
 
+        {/* PPE Catalog Card - Active */}
+        <Link href="/admin/ppe" className="admin-card active">
+          <div className="card-header">
+            <div className="card-title">PPE Catalog</div>
+            <span className="badge active">ACTIVE</span>
+          </div>
+          <div className="card-desc">
+            Manage personal protective equipment types for orders and compliance.
+          </div>
+          <div className="card-footer">
+            <span className="link-hint">Open PPE Catalog →</span>
+          </div>
+        </Link>
+
         {/* Work Comp Report Card - Active */}
         <Link href="/admin/reports/work-comp" className="admin-card active">
           <div className="card-header">
