@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 type PpeType = {
   id: string;
@@ -30,7 +31,7 @@ export default function PpeCatalogPage() {
   const fetchPpeTypes = useCallback(async () => {
     try {
       setFetchError(null);
-      const res = await fetch("/api/ppe-types");
+      const res = await apiFetch("/api/ppe-types");
       if (!res.ok) throw new Error(`Failed to load PPE types (${res.status})`);
       const data = await res.json();
       setPpeTypes(data);
@@ -83,7 +84,7 @@ export default function PpeCatalogPage() {
 
     try {
       if (modalMode === "create") {
-        const res = await fetch("/api/ppe-types", {
+        const res = await apiFetch("/api/ppe-types", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: trimmed }),
@@ -93,7 +94,7 @@ export default function PpeCatalogPage() {
           throw new Error(body || `Create failed (${res.status})`);
         }
       } else if (editingItem) {
-        const res = await fetch(`/api/ppe-types/${editingItem.id}`, {
+        const res = await apiFetch(`/api/ppe-types/${editingItem.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: trimmed, isActive: formIsActive }),
