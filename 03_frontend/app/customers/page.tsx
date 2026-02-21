@@ -5,7 +5,71 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 
-const UNIQUE_SALESPEOPLE: string[] = [];
+type SalespersonRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  isActive: boolean;
+};
+
+function buildSalespersonLabel(sp: SalespersonRecord): string {
+  const name = `${sp.firstName ?? ""} ${sp.lastName ?? ""}`.trim();
+  return name || sp.email || sp.id;
+}
+
+const US_STATE_CODES = [
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
+] as const;
 
 function formatUpdatedAt(value: any): string {
   if (!value) return "—";
@@ -19,16 +83,42 @@ export default function CustomersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "customer" | "prospect">("all");
-  const [salespersonFilter, setSalespersonFilter] = useState("all");
+  const [salespersonIdFilter, setSalespersonIdFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "updatedAt">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  const [salespeople, setSalespeople] = useState<SalespersonRecord[]>([]);
+
   const [customers, setCustomers] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await apiFetch<SalespersonRecord[]>("/salespeople");
+        if (!alive) return;
+        const active = (Array.isArray(res) ? res : []).filter((sp) => sp.isActive);
+        active.sort((a, b) =>
+          buildSalespersonLabel(a).localeCompare(buildSalespersonLabel(b), undefined, {
+            sensitivity: "base",
+          })
+        );
+        setSalespeople(active);
+      } catch {
+        if (!alive) return;
+        setSalespeople([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -44,6 +134,12 @@ export default function CustomersPage() {
           order: sortOrder,
         });
         if (debouncedSearch) params.set("search", debouncedSearch);
+        if (salespersonIdFilter && salespersonIdFilter !== "all") {
+          params.set("salespersonId", salespersonIdFilter);
+        }
+        if (stateFilter && stateFilter !== "all") {
+          params.set("state", stateFilter);
+        }
 
         const res = await apiFetch<{
           data: any[];
@@ -65,7 +161,7 @@ export default function CustomersPage() {
     return () => {
       alive = false;
     };
-  }, [debouncedSearch, sortBy, sortOrder, page, pageSize]);
+  }, [debouncedSearch, salespersonIdFilter, stateFilter, sortBy, sortOrder, page, pageSize]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -105,6 +201,36 @@ export default function CustomersPage() {
           className="control-search"
         />
         <select
+          value={salespersonIdFilter}
+          onChange={(e) => {
+            setSalespersonIdFilter(e.target.value);
+            setPage(1);
+          }}
+          className="control-select"
+        >
+          <option value="all">All salespeople</option>
+          {salespeople.map((sp) => (
+            <option key={sp.id} value={sp.id}>
+              {buildSalespersonLabel(sp)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={stateFilter}
+          onChange={(e) => {
+            setStateFilter(e.target.value);
+            setPage(1);
+          }}
+          className="control-select"
+        >
+          <option value="all">All states</option>
+          {US_STATE_CODES.map((code) => (
+            <option key={code} value={code}>
+              {code}
+            </option>
+          ))}
+        </select>
+        <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as "all" | "customer" | "prospect")}
           className="control-select"
@@ -112,18 +238,6 @@ export default function CustomersPage() {
           <option value="all">All</option>
           <option value="customer">Customers</option>
           <option value="prospect">Prospects</option>
-        </select>
-        <select
-          value={salespersonFilter}
-          onChange={(e) => setSalespersonFilter(e.target.value)}
-          className="control-select"
-        >
-          <option value="all">All</option>
-          {UNIQUE_SALESPEOPLE.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
         </select>
         <select
           value={sortBy}
