@@ -1,245 +1,114 @@
-# 🔒 JARVIS PRIME — FULL CANONICAL SYSTEM HANDOFF
+# 🔒 JARVIS PRIME — FULL SYSTEM HANDOFF
 
-**Date:** 2026-02-20 (America/Chicago)
+**Date:** 2026-02-21
 **Branch:** `wip/customers-wiring-2026-02-17`
-**Primary Drive:** `E:\JARVIS` (D:\JARVIS is backup only)
-**Latest Commit:** `e9c7949`
-**Status:** Clean, pushed, synchronized
+**Primary Drive:** `E:\JARVIS` (D: is backup only)
+**Local Ports (expected):** Frontend `3000` (Next), Backend `3002` (Nest)
+**Auth model:** Frontend `/api/*` proxies to backend and forwards `Authorization` header; backend endpoints require JWT (401 expected when backend down or no token).
 
 ---
 
-# 1️⃣ Current System Stability
+## ✅ What We Accomplished Today
 
-### Frontend
+### 1) Verified ownership wiring end-to-end (no guesses)
 
-* Next.js dev: `http://localhost:3001`
-* Proxy routes active under `/api/*`
-* Customer Hub wired
-* Customer Detail wired
-* Contacts rendering from backend
-* Street address rendering from `locations[0].address1`
-* No fallback "Street address not on file" for valid records
-* Working in logged-out demo mode (banner still visible)
+We confirmed the Customer Ownership page is **registry-driven**:
 
-### Backend
+* **Dropdown source:** `GET /salespeople` returns Salesperson registry records with `{ id, firstName, lastName, email, isActive, userId }`.
+* **Save endpoint:** `PATCH /customers/:id/default-salesperson` with payload `{ salespersonId: <Salesperson.id> }`.
+* **Backend behavior:** maps registry → user:
 
-* NestJS: `http://127.0.0.1:3002`
-* `/readyz` → OK
-* `GET /customers` → envelope Option B
-* `GET /customers/:id` → returns:
+  * Writes `Customer.defaultSalespersonId = Salesperson.id`
+  * Writes `Customer.defaultSalespersonUserId = Salesperson.userId (or null)`
+* **Hub display:** shows `defaultSalesperson` object mapped from `defaultSalespersonRegistry` relation (registry join), not from User.
 
-  * defaultSalesperson
-  * contacts[]
-  * locations[]
-* Training DB confirmed
-* No schema changes today
-* No drift
+### 2) Resolved a real schema drift situation (cleanly + safely)
 
-### Git
+We found the backend/service code and migrations expected `defaultSalespersonId` + registry relation, but the committed `prisma/schema.prisma` did not include it (drift).
 
-* Root repo clean
-* Backend repo clean
-* No uncommitted tracked changes
-* Only intentional file modified in last commit
-* Remote branch synced
+Actions taken:
 
-System is stable.
+* Avoided Prisma version drift (kept Prisma Client v7.2.0; ignored update prompt).
+* Ran `prisma db pull` only to **confirm DB truth** (training DB had the field), but **did not commit** the introspected churn.
+* Performed **surgical schema fix** and regenerated Prisma client.
+* Committed and pushed schema alignment (backend repo).
 
----
+**Backend commit (schema alignment):**
 
-# 2️⃣ What Was Completed This Session
+* `Schema: align Customer with DB (defaultSalespersonId + registry relation)`
+* SHA: `d769c5b` (backend repo)
 
-### ✅ Customer Contacts Wiring
+### 3) Backend: implemented Customer Hub query enhancements
 
-Backend:
+**Goal:** allow Customer Hub to filter correctly by registry ownership and search by contact name.
 
-* `findOne()` now returns full `contacts[]`
+Changes:
 
-Frontend:
+* `/customers` search now matches:
 
-* Customer detail consumes contacts array
+  * `Customer.name`
+  * `Location.city`
+  * `Location.state`
+  * `CustomerContact.firstName` and `lastName` (only `isActive: true`)
+* Salesperson filter corrected to use:
 
-### ✅ Street Address Wiring
+  * `defaultSalespersonId` (registry id), not `defaultSalespersonUserId`
 
-Backend:
+**Backend commit (customers query enhancements):**
 
-* Already returning `locations[]`
+* `Customers: search includes active contacts + filter by defaultSalespersonId`
+* SHA: `d9dbf39` (backend repo)
 
-Frontend:
+### 4) Frontend: Customer Hub UI filters wired (inline)
 
-* Patched `headerStreetAddress` to read:
-* Verified with All Things Metal
-* Committed & pushed
+**File changed:** `03_frontend/app/customers/page.tsx`
 
-### ❌ No Schema Drift
+Added:
 
-No Prisma changes.
-No migration changes.
-No DB writes during this fix.
+* Inline **Salesperson** dropdown (loads from `/salespeople`, filters `isActive`, sorts A–Z, value = registry `Salesperson.id`)
+* Inline **State** dropdown (static 50-state list, value = 2-letter code)
+* When filters change (salesperson/state/search), pagination resets to page 1
+* Customers request now includes query params:
 
----
+  * `salespersonId=<Salesperson.id>` (registry)
+  * `state=<STATE_CODE>`
+  * `search=<text>` (existing, now expanded backend-side)
 
-# 3️⃣ Immediate Next Build Plan
+**Frontend commit:**
 
-We will proceed in controlled sequence:
+* `Customers Hub: add salesperson + state filters`
+* SHA: `6988732` (jarvis main repo)
 
----
+### 5) Operational fix: login issues were caused by backend not running
 
-## 🔹 STEP 1 — Remove Logged-Out Demo Banner (Low Risk UI Adjustment)
+Symptoms:
 
-Goal:
+* `ECONNREFUSED 127.0.0.1:3002` from Next `/api/*` routes
+* 500s on `/api/auth/login`, `/api/customers`, `/api/salespeople`
 
-* Remove or conditionally suppress the "You are viewing Jarvis Prime in logged-out demo mode" banner.
+Resolution:
 
-Rules:
+* Start backend (`npm run start:dev`) so proxies can connect
+* After backend was up, login worked and hub sorting/filtering behaved correctly
 
-* UI-only change
-* No backend edits
-* No auth logic changes
-* No schema changes
-
-Execution Method:
-
-* Use Cursor Agent (Opus 4.6)
-* Use 5.2 planning model to create surgical patch
-* Single file modification only
-* Commit isolated
+**Current state:** Michael confirmed login works and the sort feature behaves as desired.
 
 ---
 
-## 🔹 STEP 2 — Fully Wire Customer Contacts (Create + Edit)
+## ✅ Current Behavior Confirmed Working
 
-Current state:
-
-* Contacts display
-* Backend supports contacts
-* UI likely shell for edit/create
-
-Objective:
-
-* Add full Create Contact flow
-* Add full Edit Contact flow
-* Ensure:
-
-* Backend route exists
-* DTO validation
-* UI state binding
-* Success refresh
-* No mock fallback
-* No demo bleed
-
-Rules:
-
-* No schema change unless explicitly required
-* No silent API contract changes
-* Use envelope conventions
-* No breaking findAll/findOne shape
-
-Execution method:
-
-* Planning via ChatGPT 5.2
-* Code generation via Opus 4.6
-* Governance-first capsule
-* Mandatory ACK block
+* Can log in
+* Customer Hub list loads
+* Sort works as expected
+* Salesperson filter works using registry ownership
+* State filter works
+* Global search now can find customers by **contact first/last name** (active contacts)
 
 ---
 
-# 4️⃣ Bot Enforcement Plan (Do This Correctly)
+# Session Handoff Lock Summary
 
-Before any build step:
-
-### Run Guardian Checks (Conceptual Order)
-
-1. Schema Drift Guardian
-2. API Contract Auditor
-3. UI ↔ Schema Drift Bot
-4. Infra Sentinel (local only)
-5. Log Triage
-
-We will explicitly require Opus to:
-
-* Confirm no schema drift
-* Confirm no unintended file modifications
-* Confirm commit isolation
-
----
-
-# 5️⃣ Packet Status
-
-### Packet 5 — Customer Portal (ACTIVE)
-
-Completed:
-
-* Customer list wiring
-* Ownership wiring
-* Contacts read
-* Location read
-* Street display fix
-
-Pending:
-
-* Contact create
-* Contact edit
-* Contact delete validation
-* Approval package wiring
-* Internal toggle persistence
-
----
-
-### Packet 6 — Money (Not Started)
-
-Untouched.
-
----
-
-# 6️⃣ Known Environment Notes
-
-* Next.js warning about multiple lockfiles (non-blocking)
-* Windows CRLF warnings (non-blocking)
-* Training DB confirmed
-* No evidence of database switching during this session
-* No ghost commits
-* No uncommitted tracked changes
-
----
-
-# 7️⃣ Hard Rules For Next Build
-
-1. No `git add .`
-2. No backend schema edits
-3. No multi-file regex patching
-4. No duplicate return keys
-5. No silent envelope shape changes
-6. One surgical change per commit
-7. Commit message must describe exact scope
-
----
-
-# 8️⃣ First Action In Next Session
-
-We will begin with:
-
-> Remove logged-out demo banner via surgical UI patch.
-
-Then:
-
-> Wire Customer Contacts Create/Edit fully.
-
-Then pause and re-evaluate Packet movement.
-
----
-
-# 9️⃣ Current System Health Assessment
-
-This is the first time in several hours that:
-
-* DB confirmed correct
-* Backend confirmed correct
-* Frontend confirmed correct
-* Git confirmed clean
-* Branch confirmed synced
-* UI verified visually
-* No runtime errors
-* No schema instability
-
-This is a clean architectural checkpoint.
+* Salesperson filtering and display in Customer Hub must be based on **Salesperson registry ID** (`defaultSalespersonId`).
+* Search must include **active contacts**.
+* Avoid Prisma version drift; run Prisma commands from `E:\JARVIS\02_backend`.
+* If `/api/*` endpoints error with ECONNREFUSED, backend is not running; start it.
