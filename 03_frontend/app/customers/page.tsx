@@ -81,14 +81,14 @@ function formatUpdatedAt(value: any): string {
 const AZ_STRIP = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")] as const;
 type AzBucket = (typeof AZ_STRIP)[number];
 
-function toAzBucket(displayName: unknown): AzBucket {
-  const name = String(displayName ?? "").trim();
-  const first = name.charAt(0).toUpperCase();
-  if (first >= "A" && first <= "Z") return first as AzBucket;
+function getAlphaBucket(name: string): string {
+  const trimmed = String(name ?? "").trim();
+  const first = trimmed.charAt(0).toUpperCase();
+  if (first >= "A" && first <= "Z") return first;
   return "#";
 }
 
-function azAnchorId(bucket: AzBucket): string {
+function azAnchorId(bucket: string): string {
   return bucket === "#" ? "az-bucket-hash" : `az-bucket-${bucket}`;
 }
 export default function CustomersPage() {
@@ -110,6 +110,76 @@ export default function CustomersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [azJumpLoading, setAzJumpLoading] = useState(false);
+  const [pendingJumpLetter, setPendingJumpLetter] = useState<string | null>(null);
+  const [azJumpMessage, setAzJumpMessage] = useState<string | null>(null);
+
+  function buildCustomersParams(skip: number, take: number) {
+    const params = new URLSearchParams({
+      take: String(take),
+      skip: String(skip),
+      sort: sortBy,
+      order: sortOrder,
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (typeFilter && typeFilter !== "all") params.set("type", typeFilter);
+    if (salespersonIdFilter && salespersonIdFilter !== "all") {
+      params.set("salespersonId", salespersonIdFilter);
+    }
+    if (stateFilter && stateFilter !== "all") {
+      params.set("state", stateFilter);
+    }
+    return params;
+  }
+
+  async function fetchCustomersPage(skip: number, take: number) {
+    return await apiFetch<{
+      data: any[];
+      meta: { total: number; take: number; skip: number };
+    }>(`/customers?${buildCustomersParams(skip, take).toString()}`);
+  }
+
+  async function jumpToLetter(letter: string) {
+    if (azJumpLoading) return;
+
+    const target = (letter || "").trim().toUpperCase();
+    const targetBucket: string = target >= "A" && target <= "Z" ? target : "#";
+
+    setAzJumpLoading(true);
+    setAzJumpMessage(null);
+    try {
+      if (!totalCount) {
+        setAzJumpMessage(`No ${targetBucket} customers under current filters`);
+        return;
+      }
+
+      const pagesToScan = Math.max(1, Math.ceil(totalCount / pageSize));
+      let foundPage: number | null = null;
+
+      for (let p = 1; p <= pagesToScan; p++) {
+        const skip = (p - 1) * pageSize;
+        const res = await fetchCustomersPage(skip, pageSize);
+        const data = Array.isArray(res.data) ? res.data : [];
+        const found = data.find((c) => getAlphaBucket(String(c?.name ?? "")) === targetBucket);
+        if (found) {
+          foundPage = p;
+          break;
+        }
+      }
+
+      if (foundPage) {
+        setPage(foundPage);
+        setPendingJumpLetter(targetBucket);
+      } else {
+        setAzJumpMessage(`No ${targetBucket} customers under current filters`);
+      }
+    } catch {
+      setAzJumpMessage("A–Z jump failed");
+    } finally {
+      setAzJumpLoading(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -141,24 +211,7 @@ export default function CustomersPage() {
       setError(null);
       try {
         const skip = (page - 1) * pageSize;
-        const params = new URLSearchParams({
-          take: String(pageSize),
-          skip: String(skip),
-          sort: sortBy,
-          order: sortOrder,
-        });
-        if (debouncedSearch) params.set("search", debouncedSearch);
-        if (salespersonIdFilter && salespersonIdFilter !== "all") {
-          params.set("salespersonId", salespersonIdFilter);
-        }
-        if (stateFilter && stateFilter !== "all") {
-          params.set("state", stateFilter);
-        }
-
-        const res = await apiFetch<{
-          data: any[];
-          meta: { total: number; take: number; skip: number };
-        }>(`/customers?${params.toString()}`);
+        const res = await fetchCustomersPage(skip, pageSize);
         if (!alive) return;
         setCustomers(Array.isArray(res.data) ? res.data : []);
         setTotalCount(res.meta?.total ?? 0);
@@ -175,7 +228,7 @@ export default function CustomersPage() {
     return () => {
       alive = false;
     };
-  }, [debouncedSearch, salespersonIdFilter, stateFilter, sortBy, sortOrder, page, pageSize]);
+  }, [debouncedSearch, typeFilter, salespersonIdFilter, stateFilter, sortBy, sortOrder, page, pageSize]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -191,17 +244,36 @@ export default function CustomersPage() {
   );
 
   const azBuckets = useMemo(() => {
-    const available = new Set<AzBucket>();
     const firstIndex: Partial<Record<AzBucket, number>> = {};
-
     for (let i = 0; i < customers.length; i++) {
-      const bucket = toAzBucket(customers[i]?.name);
-      available.add(bucket);
+      const bucket = getAlphaBucket(String(customers[i]?.name ?? "")) as AzBucket;
       if (firstIndex[bucket] === undefined) firstIndex[bucket] = i;
     }
-
-    return { available, firstIndex };
+    return { firstIndex };
   }, [customers]);
+
+  useEffect(() => {
+    if (!pendingJumpLetter) return;
+    if (loading) return;
+    if (!customers.length) return;
+
+    const el = document.getElementById(azAnchorId(pendingJumpLetter));
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPendingJumpLetter(null);
+      return;
+    }
+
+    // Fallback: scroll to the first row match if anchor isn't present for some reason.
+    const idx = customers.findIndex(
+      (c) => getAlphaBucket(String(c?.name ?? "")) === pendingJumpLetter
+    );
+    if (idx >= 0) {
+      const fallback = document.getElementById(`az-row-${customers[idx]?.id ?? idx}`);
+      fallback?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setPendingJumpLetter(null);
+  }, [pendingJumpLetter, loading, customers]);
 
   return (
     <div className="customers-container">
@@ -259,7 +331,10 @@ export default function CustomersPage() {
         </select>
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "all" | "customer" | "prospect")}
+          onChange={(e) => {
+            setTypeFilter(e.target.value as "all" | "customer" | "prospect");
+            setPage(1);
+          }}
           className="control-select"
         >
           <option value="all">All</option>
@@ -318,23 +393,25 @@ export default function CustomersPage() {
 
       <div className="az-strip" aria-label="A to Z jump">
         {AZ_STRIP.map((bucket) => {
-          const enabled = azBuckets.available.has(bucket);
           return (
             <button
               key={bucket}
               type="button"
               className="az-btn"
-              disabled={!enabled}
-              aria-disabled={!enabled}
+              disabled={azJumpLoading}
+              aria-disabled={azJumpLoading}
+              aria-busy={azJumpLoading}
               onClick={() => {
-                const el = document.getElementById(azAnchorId(bucket));
-                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                jumpToLetter(bucket);
               }}
             >
               {bucket}
             </button>
           );
         })}
+        <div className="az-status" aria-live="polite">
+          {azJumpLoading ? "Finding…" : azJumpMessage ? azJumpMessage : null}
+        </div>
       </div>
 
       {/* Customers Table */}
@@ -351,7 +428,7 @@ export default function CustomersPage() {
     </thead>
     <tbody>
       {customers.map((customer, idx) => {
-        const bucket = toAzBucket(customer?.name);
+        const bucket = getAlphaBucket(String(customer?.name ?? "")) as AzBucket;
         const isFirstForBucket = azBuckets.firstIndex[bucket] === idx;
 
         return (
@@ -364,6 +441,7 @@ export default function CustomersPage() {
               </tr>
             ) : null}
             <tr
+              id={`az-row-${customer.id}`}
               onClick={() => router.push(`/customers/${customer.id}`)}
               style={{ cursor: "pointer" }}
             >
@@ -441,6 +519,7 @@ export default function CustomersPage() {
 
         .az-strip {
           display: flex;
+          align-items: center;
           flex-wrap: wrap;
           gap: 6px;
           padding: 10px 12px;
@@ -470,6 +549,13 @@ export default function CustomersPage() {
         .az-btn:disabled {
           opacity: 0.35;
           cursor: not-allowed;
+        }
+
+        .az-status {
+          margin-left: 10px;
+          font-size: 12.5px;
+          color: rgba(255, 255, 255, 0.55);
+          min-height: 16px;
         }
 
         .control-search {
