@@ -91,6 +91,10 @@ function getAlphaBucket(name: string): string {
 function azAnchorId(bucket: string): string {
   return bucket === "#" ? "az-bucket-hash" : `az-bucket-${bucket}`;
 }
+
+function azFirstRowId(bucket: string): string {
+  return bucket === "#" ? "az-hash-first" : `az-${bucket}-first`;
+}
 export default function CustomersPage() {
   const router = useRouter();
 
@@ -257,22 +261,14 @@ export default function CustomersPage() {
     if (loading) return;
     if (!customers.length) return;
 
-    const el = document.getElementById(azAnchorId(pendingJumpLetter));
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const bucket = pendingJumpLetter;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(azFirstRowId(bucket));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       setPendingJumpLetter(null);
-      return;
-    }
-
-    // Fallback: scroll to the first row match if anchor isn't present for some reason.
-    const idx = customers.findIndex(
-      (c) => getAlphaBucket(String(c?.name ?? "")) === pendingJumpLetter
-    );
-    if (idx >= 0) {
-      const fallback = document.getElementById(`az-row-${customers[idx]?.id ?? idx}`);
-      fallback?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    setPendingJumpLetter(null);
+    });
   }, [pendingJumpLetter, loading, customers]);
 
   return (
@@ -427,9 +423,14 @@ export default function CustomersPage() {
       </tr>
     </thead>
     <tbody>
-      {customers.map((customer, idx) => {
+      {(() => {
+        const seenBuckets = new Set<string>();
+        return customers.map((customer, idx) => {
         const bucket = getAlphaBucket(String(customer?.name ?? "")) as AzBucket;
         const isFirstForBucket = azBuckets.firstIndex[bucket] === idx;
+        const isFirstRowForBucket = !seenBuckets.has(bucket);
+        if (isFirstRowForBucket) seenBuckets.add(bucket);
+        const firstRowId = isFirstRowForBucket ? azFirstRowId(bucket) : undefined;
 
         return (
           <Fragment key={customer.id}>
@@ -441,7 +442,7 @@ export default function CustomersPage() {
               </tr>
             ) : null}
             <tr
-              id={`az-row-${customer.id}`}
+              id={firstRowId}
               onClick={() => router.push(`/customers/${customer.id}`)}
               style={{ cursor: "pointer" }}
             >
@@ -462,7 +463,8 @@ export default function CustomersPage() {
             </tr>
           </Fragment>
         );
-      })}
+      });
+      })()}
     </tbody>
   </table>
 </div>
