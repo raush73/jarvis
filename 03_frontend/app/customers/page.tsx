@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 type SalespersonRecord = {
@@ -76,6 +76,20 @@ function formatUpdatedAt(value: any): string {
   const d = new Date(value);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+const AZ_STRIP = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")] as const;
+type AzBucket = (typeof AZ_STRIP)[number];
+
+function toAzBucket(displayName: unknown): AzBucket {
+  const name = String(displayName ?? "").trim();
+  const first = name.charAt(0).toUpperCase();
+  if (first >= "A" && first <= "Z") return first as AzBucket;
+  return "#";
+}
+
+function azAnchorId(bucket: AzBucket): string {
+  return bucket === "#" ? "az-bucket-hash" : `az-bucket-${bucket}`;
 }
 export default function CustomersPage() {
   const router = useRouter();
@@ -175,6 +189,19 @@ export default function CustomersPage() {
     () => Math.max(1, Math.ceil(totalCount / pageSize)),
     [totalCount, pageSize]
   );
+
+  const azBuckets = useMemo(() => {
+    const available = new Set<AzBucket>();
+    const firstIndex: Partial<Record<AzBucket, number>> = {};
+
+    for (let i = 0; i < customers.length; i++) {
+      const bucket = toAzBucket(customers[i]?.name);
+      available.add(bucket);
+      if (firstIndex[bucket] === undefined) firstIndex[bucket] = i;
+    }
+
+    return { available, firstIndex };
+  }, [customers]);
 
   return (
     <div className="customers-container">
@@ -289,6 +316,27 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      <div className="az-strip" aria-label="A to Z jump">
+        {AZ_STRIP.map((bucket) => {
+          const enabled = azBuckets.available.has(bucket);
+          return (
+            <button
+              key={bucket}
+              type="button"
+              className="az-btn"
+              disabled={!enabled}
+              aria-disabled={!enabled}
+              onClick={() => {
+                const el = document.getElementById(azAnchorId(bucket));
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {bucket}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Customers Table */}
       <div className="customers-table-wrap">
   <table className="customers-table">
@@ -302,24 +350,41 @@ export default function CustomersPage() {
       </tr>
     </thead>
     <tbody>
-      {customers.map((customer) => (
-        <tr
-          key={customer.id}
-          onClick={() => router.push(`/customers/${customer.id}`)}
-          style={{ cursor: "pointer" }}
-        >
-          <td>
-            <div className="cell-primary">{customer.name}</div>
-            {customer.websiteUrl ? (
-              <div className="cell-sub">{customer.websiteUrl}</div>
+      {customers.map((customer, idx) => {
+        const bucket = toAzBucket(customer?.name);
+        const isFirstForBucket = azBuckets.firstIndex[bucket] === idx;
+
+        return (
+          <Fragment key={customer.id}>
+            {isFirstForBucket ? (
+              <tr id={azAnchorId(bucket)} className="az-anchor-row">
+                <td colSpan={5}>
+                  <span className="az-anchor-label">{bucket}</span>
+                </td>
+              </tr>
             ) : null}
-          </td>
-          <td>{customer.location ?? "—"}</td>
-          <td>{customer.mainPhone ?? "—"}</td>
-          <td>{customer.defaultSalesperson ? `${customer.defaultSalesperson.firstName} ${customer.defaultSalesperson.lastName}` : "—"}</td>
-          <td>{formatUpdatedAt(customer.updatedAt)}</td>
-        </tr>
-      ))}
+            <tr
+              onClick={() => router.push(`/customers/${customer.id}`)}
+              style={{ cursor: "pointer" }}
+            >
+              <td>
+                <div className="cell-primary">{customer.name}</div>
+                {customer.websiteUrl ? (
+                  <div className="cell-sub">{customer.websiteUrl}</div>
+                ) : null}
+              </td>
+              <td>{customer.location ?? "—"}</td>
+              <td>{customer.mainPhone ?? "—"}</td>
+              <td>
+                {customer.defaultSalesperson
+                  ? `${customer.defaultSalesperson.firstName} ${customer.defaultSalesperson.lastName}`
+                  : "—"}
+              </td>
+              <td>{formatUpdatedAt(customer.updatedAt)}</td>
+            </tr>
+          </Fragment>
+        );
+      })}
     </tbody>
   </table>
 </div>
@@ -372,6 +437,39 @@ export default function CustomersPage() {
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 12px;
           flex-wrap: wrap;
+        }
+
+        .az-strip {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 10px 12px;
+          margin-bottom: 14px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+        }
+
+        .az-btn {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          cursor: pointer;
+          transition: background 0.15s ease, opacity 0.15s ease;
+        }
+
+        .az-btn:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .az-btn:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
         }
 
         .control-search {
@@ -487,6 +585,29 @@ export default function CustomersPage() {
           font-size: 14px;
           color: rgba(255, 255, 255, 0.85);
           border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .az-anchor-row td {
+          padding: 10px 20px;
+          font-size: 12px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.55);
+          background: rgba(255, 255, 255, 0.02);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+
+        .az-anchor-label {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 18px;
+          border-radius: 6px;
+          background: rgba(59, 130, 246, 0.14);
+          color: rgba(255, 255, 255, 0.75);
+          border: 1px solid rgba(59, 130, 246, 0.22);
         }
 
         .customer-row {
