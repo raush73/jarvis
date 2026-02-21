@@ -31,9 +31,7 @@ export default function PpeCatalogPage() {
   const fetchPpeTypes = useCallback(async () => {
     try {
       setFetchError(null);
-      const res = await apiFetch("/ppe-types");
-      if (!res.ok) throw new Error(`Failed to load PPE types (${res.status})`);
-      const data = await res.json();
+      const data = await apiFetch<PpeType[]>("/ppe-types");
       setPpeTypes(data);
     } catch (err: unknown) {
       setFetchError(err instanceof Error ? err.message : "Failed to load PPE types");
@@ -84,25 +82,15 @@ export default function PpeCatalogPage() {
 
     try {
       if (modalMode === "create") {
-        const res = await apiFetch("/ppe-types", {
+        await apiFetch("/ppe-types", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: trimmed }),
         });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(body || `Create failed (${res.status})`);
-        }
       } else if (editingItem) {
-        const res = await apiFetch(`/ppe-types/${editingItem.id}`, {
+        await apiFetch(`/ppe-types/${editingItem.id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: trimmed, isActive: formIsActive }),
         });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(body || `Update failed (${res.status})`);
-        }
       }
 
       closeModal();
