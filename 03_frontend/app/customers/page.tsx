@@ -423,14 +423,9 @@ export default function CustomersPage() {
       </tr>
     </thead>
     <tbody>
-      {(() => {
-        const seenBuckets = new Set<string>();
-        return customers.map((customer, idx) => {
+      {customers.map((customer, idx) => {
         const bucket = getAlphaBucket(String(customer?.name ?? "")) as AzBucket;
         const isFirstForBucket = azBuckets.firstIndex[bucket] === idx;
-        const isFirstRowForBucket = !seenBuckets.has(bucket);
-        if (isFirstRowForBucket) seenBuckets.add(bucket);
-        const firstRowId = isFirstRowForBucket ? azFirstRowId(bucket) : undefined;
 
         return (
           <Fragment key={customer.id}>
@@ -442,7 +437,7 @@ export default function CustomersPage() {
               </tr>
             ) : null}
             <tr
-              id={firstRowId}
+              id={isFirstForBucket ? azFirstRowId(bucket) : undefined}
               onClick={() => router.push(`/customers/${customer.id}`)}
               style={{ cursor: "pointer" }}
             >
@@ -463,8 +458,7 @@ export default function CustomersPage() {
             </tr>
           </Fragment>
         );
-      });
-      })()}
+      })}
     </tbody>
   </table>
 </div>
