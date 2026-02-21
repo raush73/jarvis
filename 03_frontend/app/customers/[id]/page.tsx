@@ -422,20 +422,34 @@ export default function CustomerDetailPage() {
   // UI-only default tool selection: trade-keyed (tools marked as default baseline for that trade)
   const [uiToolDefaultIdsByTrade, setUiToolDefaultIdsByTrade] = useState<Record<string, Set<string>>>({});
 
-  // UI-only PPE state (never initialized from base customer data)
-  const [uiPpe, setUiPpe] = useState<Array<{
-    id: string;
-    name: string;
-    notes: string;
-  }>>([]);
+  // PPE dictionary (Layer 1: Admin PPE types loaded from backend)
+  const [ppeTypes, setPpeTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
+  const [ppeTypesLoaded, setPpeTypesLoaded] = useState(false);
 
-  // UI overlays for base/mock PPE (edits and deletes without mutating source)
-  const [uiPpeOverrides, setUiPpeOverrides] = useState<Record<string, {
-    id: string;
-    name: string;
-    notes: string;
-  }>>({});
-  const [uiPpeHiddenIds, setUiPpeHiddenIds] = useState<Set<string>>(new Set());
+  // Customer PPE policy: selected PPE Type IDs + notes (Layer 2, UI-only)
+  const [selectedPpeItems, setSelectedPpeItems] = useState<Array<{ ppeTypeId: string; notes: string }>>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await apiFetch<Array<{ id: string; name: string; active?: boolean }>>("/ppe-types?activeOnly=true");
+        if (!alive) return;
+        if (Array.isArray(data)) {
+          setPpeTypes(data);
+        } else {
+          setPpeTypes([]);
+        }
+      } catch (e: any) {
+        console.error("Failed to load PPE types:", e);
+        if (!alive) return;
+        setPpeTypes([]);
+      } finally {
+        if (alive) setPpeTypesLoaded(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showEditContactModal, setShowEditContactModal] = useState(false);
@@ -493,21 +507,18 @@ export default function CustomerDetailPage() {
   const [showAddPpeModal, setShowAddPpeModal] = useState(false);
   const [showEditPpeModal, setShowEditPpeModal] = useState(false);
   const [showDeletePpeModal, setShowDeletePpeModal] = useState(false);
-  const [editingPpe, setEditingPpe] = useState<{
-    id: string;
-    name: string;
+  const [editingPpeItem, setEditingPpeItem] = useState<{
+    ppeTypeId: string;
+    ppeName: string;
     notes: string;
-    isUiPpe: boolean;
   } | null>(null);
-  const [deletingPpe, setDeletingPpe] = useState<{
-    id: string;
-    name: string;
-    isUiPpe: boolean;
+  const [deletingPpeItem, setDeletingPpeItem] = useState<{
+    ppeTypeId: string;
+    ppeName: string;
   } | null>(null);
-  const [newPpe, setNewPpe] = useState({
-    name: "",
-    notes: "",
-  });
+  const [addPpeTypeId, setAddPpeTypeId] = useState<string>("");
+  const [addPpeNotes, setAddPpeNotes] = useState<string>("");
+  const [addPpeDuplicateWarning, setAddPpeDuplicateWarning] = useState(false);
 
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
@@ -954,9 +965,10 @@ export default function CustomerDetailPage() {
 
   // ========== PPE HANDLERS ==========
 
-  // Add PPE handlers
   const handleOpenAddPpeModal = () => {
-    setNewPpe({ name: "", notes: "" });
+    setAddPpeTypeId("");
+    setAddPpeNotes("");
+    setAddPpeDuplicateWarning(false);
     setShowAddPpeModal(true);
   };
 
@@ -965,120 +977,64 @@ export default function CustomerDetailPage() {
   };
 
   const handleSaveNewPpe = () => {
-    if (!newPpe.name.trim()) return;
-    const ppe = {
-      id: `UI-PPE-${Date.now()}`,
-      name: newPpe.name.trim(),
-      notes: newPpe.notes.trim(),
-    };
-    setUiPpe([...uiPpe, ppe]);
+    if (!addPpeTypeId) return;
+    if (selectedPpeItems.some((p) => p.ppeTypeId === addPpeTypeId)) {
+      setAddPpeDuplicateWarning(true);
+      return;
+    }
+    setSelectedPpeItems([...selectedPpeItems, { ppeTypeId: addPpeTypeId, notes: addPpeNotes.trim() }]);
     setShowAddPpeModal(false);
   };
 
-  // Edit PPE handlers
-  const handleOpenEditPpeModal = (ppe: {
-    id: string;
-    name: string;
-    notes: string;
-  }, isUiPpe: boolean) => {
-    setEditingPpe({
-      ...ppe,
-      isUiPpe,
-    });
+  const handleOpenEditPpeModal = (ppeTypeId: string, ppeName: string, notes: string) => {
+    setEditingPpeItem({ ppeTypeId, ppeName, notes });
     setShowEditPpeModal(true);
   };
 
   const handleCloseEditPpeModal = () => {
     setShowEditPpeModal(false);
-    setEditingPpe(null);
+    setEditingPpeItem(null);
   };
 
   const handleSaveEditPpe = () => {
-    if (!editingPpe || !editingPpe.name.trim()) return;
-
-    const updatedPpe = {
-      id: editingPpe.id,
-      name: editingPpe.name.trim(),
-      notes: editingPpe.notes.trim(),
-    };
-
-    if (editingPpe.isUiPpe) {
-      // Update uiPpe array
-      setUiPpe(uiPpe.map((p) =>
-        p.id === updatedPpe.id ? updatedPpe : p
-      ));
-    } else {
-      // Store in uiPpeOverrides (overlay for base/mock PPE)
-      setUiPpeOverrides({
-        ...uiPpeOverrides,
-        [updatedPpe.id]: updatedPpe,
-      });
-    }
-
+    if (!editingPpeItem) return;
+    setSelectedPpeItems(selectedPpeItems.map((p) =>
+      p.ppeTypeId === editingPpeItem.ppeTypeId
+        ? { ...p, notes: editingPpeItem.notes.trim() }
+        : p
+    ));
     setShowEditPpeModal(false);
-    setEditingPpe(null);
+    setEditingPpeItem(null);
   };
 
-  // Delete PPE handlers
-  const handleOpenDeletePpeModal = (ppe: {
-    id: string;
-    name: string;
-  }, isUiPpe: boolean) => {
-    setDeletingPpe({
-      id: ppe.id,
-      name: ppe.name,
-      isUiPpe,
-    });
+  const handleOpenDeletePpeModal = (ppeTypeId: string, ppeName: string) => {
+    setDeletingPpeItem({ ppeTypeId, ppeName });
     setShowDeletePpeModal(true);
   };
 
   const handleCloseDeletePpeModal = () => {
     setShowDeletePpeModal(false);
-    setDeletingPpe(null);
+    setDeletingPpeItem(null);
   };
 
   const handleConfirmDeletePpe = () => {
-    if (!deletingPpe) return;
-
-    if (deletingPpe.isUiPpe) {
-      // Remove from uiPpe array
-      setUiPpe(uiPpe.filter((p) => p.id !== deletingPpe.id));
-    } else {
-      // Add to hidden set (overlay for base/mock PPE)
-      setUiPpeHiddenIds(new Set([...uiPpeHiddenIds, deletingPpe.id]));
-    }
-
+    if (!deletingPpeItem) return;
+    setSelectedPpeItems(selectedPpeItems.filter((p) => p.ppeTypeId !== deletingPpeItem.ppeTypeId));
     setShowDeletePpeModal(false);
-    setDeletingPpe(null);
+    setDeletingPpeItem(null);
   };
 
-  // Compute rendered PPE: base PPE (filtered, with overrides) + uiPpe
+  // Derive rendered PPE from dictionary + selected IDs
   const renderedPpe = useMemo(() => {
-    // Convert base PPE (strings) to objects with generated IDs
-    const baseRendered = baseCustomer.ppe
-      .map((ppeName, idx) => {
-        const id = `BASE-PPE-${idx}`;
-        return {
-          id,
-          name: ppeName,
-          notes: "",
-        };
+    const typeMap = new Map(ppeTypes.map((t) => [t.id, t]));
+    return selectedPpeItems
+      .map((item) => {
+        const dictEntry = typeMap.get(item.ppeTypeId);
+        if (!dictEntry) return null;
+        return { ppeTypeId: item.ppeTypeId, name: dictEntry.name, notes: item.notes };
       })
-      .filter((p) => !uiPpeHiddenIds.has(p.id))
-      .map((p) => ({
-        ...p,
-        ...(uiPpeOverrides[p.id] || {}),
-        isUiPpe: false,
-      }));
-
-    // Append uiPpe
-    const uiRendered = uiPpe.map((p) => ({
-      ...p,
-      isUiPpe: true,
-    }));
-
-    return [...baseRendered, ...uiRendered];
-  }, [baseCustomer.ppe, uiPpeHiddenIds, uiPpeOverrides, uiPpe]);
+      .filter((x): x is { ppeTypeId: string; name: string; notes: string } => x !== null);
+  }, [ppeTypes, selectedPpeItems]);
 
   const handleSaveQuote = () => {
     if (!draftQuote) return;
@@ -1463,26 +1419,34 @@ export default function CustomerDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {renderedPpe.map((ppe) => (
-                    <tr key={ppe.id}>
-                      <td className="ppe-name">{ppe.name}</td>
-                      <td className="ppe-notes">{ppe.notes || "—"}</td>
-                      <td className="ppe-actions">
-                        <button
-                          className="ppe-action-link"
-                          onClick={() => handleOpenEditPpeModal(ppe, ppe.isUiPpe)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="ppe-action-link ppe-action-delete"
-                          onClick={() => handleOpenDeletePpeModal(ppe, ppe.isUiPpe)}
-                        >
-                          Delete
-                        </button>
+                  {renderedPpe.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: "24px 16px", color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>
+                        No PPE configured yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    renderedPpe.map((ppe) => (
+                      <tr key={ppe.ppeTypeId}>
+                        <td className="ppe-name">{ppe.name}</td>
+                        <td className="ppe-notes">{ppe.notes || "—"}</td>
+                        <td className="ppe-actions">
+                          <button
+                            className="ppe-action-link"
+                            onClick={() => handleOpenEditPpeModal(ppe.ppeTypeId, ppe.name, ppe.notes)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="ppe-action-link ppe-action-delete"
+                            onClick={() => handleOpenDeletePpeModal(ppe.ppeTypeId, ppe.name)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2443,34 +2407,50 @@ export default function CustomerDetailPage() {
               <button className="modal-close-btn" onClick={handleCloseAddPpeModal}>×</button>
             </div>
             <div className="modal-body">
-              <div className="form-row">
-                <label className="form-label">PPE Name <span className="required-star">*</span></label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newPpe.name}
-                  onChange={(e) => setNewPpe({ ...newPpe, name: e.target.value })}
-                  placeholder="e.g., Hard Hat (ANSI Type II)"
-                  autoFocus
-                />
-              </div>
-              <div className="form-row">
-                <label className="form-label">Notes</label>
-                <textarea
-                  className="form-textarea"
-                  value={newPpe.notes}
-                  onChange={(e) => setNewPpe({ ...newPpe, notes: e.target.value })}
-                  placeholder="Additional notes about this PPE requirement..."
-                  rows={3}
-                />
-              </div>
+              {ppeTypes.length === 0 ? (
+                <p style={{ color: "rgba(255,255,255,0.5)", fontStyle: "italic", margin: "8px 0" }}>
+                  No PPE Types exist yet. Create them in Admin → PPE.
+                </p>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <label className="form-label">PPE Name <span className="required-star">*</span></label>
+                    <select
+                      className="form-input"
+                      value={addPpeTypeId}
+                      onChange={(e) => { setAddPpeTypeId(e.target.value); setAddPpeDuplicateWarning(false); }}
+                      autoFocus
+                    >
+                      <option value="">— Select PPE Type —</option>
+                      {ppeTypes.map((pt) => (
+                        <option key={pt.id} value={pt.id}>{pt.name}</option>
+                      ))}
+                    </select>
+                    {addPpeDuplicateWarning && (
+                      <span style={{ color: "#f59e0b", fontSize: "12px", marginTop: "4px", display: "block" }}>
+                        Already added.
+                      </span>
+                    )}
+                  </div>
+                  <div className="form-row">
+                    <label className="form-label">Notes</label>
+                    <textarea
+                      className="form-textarea"
+                      value={addPpeNotes}
+                      onChange={(e) => setAddPpeNotes(e.target.value)}
+                      placeholder="Additional notes about this PPE requirement..."
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="modal-footer">
               <button className="cancel-btn" onClick={handleCloseAddPpeModal}>Cancel</button>
               <button
                 className="save-btn"
                 onClick={handleSaveNewPpe}
-                disabled={!newPpe.name.trim()}
+                disabled={!addPpeTypeId || ppeTypes.length === 0}
               >
                 Save PPE
               </button>
@@ -2480,7 +2460,7 @@ export default function CustomerDetailPage() {
       )}
 
       {/* Edit PPE Modal */}
-      {showEditPpeModal && editingPpe && (
+      {showEditPpeModal && editingPpeItem && (
         <div className="modal-overlay" onClick={handleCloseEditPpeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -2489,24 +2469,24 @@ export default function CustomerDetailPage() {
             </div>
             <div className="modal-body">
               <div className="form-row">
-                <label className="form-label">PPE Name <span className="required-star">*</span></label>
+                <label className="form-label">PPE Name</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={editingPpe.name}
-                  onChange={(e) => setEditingPpe({ ...editingPpe, name: e.target.value })}
-                  placeholder="e.g., Hard Hat (ANSI Type II)"
-                  autoFocus
+                  value={editingPpeItem.ppeName}
+                  disabled
+                  style={{ opacity: 0.6, cursor: "not-allowed" }}
                 />
               </div>
               <div className="form-row">
                 <label className="form-label">Notes</label>
                 <textarea
                   className="form-textarea"
-                  value={editingPpe.notes}
-                  onChange={(e) => setEditingPpe({ ...editingPpe, notes: e.target.value })}
+                  value={editingPpeItem.notes}
+                  onChange={(e) => setEditingPpeItem({ ...editingPpeItem, notes: e.target.value })}
                   placeholder="Additional notes about this PPE requirement..."
                   rows={3}
+                  autoFocus
                 />
               </div>
             </div>
@@ -2515,7 +2495,6 @@ export default function CustomerDetailPage() {
               <button
                 className="save-btn"
                 onClick={handleSaveEditPpe}
-                disabled={!editingPpe.name.trim()}
               >
                 Save Changes
               </button>
@@ -2525,7 +2504,7 @@ export default function CustomerDetailPage() {
       )}
 
       {/* Delete PPE Modal */}
-      {showDeletePpeModal && deletingPpe && (
+      {showDeletePpeModal && deletingPpeItem && (
         <div className="modal-overlay" onClick={handleCloseDeletePpeModal}>
           <div className="modal-content modal-content-sm" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -2534,7 +2513,7 @@ export default function CustomerDetailPage() {
             </div>
             <div className="modal-body">
               <p className="delete-confirm-text">
-                Are you sure you want to delete <strong>{deletingPpe.name}</strong>?
+                Are you sure you want to delete <strong>{deletingPpeItem.ppeName}</strong>?
               </p>
               <p className="delete-confirm-note">
                 This removes the item from the UI only (no persistence).
