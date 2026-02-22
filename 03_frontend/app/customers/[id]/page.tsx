@@ -1189,12 +1189,21 @@ export default function CustomerDetailPage() {
 
   const headerName = liveCustomer?.name ?? customer.name;
   const headerId = liveCustomer?.id ?? customer.id;
-  const headerLocation = liveCustomer?.location ?? `${customer.city}, ${customer.state}`;
-  const headerPhone = liveCustomer?.mainPhone ?? customer.mainPhone;
+  const primaryLoc = liveCustomer?.locations?.[0] ?? null;
+  const headerLocation = primaryLoc
+    ? [
+        [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", "),
+        primaryLoc.zip,
+      ].filter(Boolean).join(" ")
+    : (liveCustomer?.location ?? `${customer.city}, ${customer.state}`);
+  const firstContact = liveCustomer?.contacts?.[0] ?? null;
+  const headerPhone = liveCustomer?.mainPhone
+    ?? firstContact?.officePhone
+    ?? firstContact?.cellPhone
+    ?? customer.mainPhone;
   const headerWebsite = liveCustomer?.websiteUrl ?? customer.website;
   const headerSalesperson = effectiveOwnerName;
   const isMockCustomer = Boolean(MOCK_CUSTOMER_DETAILS[customerId]);
-  const primaryLoc = liveCustomer?.locations?.[0] ?? null;
 
   const headerStreetAddress =
     primaryLoc?.address1
