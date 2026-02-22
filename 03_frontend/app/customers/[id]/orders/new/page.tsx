@@ -185,6 +185,10 @@ export default function CreateOrderPage() {
   const [toolTypes, setToolTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
   const [registryLoaded, setRegistryLoaded] = useState(false);
 
+  // Customer PPE policy for blow-through defaults (3A.1)
+  const [customerPpePolicy, setCustomerPpePolicy] = useState<string[]>([]);
+  const [initializedFromPolicy, setInitializedFromPolicy] = useState(false);
+
   useEffect(() => {
     async function loadRegistry() {
       try {
@@ -206,6 +210,33 @@ export default function CreateOrderPage() {
 
     loadRegistry();
   }, []);
+
+  useEffect(() => {
+    if (!customerId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const data = await apiFetch<any[]>(`/customers/${customerId}/ppe-requirements`);
+        if (!alive) return;
+        const rows = Array.isArray(data) ? data : [];
+        setCustomerPpePolicy(rows.map((row: any) => row.ppeTypeId).filter(Boolean));
+      } catch {
+        // Customer may not have PPE policy — safe to ignore
+      }
+    })();
+    return () => { alive = false; };
+  }, [customerId]);
+
+  useEffect(() => {
+    if (initializedFromPolicy) return;
+    if (orderId) return;
+    if (customerPpePolicy.length === 0) return;
+    setJobRequirements(prev => ({
+      ...prev,
+      ppe: customerPpePolicy,
+    }));
+    setInitializedFromPolicy(true);
+  }, [customerPpePolicy, initializedFromPolicy, orderId]);
 
   useEffect(() => {
     if (!orderId) return;
