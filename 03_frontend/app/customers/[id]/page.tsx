@@ -543,6 +543,8 @@ export default function CustomerDetailPage() {
   const [addPpeTypeId, setAddPpeTypeId] = useState<string>("");
   const [addPpeNotes, setAddPpeNotes] = useState<string>("");
   const [addPpeDuplicateWarning, setAddPpeDuplicateWarning] = useState(false);
+  const [ppeSaving, setPpeSaving] = useState(false);
+  const [ppeError, setPpeError] = useState("");
 
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
@@ -993,6 +995,7 @@ export default function CustomerDetailPage() {
     setAddPpeTypeId("");
     setAddPpeNotes("");
     setAddPpeDuplicateWarning(false);
+    setPpeError("");
     setShowAddPpeModal(true);
   };
 
@@ -1006,6 +1009,8 @@ export default function CustomerDetailPage() {
       setAddPpeDuplicateWarning(true);
       return;
     }
+    setPpeSaving(true);
+    setPpeError("");
     try {
       await apiFetch(`/customers/${customerId}/ppe-requirements`, {
         method: "POST",
@@ -1017,13 +1022,16 @@ export default function CustomerDetailPage() {
       if (e?.status === 409 || e?.message?.includes("409")) {
         setAddPpeDuplicateWarning(true);
       } else {
-        console.error("Failed to add PPE requirement:", e);
+        setPpeError(e?.message ?? "Failed to add PPE requirement");
       }
+    } finally {
+      setPpeSaving(false);
     }
   };
 
   const handleOpenEditPpeModal = (reqId: string, ppeTypeId: string, ppeName: string, notes: string) => {
     setEditingPpeItem({ reqId, ppeTypeId, ppeName, notes });
+    setPpeError("");
     setShowEditPpeModal(true);
   };
 
@@ -1034,6 +1042,8 @@ export default function CustomerDetailPage() {
 
   const handleSaveEditPpe = async () => {
     if (!editingPpeItem) return;
+    setPpeSaving(true);
+    setPpeError("");
     try {
       await apiFetch(`/customers/${customerId}/ppe-requirements/${editingPpeItem.reqId}`, {
         method: "PATCH",
@@ -1043,12 +1053,15 @@ export default function CustomerDetailPage() {
       setEditingPpeItem(null);
       loadCustomerPpeReqs();
     } catch (e: any) {
-      console.error("Failed to update PPE requirement:", e);
+      setPpeError(e?.message ?? "Failed to update PPE requirement");
+    } finally {
+      setPpeSaving(false);
     }
   };
 
   const handleOpenDeletePpeModal = (reqId: string, ppeTypeId: string, ppeName: string) => {
     setDeletingPpeItem({ reqId, ppeTypeId, ppeName });
+    setPpeError("");
     setShowDeletePpeModal(true);
   };
 
@@ -1059,6 +1072,8 @@ export default function CustomerDetailPage() {
 
   const handleConfirmDeletePpe = async () => {
     if (!deletingPpeItem) return;
+    setPpeSaving(true);
+    setPpeError("");
     try {
       await apiFetch(`/customers/${customerId}/ppe-requirements/${deletingPpeItem.reqId}`, {
         method: "DELETE",
@@ -1067,7 +1082,9 @@ export default function CustomerDetailPage() {
       setDeletingPpeItem(null);
       loadCustomerPpeReqs();
     } catch (e: any) {
-      console.error("Failed to delete PPE requirement:", e);
+      setPpeError(e?.message ?? "Failed to delete PPE requirement");
+    } finally {
+      setPpeSaving(false);
     }
   };
 
@@ -1075,8 +1092,9 @@ export default function CustomerDetailPage() {
   const renderedPpe = useMemo(() => {
     const typeMap = new Map(ppeTypes.map((t) => [t.id, t]));
     return customerPpeReqs.map((row) => {
-      const name = row.ppeType?.name ?? typeMap.get(row.ppeTypeId)?.name ?? row.ppeTypeId;
-      return { reqId: row.id, ppeTypeId: row.ppeTypeId, name, notes: row.notes || "" };
+      const reqId = (row.id ?? (row as any).reqId) as string;
+      const name = row.ppeType?.name ?? typeMap.get(row.ppeTypeId)?.name ?? `Unknown PPE (ID: ${row.ppeTypeId})`;
+      return { reqId, ppeTypeId: row.ppeTypeId, name, notes: row.notes || "" };
     });
   }, [ppeTypes, customerPpeReqs]);
 
@@ -2500,11 +2518,14 @@ export default function CustomerDetailPage() {
               <button
                 className="save-btn"
                 onClick={handleSaveNewPpe}
-                disabled={!addPpeTypeId || ppeTypes.length === 0}
+                disabled={!addPpeTypeId || ppeTypes.length === 0 || ppeSaving}
               >
-                Save PPE
+                {ppeSaving ? "Saving…" : "Save PPE"}
               </button>
             </div>
+            {ppeError && (
+              <div style={{ padding: "0 20px 12px", color: "#f87171", fontSize: "13px" }}>{ppeError}</div>
+            )}
           </div>
         </div>
       )}
@@ -2545,10 +2566,14 @@ export default function CustomerDetailPage() {
               <button
                 className="save-btn"
                 onClick={handleSaveEditPpe}
+                disabled={ppeSaving}
               >
-                Save Changes
+                {ppeSaving ? "Saving…" : "Save Changes"}
               </button>
             </div>
+            {ppeError && (
+              <div style={{ padding: "0 20px 12px", color: "#f87171", fontSize: "13px" }}>{ppeError}</div>
+            )}
           </div>
         </div>
       )}
@@ -2566,7 +2591,7 @@ export default function CustomerDetailPage() {
                 Are you sure you want to delete <strong>{deletingPpeItem.ppeName}</strong>?
               </p>
               <p className="delete-confirm-note">
-                This removes the item from the UI only (no persistence).
+                This will permanently remove this PPE requirement.
               </p>
             </div>
             <div className="modal-footer">
@@ -2574,10 +2599,14 @@ export default function CustomerDetailPage() {
               <button
                 className="delete-btn"
                 onClick={handleConfirmDeletePpe}
+                disabled={ppeSaving}
               >
-                Delete
+                {ppeSaving ? "Deleting…" : "Delete"}
               </button>
             </div>
+            {ppeError && (
+              <div style={{ padding: "0 20px 12px", color: "#f87171", fontSize: "13px" }}>{ppeError}</div>
+            )}
           </div>
         </div>
       )}
