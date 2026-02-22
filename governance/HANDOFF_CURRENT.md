@@ -112,3 +112,75 @@ Resolution:
 * Search must include **active contacts**.
 * Avoid Prisma version drift; run Prisma commands from `E:\JARVIS\02_backend`.
 * If `/api/*` endpoints error with ECONNREFUSED, backend is not running; start it.
+
+---
+
+# 🔒 JARVIS PRIME — HANDOFF UPDATE (POST 2B.2 + 3A.1)
+
+**Update Date:** 2026-02-21  
+**Branch (frontend):** `wip/customers-wiring-2026-02-17`  
+**Branch (backend):** `wip/customers-wiring-2026-02-17`  
+**Primary Drive:** `E:\JARVIS`  
+**Auth:** JWT in `localStorage` key `jp_accessToken`  
+**Frontend API strategy:** same-origin `/api/*` proxies → backend
+
+## ✅ CHANGES COMPLETED SINCE PRIOR HANDOFF
+
+### 2B.2 — Customer PPE Tab Persistence Wiring (Hardened + UX fixes) ✅
+
+**Frontend file updated:**
+- `03_frontend/app/customers/[id]/page.tsx`
+
+**Status:**
+- Customer PPE tab is now fully persistence-ready and hardened:
+  - Inline error handling (no silent failures)
+  - In-flight saving state + disabled buttons + "Saving…" / "Deleting…" labels
+  - Defensive label fallback: `Unknown PPE (ID: ...)`
+  - Requirement ID normalization: `(row.id ?? row.reqId)`
+  - Removed stale "UI only (no persistence)" delete copy
+
+**Commit:**
+- `99f77b9` — `Customer PPE: wire tab to persistence via /api proxy (2B.2)`
+
+**Expected behavior:**
+- Add/Edit/Delete customer PPE persists across refresh.
+- UI uses PPE dictionary names (registry-backed), notes-only editing.
+
+---
+
+### 3A.1 — Order New PPE Blow-Through Defaults (Customer Policy → Order) ✅
+
+**Frontend file updated:**
+- `03_frontend/app/customers/[id]/orders/new/page.tsx`
+
+**Status:**
+- Order New now defaults PPE selections from Customer PPE policy:
+  - Fetches `GET /api/customers/:id/ppe-requirements`
+  - Extracts `ppeTypeId[]` and initializes `jobRequirements.ppe` once
+  - One-shot flag prevents re-overwriting user edits after initialization
+  - User can freely add/remove PPE per order (hybrid override preserved)
+  - If reopening a draft path (orderId/sessionStorage), blow-through is skipped
+
+**Commit:**
+- `6b738aa` — `Order New: default PPE from Customer policy (3A.1 blow-through)`
+
+**Expected behavior:**
+- Customer → Orders → New:
+  - PPE checkboxes pre-selected based on saved customer policy.
+  - User can modify without it snapping back.
+
+---
+
+## ⚠️ GOVERNANCE NOTE (IMPORTANT)
+- Cursor Agent reported that `E:\JARVIS\governance\00_READ_FIRST.md` and `E:\JARVIS\governance\NO_DRIFT.md` were NOT present at that path during execution.
+- `E:\JARVIS\governance\HANDOFF_CURRENT.md` was present and read/updated.
+- Future capsules should reference only governance files that actually exist at their real paths to avoid invalid preconditions.
+
+## ✅ CURRENT PPE STACK STATUS (LAYER MODEL)
+- Layer 1 (Registry — PPE Types): ✅ Complete
+- Layer 2 (Customer Policy — persisted requirements): ✅ Complete / hardened
+- Layer 3 (Order Override — default from policy, editable per order): ✅ Complete
+
+## NEXT OPTIONS (NOT STARTED)
+- Confirm UX with 2–3 real customers (quick manual verification)
+- Move to next Packet/Slice per Michael's priority order (no action taken yet)
