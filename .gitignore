@@ -27,3 +27,5 @@ _logs/
 !02_backend/scripts/**
 
 
+
+.cursor/

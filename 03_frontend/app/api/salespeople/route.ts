@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: Request) {
-  const token = req.headers.get("authorization") || "";
-  const res = await fetch("http://127.0.0.1:3002/salespeople", {
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const qs = url.search ? url.search : "";
+  const auth = req.headers.get("authorization") ?? "";
+
+  const upstream = `http://127.0.0.1:3002/salespeople${qs}`;
+  const res = await fetch(upstream, {
     method: "GET",
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: token } : {}),
+      Authorization: auth,
     },
     cache: "no-store",
   });
@@ -14,26 +17,8 @@ export async function GET(req: Request) {
   const text = await res.text();
   return new NextResponse(text, {
     status: res.status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-export async function POST(req: Request) {
-  const token = req.headers.get("authorization") || "";
-  const body = await req.text();
-  const res = await fetch("http://127.0.0.1:3002/salespeople", {
-    method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: token } : {}),
+      "Content-Type": res.headers.get("content-type") ?? "application/json",
     },
-    body,
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  return new NextResponse(text, {
-    status: res.status,
-    headers: { "Content-Type": "application/json" },
   });
 }
