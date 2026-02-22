@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,9 +72,9 @@ const US_STATE_CODES = [
 ] as const;
 
 function formatUpdatedAt(value: any): string {
-  if (!value) return "—";
+  if (!value) return "â€”";
   const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "â€”";
   return d.toLocaleString();
 }
 
@@ -179,7 +179,7 @@ export default function CustomersPage() {
         setAzJumpMessage(`No ${targetBucket} customers under current filters`);
       }
     } catch {
-      setAzJumpMessage("A–Z jump failed");
+      setAzJumpMessage("Aâ€“Z jump failed");
     } finally {
       setAzJumpLoading(false);
     }
@@ -406,7 +406,7 @@ export default function CustomersPage() {
           );
         })}
         <div className="az-status" aria-live="polite">
-          {azJumpLoading ? "Finding…" : azJumpMessage ? azJumpMessage : null}
+          {azJumpLoading ? "Findingâ€¦" : azJumpMessage ? azJumpMessage : null}
         </div>
       </div>
 
@@ -447,12 +447,12 @@ export default function CustomersPage() {
                   <div className="cell-sub">{customer.websiteUrl}</div>
                 ) : null}
               </td>
-              <td>{customer.location ?? "—"}</td>
-              <td>{customer.mainPhone ?? "—"}</td>
+              <td>{customer.locationCity && customer.locationState ? `${customer.locationCity}, ${customer.locationState}` : "\u2014"}</td>
+              <td>{customer.mainPhone ?? "\u2014"}</td>
               <td>
                 {customer.defaultSalesperson
                   ? `${customer.defaultSalesperson.firstName} ${customer.defaultSalesperson.lastName}`
-                  : "—"}
+                  : "\u2014"}
               </td>
               <td>{formatUpdatedAt(customer.updatedAt)}</td>
             </tr>
@@ -761,4 +761,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
 
