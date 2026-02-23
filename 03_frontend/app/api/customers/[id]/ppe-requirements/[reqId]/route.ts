@@ -8,7 +8,7 @@ export async function PATCH(
   const token = req.headers.get("authorization") || "";
   const body = await req.text();
 
-  const res = await fetch(`http://127.0.0.1:3002/customers/${id}/ppe-requirements/${reqId}`, {
+  const res = await fetch(`http://127.0.0.1:3000/customers/${id}/ppe-requirements/${reqId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -32,7 +32,7 @@ export async function DELETE(
   const { id, reqId } = await params;
   const token = req.headers.get("authorization") || "";
 
-  const res = await fetch(`http://127.0.0.1:3002/customers/${id}/ppe-requirements/${reqId}`, {
+  const res = await fetch(`http://127.0.0.1:3000/customers/${id}/ppe-requirements/${reqId}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",

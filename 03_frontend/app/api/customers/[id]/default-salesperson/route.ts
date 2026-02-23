@@ -8,7 +8,7 @@ export async function PATCH(
   const token = req.headers.get("authorization") || "";
   const body = await req.text();
   const res = await fetch(
-    `http://127.0.0.1:3002/customers/${id}/default-salesperson`,
+    `http://127.0.0.1:3000/customers/${id}/default-salesperson`,
     {
       method: "PATCH",
       headers: {

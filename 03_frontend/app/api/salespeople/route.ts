@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const qs = url.search ? url.search : "";
   const auth = req.headers.get("authorization") ?? "";
 
-  const upstream = `http://127.0.0.1:3002/salespeople${qs}`;
+  const upstream = `http://127.0.0.1:3000/salespeople${qs}`;
   const res = await fetch(upstream, {
     method: "GET",
     headers: {

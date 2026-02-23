@@ -5,7 +5,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     // Deterministic LOCAL target (matches backend working state)
-    const upstream = "http://127.0.0.1:3002/auth/login";
+    const upstream = "http://127.0.0.1:3000/auth/login";
 
     const res = await fetch(upstream, {
       method: "POST",

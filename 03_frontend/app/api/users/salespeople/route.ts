@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const token = req.headers.get("authorization") || "";
-  const res = await fetch("http://127.0.0.1:3002/users/salespeople", {
+  const res = await fetch("http://127.0.0.1:3000/users/salespeople", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",

@@ -4,7 +4,7 @@ export async function GET(req: Request) {
   const token = req.headers.get("authorization") || "";
 
   const url = new URL(req.url);
-  const backendUrl = new URL("http://127.0.0.1:3002/tool-types");
+  const backendUrl = new URL("http://127.0.0.1:3000/tool-types");
   backendUrl.search = url.search;
 
   const res = await fetch(backendUrl.toString(), {
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const token = req.headers.get("authorization") || "";
   const body = await req.text();
-  const res = await fetch("http://127.0.0.1:3002/tool-types", {
+  const res = await fetch("http://127.0.0.1:3000/tool-types", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

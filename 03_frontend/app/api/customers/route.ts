@@ -5,7 +5,7 @@ export async function GET(req: Request) {
 
   // Forward query params to backend (critical for search/filter/sort/pagination)
   const url = new URL(req.url);
-  const backendUrl = new URL("http://127.0.0.1:3002/customers");
+  const backendUrl = new URL("http://127.0.0.1:3000/customers");
   backendUrl.search = url.search; // includes leading "?" if present
 
   const res = await fetch(backendUrl.toString(), {
