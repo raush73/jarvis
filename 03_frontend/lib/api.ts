@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API base strategy:
  * - ALWAYS use SAME-ORIGIN /api/* so Next can proxy to backend (avoids CORS)
  *
@@ -28,11 +28,26 @@ export function clearAccessToken(): void {
   }
 }
 
+function isPublicPath(path: string): boolean {
+  // These endpoints must work without an access token
+  return (
+    path.startsWith("/auth/login") ||
+    path.startsWith("/auth/register") ||
+    path.startsWith("/auth/dev/")
+  );
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
   const token = getAccessToken();
+
+  // If this is not a public path, require a token before making the request.
+  // This prevents unauthenticated fetches during hydration/race conditions.
+  if (!token && !isPublicPath(path)) {
+    throw new Error("API requires authentication, but no access token is present.");
+  }
 
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);

@@ -39,7 +39,7 @@ export default function CreateSalespersonPage() {
     setSubmitting(true);
     setError("");
     try {
-      const res = await apiFetch("/salespeople", {
+      await apiFetch("/salespeople", {
         method: "POST",
         body: JSON.stringify({
           firstName: firstName.trim(),
@@ -47,17 +47,8 @@ export default function CreateSalespersonPage() {
           email: email?.trim() || undefined,
           phone: phone?.trim() || undefined,
         }),
-      }) as Response;
-      if (res.ok) {
-        router.push("/admin/salespeople");
-      } else {
-        let msg = "Failed to create salesperson";
-        try {
-          const body = await res.json();
-          if (body?.message) msg = body.message;
-        } catch {}
-        setError(msg);
-      }
+      });
+      router.push("/admin/salespeople");
     } catch {
       setError("Failed to create salesperson");
     } finally {

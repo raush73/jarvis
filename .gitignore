@@ -29,3 +29,7 @@ _logs/
 
 
 .cursor/
+
+# Bot run logs
+_bot_runs/
+
