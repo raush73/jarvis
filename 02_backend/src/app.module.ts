@@ -1,4 +1,4 @@
-﻿import { Module, OnModuleInit, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { Module, OnModuleInit, MiddlewareConsumer, NestModule } from '@nestjs/common';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -30,16 +30,16 @@ import { CommissionsModule } from './commissions/commissions.module';
 import { HoursModule } from './hours/hours.module';
 import { CustomerPortalModule } from './customer-portal/customer-portal.module';
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¹ Phase 12.3 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Assignments
+// Ã°Å¸â€Â¹ Phase 12.3 Ã¢â‚¬â€ Assignments
 import { AssignmentsModule } from './assignments/assignments.module';
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¹ Phase 20 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Candidates (foundation)
+// Ã°Å¸â€Â¹ Phase 20 Ã¢â‚¬â€ Candidates (foundation)
 import { CandidatesModule } from './candidates/candidates.module';
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¹ Phase 21.1 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Integrations (vendor-agnostic stubs)
+// Ã°Å¸â€Â¹ Phase 21.1 Ã¢â‚¬â€ Integrations (vendor-agnostic stubs)
 import { IntegrationsModule } from './integrations/integrations.module';
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¹ Phase 13 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Invoicing Snapshot + Locking
+// Ã°Å¸â€Â¹ Phase 13 Ã¢â‚¬â€ Invoicing Snapshot + Locking
 import { InvoicesModule } from './invoices/invoices.module';
 import { OutreachModule } from './outreach/outreach.module';
 import { MagicLinksModule } from './magic-links/magic-links.module';
@@ -50,7 +50,7 @@ import { ToolTypesModule } from './tool-types/tool-types.module';
 import { PpeTypesModule } from './ppe-types/ppe-types.module';
 
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¹ Phase 26A ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Intake (Applications, Consents, Eligibility)
+// Ã°Å¸â€Â¹ Phase 26A Ã¢â‚¬â€ Intake (Applications, Consents, Eligibility)
 import { IntakeModule } from './intake/intake.module';
 import { CommissionsReportModule } from './commissions-report/commissions-report.module';
 import { PayrollRunModule } from './payroll-run/payroll-run.module';
@@ -75,6 +75,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 // Health check endpoints (Smoke Test)
 import { HealthModule } from './health/health.module';
+import { SalespeopleModule } from './salespeople/salespeople.module';
 
 // DEV-ONLY: Demo endpoints (disabled in production)
 import { DemoModule } from './demo/demo.module';
@@ -156,6 +157,7 @@ FinanceModule,
     // Quotes (Phase: Quote/Order Economics)
     QuotesModule,
     // Salespeople Registry
+    SalespeopleModule,
   ],
   controllers: [AppController],
   providers: [
@@ -244,7 +246,7 @@ export class AppModule implements OnModuleInit, NestModule {
         update: {},
       });
     } catch (err) {
-      console.warn(`[AppModule] DEV bootstrap skipped â€” DB unavailable: ${String((err as any)?.message ?? err)}`);
+      console.warn(`[AppModule] DEV bootstrap skipped — DB unavailable: ${String((err as any)?.message ?? err)}`);
       return;
     }
   }
