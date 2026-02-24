@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+﻿import { Body, Controller, Delete, Get, Param, Patch, Post, NotFoundException } from '@nestjs/common';
 import { SalespeopleService } from './salespeople.service';
 import { CreateSalespersonDto } from './dto/create-salesperson.dto';
 import { UpdateSalespersonDto } from './dto/update-salesperson.dto';
@@ -29,6 +29,9 @@ export class SalespeopleController {
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.service.remove(id);
+    // HARD DISABLED: Salespeople are historical records and may not be deleted.
+    throw new NotFoundException();
   }
 }
+
+

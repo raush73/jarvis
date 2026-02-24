@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSalespersonDto } from './dto/create-salesperson.dto';
 import { UpdateSalespersonDto } from './dto/update-salesperson.dto';
@@ -27,7 +27,17 @@ export class SalespeopleService {
   }
 
   async update(id: string, dto: UpdateSalespersonDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+
+    const isProtected =
+      (existing.firstName === 'House' && existing.lastName === 'Account') ||
+      existing.email === 'mike@mw4h.com';
+
+    if (isProtected) {
+      throw new ForbiddenException(
+        'This salesperson is a protected system record and cannot be edited or deactivated.',
+      );
+    }
 
     return this.prisma.salesperson.update({
       where: { id },
@@ -36,10 +46,6 @@ export class SalespeopleService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-
-    return this.prisma.salesperson.delete({
-      where: { id },
-    });
+    throw new ForbiddenException('Salespeople cannot be deleted.');
   }
 }
