@@ -1,0 +1,3 @@
+-- NOTE: Original migration.sql was corrupted (UTF-16 / embedded null bytes / invalid bytes).
+-- DB already matches prisma\schema.prisma; Prisma migration record marked as applied on 2026-02-04.
+-- Intentionally left as a no-op placeholder to keep migration history intact.

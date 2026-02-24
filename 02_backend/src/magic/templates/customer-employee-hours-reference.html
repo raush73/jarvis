@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Hours - Reference Only</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .banner {
+      background-color: #ff6b6b;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .content {
+      padding: 1.5rem;
+    }
+
+    .header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+      color: #333;
+    }
+
+    .header-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .header-info-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-info-label {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.375rem 0.75rem;
+      background-color: #e7f3ff;
+      color: #0066cc;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+
+    .error-alert {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .error-alert.show {
+      display: block;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #666;
+      font-size: 1rem;
+    }
+
+    .employee-group {
+      margin-bottom: 2rem;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .employee-header {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-bottom: 1px solid #e9ecef;
+      font-weight: 600;
+      color: #333;
+      font-size: 1.1rem;
+    }
+
+    .employee-hours-list {
+      padding: 0;
+    }
+
+    .date-group {
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .date-group:last-child {
+      border-bottom: none;
+    }
+
+    .date-header {
+      background-color: #fafafa;
+      padding: 0.75rem 1rem;
+      font-weight: 500;
+      color: #495057;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .hours-entry {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .hours-entry-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .hours-entry-label {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .hours-entry-value {
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    .time-display {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .time-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .note-display {
+      padding: 0.75rem;
+      background-color: #f8f9fa;
+      border-left: 3px solid #6c757d;
+      border-radius: 3px;
+      font-size: 0.9rem;
+      color: #495057;
+      font-style: italic;
+    }
+
+    .totals-section {
+      background-color: #f8f9fa;
+      padding: 0.75rem 1rem;
+      border-top: 2px solid #e9ecef;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .total-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+
+    .total-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .total-value {
+      color: #333;
+      font-weight: 600;
+    }
+
+    .weekly-total {
+      border-top: 1px solid #dee2e6;
+      padding-top: 0.5rem;
+      margin-top: 0.25rem;
+      font-size: 1rem;
+    }
+
+    .weekly-total .total-label,
+    .weekly-total .total-value {
+      font-size: 1rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #666;
+    }
+
+    @media (min-width: 640px) {
+      body {
+        padding: 2rem 1rem;
+      }
+
+      .content {
+        padding: 2rem;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      .header-info {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+      }
+
+      .time-display {
+        flex-direction: row;
+      }
+
+      .hours-entry-row {
+        flex-direction: row;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .hours-entry-label {
+        min-width: 100px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="banner">REFERENCE ONLY — NOT BILLABLE</div>
+    
+    <div class="content">
+      <div class="header">
+        <h1>Employee Self-Reported Hours</h1>
+        <div class="header-info" id="headerInfo">
+          <div class="header-info-item">
+            <span class="header-info-label">Company:</span>
+            <span id="companyName">—</span>
+          </div>
+          <div class="header-info-item">
+            <span class="header-info-label">Order:</span>
+            <span id="orderId">—</span>
+          </div>
+          <div class="header-info-item">
+            <span class="header-info-label">Week Ending:</span>
+            <span id="weekEnding">—</span>
+          </div>
+        </div>
+        <div class="status-badge">Employee Self-Reported</div>
+      </div>
+
+      <div id="errorAlert" class="error-alert"></div>
+
+      <div id="loading" class="loading">Loading hours data...</div>
+
+      <div id="noData" class="no-data" style="display: none;">
+        No self-reported hours submitted
+      </div>
+
+      <div id="hoursContent" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // Extract token from URL path
+      const pathParts = window.location.pathname.split('/');
+      const tokenIndex = pathParts.indexOf('customer-employee-hours-reference');
+      const token = tokenIndex >= 0 && pathParts[tokenIndex + 1] ? pathParts[tokenIndex + 1] : null;
+
+      if (!token) {
+        document.getElementById('errorAlert').textContent = 'Invalid link: token not found in URL.';
+        document.getElementById('errorAlert').classList.add('show');
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) return '—';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+
+      function formatTime(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+
+      function formatMinutes(minutes) {
+        if (!minutes && minutes !== 0) return '';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours === 0) {
+          return `${mins} min${mins !== 1 ? 's' : ''}`;
+        } else if (mins === 0) {
+          return `${hours} hr${hours !== 1 ? 's' : ''}`;
+        } else {
+          return `${hours} hr${hours !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
+        }
+      }
+
+      function calculateDailyTotal(entries) {
+        let totalMinutes = 0;
+        entries.forEach(entry => {
+          if (entry.totalMinutes !== null && entry.totalMinutes !== undefined) {
+            totalMinutes += entry.totalMinutes;
+          } else if (entry.startTime && entry.endTime) {
+            const start = new Date(entry.startTime);
+            const end = new Date(entry.endTime);
+            const diffMs = end - start;
+            totalMinutes += Math.floor(diffMs / (1000 * 60));
+          }
+        });
+        return totalMinutes;
+      }
+
+      function renderHours(data) {
+        const loading = document.getElementById('loading');
+        const noData = document.getElementById('noData');
+        const hoursContent = document.getElementById('hoursContent');
+        const errorAlert = document.getElementById('errorAlert');
+
+        loading.style.display = 'none';
+
+        if (!data || !data.hours || data.hours.length === 0) {
+          noData.style.display = 'block';
+          hoursContent.style.display = 'none';
+          return;
+        }
+
+        noData.style.display = 'none';
+        hoursContent.style.display = 'block';
+
+        // Update header info
+        if (data.companyName) {
+          document.getElementById('companyName').textContent = data.companyName;
+        }
+        if (data.orderId) {
+          document.getElementById('orderId').textContent = data.orderId;
+        }
+        if (data.weekEnding) {
+          document.getElementById('weekEnding').textContent = formatDate(data.weekEnding);
+        }
+
+        // Group hours by employee, then by date
+        const grouped = {};
+        
+        data.hours.forEach(entry => {
+          const employeeId = entry.workerId || entry.userId || 'unknown';
+          const employeeName = entry.workerName || entry.userName || 'Unknown Employee';
+          const workDate = entry.entryDate || entry.periodStart || '';
+          const dateKey = workDate ? new Date(workDate).toISOString().split('T')[0] : 'unknown';
+
+          if (!grouped[employeeId]) {
+            grouped[employeeId] = {
+              name: employeeName,
+              dates: {}
+            };
+          }
+
+          if (!grouped[employeeId].dates[dateKey]) {
+            grouped[employeeId].dates[dateKey] = [];
+          }
+
+          grouped[employeeId].dates[dateKey].push(entry);
+        });
+
+        // Render grouped hours
+        const contentDiv = document.getElementById('hoursContent');
+        contentDiv.innerHTML = '';
+
+        Object.keys(grouped).forEach(employeeId => {
+          const employee = grouped[employeeId];
+          const employeeDiv = document.createElement('div');
+          employeeDiv.className = 'employee-group';
+
+          // Employee header
+          const headerDiv = document.createElement('div');
+          headerDiv.className = 'employee-header';
+          headerDiv.textContent = employee.name;
+          employeeDiv.appendChild(headerDiv);
+
+          const hoursListDiv = document.createElement('div');
+          hoursListDiv.className = 'employee-hours-list';
+
+          let employeeWeeklyTotal = 0;
+
+          // Sort dates
+          const sortedDates = Object.keys(employee.dates).sort();
+
+          sortedDates.forEach(dateKey => {
+            const dateEntries = employee.dates[dateKey];
+            const dateGroupDiv = document.createElement('div');
+            dateGroupDiv.className = 'date-group';
+
+            // Date header
+            const dateHeaderDiv = document.createElement('div');
+            dateHeaderDiv.className = 'date-header';
+            dateHeaderDiv.textContent = formatDate(dateEntries[0].entryDate || dateEntries[0].periodStart || dateKey);
+            dateGroupDiv.appendChild(dateHeaderDiv);
+
+            // Hours entries for this date
+            dateEntries.forEach(entry => {
+              const entryDiv = document.createElement('div');
+              entryDiv.className = 'hours-entry';
+
+              // Time display
+              const timeRowDiv = document.createElement('div');
+              timeRowDiv.className = 'hours-entry-row';
+
+              if (entry.totalMinutes !== null && entry.totalMinutes !== undefined) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'hours-entry-label';
+                timeDiv.textContent = 'Time:';
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'hours-entry-value';
+                valueDiv.textContent = formatMinutes(entry.totalMinutes);
+                timeRowDiv.appendChild(timeDiv);
+                timeRowDiv.appendChild(valueDiv);
+              } else if (entry.startTime && entry.endTime) {
+                const timeDisplayDiv = document.createElement('div');
+                timeDisplayDiv.className = 'time-display';
+                
+                const startDiv = document.createElement('div');
+                startDiv.className = 'time-item';
+                const startLabel = document.createElement('div');
+                startLabel.className = 'hours-entry-label';
+                startLabel.textContent = 'Start:';
+                const startValue = document.createElement('div');
+                startValue.className = 'hours-entry-value';
+                startValue.textContent = formatTime(entry.startTime);
+                startDiv.appendChild(startLabel);
+                startDiv.appendChild(startValue);
+
+                const endDiv = document.createElement('div');
+                endDiv.className = 'time-item';
+                const endLabel = document.createElement('div');
+                endLabel.className = 'hours-entry-label';
+                endLabel.textContent = 'End:';
+                const endValue = document.createElement('div');
+                endValue.className = 'hours-entry-value';
+                endValue.textContent = formatTime(entry.endTime);
+                endDiv.appendChild(endLabel);
+                endDiv.appendChild(endValue);
+
+                timeDisplayDiv.appendChild(startDiv);
+                timeDisplayDiv.appendChild(endDiv);
+                timeRowDiv.appendChild(timeDisplayDiv);
+              }
+
+              entryDiv.appendChild(timeRowDiv);
+
+              // Note if present
+              if (entry.note) {
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'note-display';
+                noteDiv.textContent = entry.note;
+                entryDiv.appendChild(noteDiv);
+              }
+
+              dateGroupDiv.appendChild(entryDiv);
+            });
+
+            // Daily total
+            const dailyTotalMinutes = calculateDailyTotal(dateEntries);
+            employeeWeeklyTotal += dailyTotalMinutes;
+            
+            const totalsDiv = document.createElement('div');
+            totalsDiv.className = 'totals-section';
+            const dailyTotalDiv = document.createElement('div');
+            dailyTotalDiv.className = 'total-item';
+            const dailyLabel = document.createElement('span');
+            dailyLabel.className = 'total-label';
+            dailyLabel.textContent = 'Daily Total:';
+            const dailyValue = document.createElement('span');
+            dailyValue.className = 'total-value';
+            dailyValue.textContent = formatMinutes(dailyTotalMinutes);
+            dailyTotalDiv.appendChild(dailyLabel);
+            dailyTotalDiv.appendChild(dailyValue);
+            totalsDiv.appendChild(dailyTotalDiv);
+            
+            dateGroupDiv.appendChild(totalsDiv);
+            hoursListDiv.appendChild(dateGroupDiv);
+          });
+
+          // Weekly total
+          const weeklyTotalsDiv = document.createElement('div');
+          weeklyTotalsDiv.className = 'totals-section';
+          const weeklyTotalDiv = document.createElement('div');
+          weeklyTotalDiv.className = 'total-item weekly-total';
+          const weeklyLabel = document.createElement('span');
+          weeklyLabel.className = 'total-label';
+          weeklyLabel.textContent = 'Weekly Total:';
+          const weeklyValue = document.createElement('span');
+          weeklyValue.className = 'total-value';
+          weeklyValue.textContent = formatMinutes(employeeWeeklyTotal);
+          weeklyTotalDiv.appendChild(weeklyLabel);
+          weeklyTotalDiv.appendChild(weeklyValue);
+          weeklyTotalsDiv.appendChild(weeklyTotalDiv);
+
+          hoursListDiv.appendChild(weeklyTotalsDiv);
+          employeeDiv.appendChild(hoursListDiv);
+          contentDiv.appendChild(employeeDiv);
+        });
+      }
+
+      async function loadData() {
+        const loading = document.getElementById('loading');
+        const errorAlert = document.getElementById('errorAlert');
+        
+        try {
+          // Attempt to fetch data from endpoint
+          // Assuming endpoint format: /magic/customer-employee-hours-reference/:token
+          const response = await fetch(`/magic/customer-employee-hours-reference/${token}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            renderHours(data);
+          } else if (response.status === 404) {
+            // Endpoint might not exist yet - show no data message
+            loading.style.display = 'none';
+            document.getElementById('noData').style.display = 'block';
+          } else {
+            throw new Error('Failed to load data');
+          }
+        } catch (error) {
+          loading.style.display = 'none';
+          errorAlert.textContent = 'Failed to load hours data. Please check your connection and try again.';
+          errorAlert.classList.add('show');
+          console.error('Error loading data:', error);
+        }
+      }
+
+      loadData();
+    })();
+  </script>
+</body>
+</html>
+

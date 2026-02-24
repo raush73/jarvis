@@ -1,0 +1,1469 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                            String                   @id @default(cuid())
+  email                         String                   @unique
+  fullName                      String?
+  hashedPassword                String
+  isActive                      Boolean                  @default(true)
+  customerId                    String?
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  reviewedApplications          Application[]            @relation("ApplicationReviewedBy")
+  assignments                   Assignment[]
+  createdBurdenRateSets         BurdenRateSet[]          @relation("BurdenRateSetCreatedBy")
+  commissionAdjustments         CommissionAdjustment[]
+  commissionAssignments         CommissionAssignment[]
+  commissionEvents              CommissionEvent[]
+  commissionReportRuns          CommissionReportRun[]
+  customersAsDefaultSalesperson Customer[]               @relation("CustomerDefaultSalesperson")
+  customerContactsAsSalesperson CustomerContact[]        @relation("CustomerContactSalesperson")
+  employeeProfile               EmployeeProfile?
+  hoursEntries                  HoursEntry[]
+  approvedInvoices              Invoice[]                @relation("InvoiceApprovedBy")
+  issuedInvoices                Invoice[]                @relation("InvoiceIssuedBy")
+  routedInvoices                Invoice[]                @relation("InvoiceRoutedBy")
+  voidedInvoices                Invoice[]                @relation("InvoiceVoidedBy")
+  issuedAdjustments             InvoiceAdjustment[]      @relation("InvoiceAdjustmentIssuedBy")
+  invoicePayments               InvoicePayment[]
+  approvedOrders                Order[]                  @relation("OrderApprovedBy")
+  orderCandidates               OrderCandidate[]
+  createdPayrollBurdenRates     PayrollBurdenRate[]      @relation("PayrollBurdenRateCreatedBy")
+  updatedPayrollBurdenRates     PayrollBurdenRate[]      @relation("PayrollBurdenRateUpdatedBy")
+  workerPayrollBurdenRates      PayrollBurdenRate[]      @relation("PayrollBurdenRateWorker")
+  payrollBurdenRateAudits       PayrollBurdenRateAudit[]
+  systemSettings                SystemSetting[]
+  systemSettingAudits           SystemSettingAudit[]
+  customer                      Customer?                @relation(fields: [customerId], references: [id])
+  roles                         UserRole[]
+
+  @@index([customerId])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  grantedAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Customer {
+  id                       String                     @id @default(cuid())
+  name                     String
+  websiteUrl               String?
+  requiresInvoiceApproval  Boolean                    @default(true)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  defaultSalespersonUserId String?
+  registrySalespersonId    String?
+  commissionAssignments    CommissionAssignment[]
+  defaultSalesperson       User?                      @relation("CustomerDefaultSalesperson", fields: [defaultSalespersonUserId], references: [id])
+  registrySalesperson      Salesperson?               @relation(fields: [registrySalespersonId], references: [id])
+  contacts                 CustomerContact[]
+  invoiceRecipients        CustomerInvoiceRecipient[]
+  invoices                 Invoice[]
+  locations                Location[]
+  orders                   Order[]
+  users                    User[]
+
+  @@index([defaultSalespersonUserId])
+  @@index([registrySalespersonId])
+}
+
+model Location {
+  id                 String                     @id @default(cuid())
+  customerId         String
+  name               String
+  address1           String?
+  address2           String?
+  city               String?
+  state              String?
+  zip                String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  customer           Customer                   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoiceRecipients  LocationInvoiceRecipient[]
+  orders             Order[]
+  payrollBurdenRates PayrollBurdenRate[]        @relation("PayrollBurdenRateLocation")
+
+  @@unique([customerId, name])
+  @@index([customerId])
+}
+
+model CustomerInvoiceRecipient {
+  id         String   @id @default(cuid())
+  customerId String
+  email      String
+  name       String?
+  isCc       Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, email])
+  @@index([customerId])
+  @@index([email])
+}
+
+model LocationInvoiceRecipient {
+  id         String   @id @default(cuid())
+  locationId String
+  email      String
+  name       String?
+  isCc       Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, email])
+  @@index([locationId])
+  @@index([email])
+}
+
+model CustomerContact {
+  id                        String   @id @default(cuid())
+  customerId                String
+  firstName                 String
+  lastName                  String
+  email                     String?
+  officePhone               String?
+  cellPhone                 String?
+  jobTitle                  String?
+  rolesJson                 String   @default("[]")
+  salespersonOfRecordUserId String?
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  customer                  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  salespersonOfRecord       User?    @relation("CustomerContactSalesperson", fields: [salespersonOfRecordUserId], references: [id])
+  ordersAsPrimaryContact    Order[]  @relation("OrderPrimaryContact")
+
+  @@index([customerId])
+  @@index([salespersonOfRecordUserId])
+  @@index([isActive])
+}
+
+model Order {
+  id                         String                          @id @default(cuid())
+  customerId                 String
+  status                     OrderStatus
+  createdAt                  DateTime                        @default(now())
+  updatedAt                  DateTime                        @updatedAt
+  expectedTradeMarginAmount  Float?
+  expectedTradeMarginPercent Float?
+  approvalStatus             ApprovalStatus                  @default(NOT_REQUIRED)
+  approvedByUserId           String?
+  approvedAt                 DateTime?
+  approvalNote               String?
+  employeeDailyPerDiemRate   Decimal?
+  customerDailyPerDiemRate   Decimal?
+  jobLocationCode            String?
+  primaryCustomerContactId   String?
+  locationId                 String?
+  sdBillDeltaRate            Decimal?
+  sdPayDeltaRate             Decimal?
+  assignments                Assignment[]
+  commissionAssignments      CommissionAssignment[]
+  hoursEntries               HoursEntry[]
+  invoices                   Invoice[]
+  approvedBy                 User?                           @relation("OrderApprovedBy", fields: [approvedByUserId], references: [id])
+  customer                   Customer                        @relation(fields: [customerId], references: [id])
+  location                   Location?                       @relation(fields: [locationId], references: [id])
+  primaryCustomerContact     CustomerContact?                @relation("OrderPrimaryContact", fields: [primaryCustomerContactId], references: [id])
+  orderCandidates            OrderCandidate[]
+  certRequirements           OrderCertificationRequirement[]
+  ppeRequirements            OrderPpeRequirement[]
+  toolRequirements           OrderToolRequirement[]
+  tradeRequirements          OrderTradeRequirement[]
+
+  @@index([customerId])
+  @@index([approvalStatus])
+  @@index([locationId])
+  @@index([primaryCustomerContactId])
+}
+
+model Assignment {
+  id              String            @id @default(cuid())
+  orderId         String
+  userId          String
+  startDate       DateTime
+  endDate         DateTime?
+  status          AssignmentStatus?
+  statusChangedAt DateTime?
+  createdAt       DateTime          @default(now())
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hoursEntries    HoursEntry[]
+}
+
+model EmployeeProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  phone     String?
+  address1  String?
+  address2  String?
+  city      String?
+  state     String?
+  zip       String?
+  ssn       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HoursEntry {
+  id              String              @id @default(cuid())
+  type            HoursEntryType
+  enteredBy       HoursEnteredBy
+  orderId         String
+  workerId        String
+  periodStart     DateTime
+  periodEnd       DateTime
+  totalHours      Float
+  approvalStatus  HoursApprovalStatus @default(PENDING)
+  rejectionReason String?
+  assignmentId    String?
+  userId          String?
+  entryDate       DateTime?
+  startTime       DateTime?
+  endTime         DateTime?
+  isOfficial      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  assignment      Assignment?         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lines           HoursEntryLine[]
+
+  @@index([orderId])
+  @@index([assignmentId])
+  @@index([userId])
+  @@index([workerId])
+  @@index([type])
+  @@index([enteredBy])
+}
+
+model Company {
+  id              String          @id @default(cuid())
+  legalName       String
+  normalizedName  String          @unique
+  website         String?
+  domain          String?         @unique
+  industryMarkers String          @default("[]")
+  confidenceScore Int             @default(0)
+  lastSignalAt    DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  callLogs        CallLog[]
+  signals         CompanySignal[]
+
+  @@index([domain])
+}
+
+model CallLog {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  calledAt    DateTime @default(now())
+  disposition String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([calledAt])
+}
+
+model CompanySignal {
+  id              String   @id @default(cuid())
+  companyId       String?
+  sourceType      String
+  rawCompanyName  String
+  normalizedName  String
+  domain          String?
+  rawContext      String?
+  confidenceScore Int      @default(0)
+  meta            String   @default("{}")
+  createdAt       DateTime @default(now())
+  company         Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([sourceType])
+  @@index([rawCompanyName])
+  @@index([normalizedName])
+  @@index([createdAt])
+  @@index([domain])
+}
+
+model BurdenRateSet {
+  id              String    @id @default(cuid())
+  state           String
+  tradeCode       String
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  wcRate          Float?
+  glRate          Float?
+  sutaRate        Float?
+  futaRate        Float?
+  ficaRate        Float?
+  otherJson       String    @default("{}")
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       User      @relation("BurdenRateSetCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@unique([state, tradeCode, effectiveFrom])
+  @@index([state])
+  @@index([tradeCode])
+  @@index([effectiveFrom])
+}
+
+model InvoiceSequence {
+  key        String   @id
+  nextNumber Int
+  updatedAt  DateTime @updatedAt
+}
+
+model Invoice {
+  id                       String                      @id @default(cuid())
+  invoiceNumber            String?                     @unique
+  customerId               String
+  orderId                  String?
+  invoiceDate              DateTime?
+  dueDate                  DateTime?
+  status                   InvoiceStatus               @default(DRAFT)
+  issuedAt                 DateTime?
+  subtotalAmountCents      Int                         @default(0)
+  totalAmountCents         Int                         @default(0)
+  issuedByUserId           String?
+  issuedSnapshotJson       Json?
+  voidedAt                 DateTime?
+  voidedByUserId           String?
+  voidReason               String?
+  requiresCustomerApproval Boolean                     @default(true)
+  approvalStatus           ApprovalStatus              @default(PENDING)
+  approvedAt               DateTime?
+  approvedByUserId         String?
+  approvalNote             String?
+  routedToAdminAt          DateTime?
+  routedByUserId           String?
+  routingReason            String?
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  projectRef               String?
+  approvedBy               User?                       @relation("InvoiceApprovedBy", fields: [approvedByUserId], references: [id])
+  customer                 Customer                    @relation(fields: [customerId], references: [id])
+  issuedBy                 User?                       @relation("InvoiceIssuedBy", fields: [issuedByUserId], references: [id])
+  order                    Order?                      @relation(fields: [orderId], references: [id])
+  routedBy                 User?                       @relation("InvoiceRoutedBy", fields: [routedByUserId], references: [id])
+  voidedBy                 User?                       @relation("InvoiceVoidedBy", fields: [voidedByUserId], references: [id])
+  adjustments              InvoiceAdjustment[]
+  lineItems                InvoiceLineItem[]
+  payments                 InvoicePayment[]
+  tradeMarginSnapshot      InvoiceTradeMarginSnapshot?
+
+  @@index([customerId])
+  @@index([orderId])
+}
+
+model InvoiceLineItem {
+  id               String              @id @default(cuid())
+  invoiceId        String
+  type             InvoiceLineItemType
+  description      String?
+  amount           Float
+  quantity         Float?
+  tradeCode        String?
+  state            String?
+  isCommissionable Boolean             @default(true)
+  unitRateCents    Int?
+  lineTotalCents   Int?
+  createdAt        DateTime            @default(now())
+  invoice          Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([type])
+  @@index([tradeCode])
+  @@index([state])
+}
+
+model InvoicePayment {
+  id                String            @id @default(cuid())
+  invoiceId         String
+  amount            Float
+  paymentReceivedAt DateTime
+  bankDepositAt     DateTime?
+  paymentPostedAt   DateTime
+  postedByUserId    String
+  backdateReason    String?
+  source            String?
+  createdAt         DateTime          @default(now())
+  commissionEvents  CommissionEvent[]
+  invoice           Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  postedBy          User              @relation(fields: [postedByUserId], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentReceivedAt])
+  @@index([paymentPostedAt])
+  @@index([postedByUserId])
+}
+
+model InvoiceTradeMarginSnapshot {
+  id                       String   @id @default(cuid())
+  invoiceId                String   @unique
+  tradeRevenuePaid         Float
+  tradeLaborCost           Float
+  tradeBurdenCost          Float
+  tradeMargin              Float
+  burdenBreakdownJson      String   @default("{}")
+  exclusionTotalsJson      String   @default("{}")
+  commissionRateSnapshot   Float
+  payoutTierSnapshotJson   String   @default("[]")
+  bankLagDaysSnapshot      Int      @default(1)
+  postingGraceDaysSnapshot Int      @default(1)
+  createdAt                DateTime @default(now())
+  invoice                  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model CommissionPlan {
+  id          String                 @id @default(cuid())
+  name        String
+  type        CommissionPlanType
+  defaultRate Float                  @default(0.10)
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  tiers       CommissionPayoutTier[]
+}
+
+model CommissionPayoutTier {
+  id         String         @id @default(cuid())
+  planId     String
+  minDays    Int
+  maxDays    Int?
+  multiplier Float
+  createdAt  DateTime       @default(now())
+  plan       CommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([minDays])
+}
+
+model CommissionAssignment {
+  id               String            @id @default(cuid())
+  userId           String
+  customerId       String?
+  orderId          String?
+  splitPercent     Float             @default(1.0)
+  effectiveFrom    DateTime
+  effectiveTo      DateTime?
+  createdAt        DateTime          @default(now())
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order            Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commissionEvents CommissionEvent[]
+
+  @@index([userId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([effectiveFrom])
+}
+
+model CommissionEvent {
+  id                       String                    @id @default(cuid())
+  invoicePaymentId         String
+  commissionAssignmentId   String
+  userId                   String
+  earnedAt                 DateTime
+  postedAt                 DateTime
+  daysToPaid               Int
+  commissionRateSnapshot   Float
+  payoutMultiplierSnapshot Float
+  rawCommissionAmount      Float
+  payableCommissionAmount  Float
+  isLatePosted             Boolean                   @default(false)
+  createdAt                DateTime                  @default(now())
+  adjustments              CommissionAdjustment[]
+  assignment               CommissionAssignment      @relation(fields: [commissionAssignmentId], references: [id])
+  invoicePayment           InvoicePayment            @relation(fields: [invoicePaymentId], references: [id], onDelete: Cascade)
+  user                     User                      @relation(fields: [userId], references: [id])
+  reportItems              CommissionReportRunItem[]
+
+  @@unique([invoicePaymentId, commissionAssignmentId])
+  @@index([earnedAt])
+  @@index([postedAt])
+  @@index([userId])
+  @@index([isLatePosted])
+}
+
+model CommissionAdjustment {
+  id                String          @id @default(cuid())
+  commissionEventId String
+  amount            Float
+  reason            String
+  createdByUserId   String
+  createdAt         DateTime        @default(now())
+  commissionEvent   CommissionEvent @relation(fields: [commissionEventId], references: [id], onDelete: Cascade)
+  createdBy         User            @relation(fields: [createdByUserId], references: [id])
+
+  @@index([commissionEventId])
+  @@index([createdByUserId])
+}
+
+model CommissionReportRun {
+  id                            String                    @id @default(cuid())
+  weekStart                     DateTime
+  weekEnd                       DateTime
+  timezone                      String                    @default("America/Chicago")
+  status                        CommissionReportRunStatus @default(DRAFT)
+  finalizedAt                   DateTime?
+  finalizedByUserId             String?
+  bankLagDaysSnapshot           Int                       @default(1)
+  postingGraceDaysSnapshot      Int                       @default(1)
+  commissionRateDefaultSnapshot Float                     @default(0.10)
+  tierSnapshotJson              String                    @default("[]")
+  summarySnapshotJson           String                    @default("{}")
+  createdByUserId               String
+  createdAt                     DateTime                  @default(now())
+  createdBy                     User                      @relation(fields: [createdByUserId], references: [id])
+  items                         CommissionReportRunItem[]
+
+  @@index([weekStart])
+  @@index([weekEnd])
+  @@index([status])
+  @@index([finalizedAt])
+}
+
+model CommissionReportRunItem {
+  id                String                  @id @default(cuid())
+  reportRunId       String
+  commissionEventId String
+  section           CommissionReportSection
+  createdAt         DateTime                @default(now())
+  commissionEvent   CommissionEvent         @relation(fields: [commissionEventId], references: [id], onDelete: Cascade)
+  reportRun         CommissionReportRun     @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+
+  @@unique([reportRunId, commissionEventId])
+  @@index([section])
+}
+
+model SystemSetting {
+  id              String               @id @default(cuid())
+  key             String               @unique
+  valueJson       String
+  updatedByUserId String
+  updatedAt       DateTime             @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedBy       User                 @relation(fields: [updatedByUserId], references: [id])
+  audits          SystemSettingAudit[]
+}
+
+model SystemSettingAudit {
+  id              String        @id @default(cuid())
+  settingId       String
+  key             String
+  oldValueJson    String?
+  newValueJson    String
+  changedByUserId String
+  createdAt       DateTime      @default(now())
+  changedBy       User          @relation(fields: [changedByUserId], references: [id])
+  setting         SystemSetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@index([settingId])
+  @@index([changedByUserId])
+  @@index([createdAt])
+}
+
+model Candidate {
+  id              String                   @id @default(cuid())
+  status          String?
+  phone           String?
+  email           String?
+  tools           Json?
+  ppe             Json?
+  safetyRecords   Json?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  applications    Application[]
+  candidateCerts  CandidateCertification[]
+  candidatePpe    CandidatePpe[]
+  candidateTools  CandidateTool[]
+  candidateTrades CandidateTrade[]
+  personConsents  PersonConsent[]
+}
+
+model MagicLink {
+  id                  String    @id @default(cuid())
+  scope               String
+  tokenHash           String    @unique
+  orderId             String?
+  candidateId         String?
+  userId              String?
+  outreachRecipientId String?
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime  @default(now())
+}
+
+model OutreachBatch {
+  id              String              @id @default(cuid())
+  orderId         String
+  createdByUserId String
+  sourceType      String
+  channels        Json
+  templateKey     String?
+  messageSnapshot String
+  createdAt       DateTime            @default(now())
+  recipients      OutreachRecipient[]
+}
+
+model OutreachRecipient {
+  id                  String                 @id @default(cuid())
+  outreachBatchId     String
+  candidateId         String
+  phone               String?
+  email               String?
+  sendStatusSms       String
+  sendStatusEmail     String
+  sentAtSms           DateTime?
+  sentAtEmail         DateTime?
+  responseStatus      OutreachResponseStatus @default(PENDING)
+  responseNote        String?
+  respondedAt         DateTime?
+  responseMagicLinkId String?
+  responseIp          String?
+  responseUserAgent   String?
+  magicLinkId         String?
+  outreachBatch       OutreachBatch          @relation(fields: [outreachBatchId], references: [id])
+}
+
+model OutreachResponse {
+  id          String                 @id @default(cuid())
+  outreachId  String
+  candidateId String
+  status      OutreachResponseStatus
+  respondedAt DateTime               @default(now())
+
+  @@unique([outreachId, candidateId])
+}
+
+model Application {
+  id               String            @id @default(cuid())
+  candidateId      String
+  status           ApplicationStatus @default(DRAFT)
+  submittedAt      DateTime?
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  reviewNote       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  candidate        Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  reviewedBy       User?             @relation("ApplicationReviewedBy", fields: [reviewedByUserId], references: [id])
+
+  @@index([candidateId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model ConsentVersion {
+  id             String          @id @default(cuid())
+  type           ConsentType
+  version        Int
+  title          String
+  content        String
+  isActive       Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  personConsents PersonConsent[]
+
+  @@unique([type, version])
+  @@index([type, isActive])
+}
+
+model PersonConsent {
+  id                    String         @id @default(cuid())
+  candidateId           String
+  consentVersionId      String
+  acceptedAt            DateTime       @default(now())
+  acceptedFromIp        String?
+  acceptedFromUserAgent String?
+  createdAt             DateTime       @default(now())
+  candidate             Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  consentVersion        ConsentVersion @relation(fields: [consentVersionId], references: [id])
+
+  @@unique([candidateId, consentVersionId])
+  @@index([candidateId])
+  @@index([consentVersionId])
+  @@index([acceptedAt])
+}
+
+model Trade {
+  id              String                  @id @default(cuid())
+  name            String                  @unique
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  candidateTrades CandidateTrade[]
+  hoursEntryLines HoursEntryLine[]
+  orderTrades     OrderTradeRequirement[]
+}
+
+model CertificationType {
+  id                     String                          @id @default(cuid())
+  code                   String                          @unique
+  name                   String
+  category               String?
+  isMW4HTrainableDefault Boolean                         @default(false)
+  isActive               Boolean                         @default(true)
+  createdAt              DateTime                        @default(now())
+  updatedAt              DateTime                        @updatedAt
+  candidateCerts         CandidateCertification[]
+  orderCerts             OrderCertificationRequirement[]
+}
+
+model ToolType {
+  id             String                 @id @default(cuid())
+  name           String                 @unique
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  candidateTools CandidateTool[]
+  orderTools     OrderToolRequirement[]
+}
+
+model PpeType {
+  id           String                @id @default(cuid())
+  name         String                @unique
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  candidatePpe CandidatePpe[]
+  orderPpe     OrderPpeRequirement[]
+}
+
+model CandidateTrade {
+  id              String           @id @default(cuid())
+  candidateId     String
+  tradeId         String
+  proficiency     TradeProficiency @default(UNKNOWN)
+  notes           String?
+  source          MarkerSource     @default(SELF)
+  updatedByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  candidate       Candidate        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  trade           Trade            @relation(fields: [tradeId], references: [id])
+
+  @@unique([candidateId, tradeId])
+  @@index([candidateId])
+  @@index([tradeId])
+}
+
+model CandidateCertification {
+  id              String                    @id @default(cuid())
+  candidateId     String
+  certTypeId      String
+  status          CandidateMarkerStatus     @default(UNKNOWN)
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  verification    CandidateCertVerification @default(SELF_ATTESTED)
+  notes           String?
+  source          MarkerSource              @default(SELF)
+  updatedByUserId String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  candidate       Candidate                 @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  certType        CertificationType         @relation(fields: [certTypeId], references: [id])
+
+  @@unique([candidateId, certTypeId])
+  @@index([candidateId])
+  @@index([certTypeId])
+}
+
+model CandidateTool {
+  id              String                @id @default(cuid())
+  candidateId     String
+  toolTypeId      String
+  status          CandidateMarkerStatus @default(UNKNOWN)
+  notes           String?
+  source          MarkerSource          @default(SELF)
+  updatedByUserId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  candidate       Candidate             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  toolType        ToolType              @relation(fields: [toolTypeId], references: [id])
+
+  @@unique([candidateId, toolTypeId])
+  @@index([candidateId])
+  @@index([toolTypeId])
+}
+
+model HoursEntryLine {
+  id           String             @id @default(cuid())
+  hoursEntryId String
+  earningCode  PayrollEarningCode
+  unit         HoursEntryUnit
+  quantity     Decimal
+  rate         Decimal?
+  amount       Decimal?
+  createdAt    DateTime           @default(now())
+  projectRef   String?
+  tradeId      String?
+  hoursEntry   HoursEntry         @relation(fields: [hoursEntryId], references: [id], onDelete: Cascade)
+  trade        Trade?             @relation(fields: [tradeId], references: [id])
+
+  @@index([hoursEntryId])
+  @@index([tradeId])
+}
+
+model CandidatePpe {
+  id              String                @id @default(cuid())
+  candidateId     String
+  ppeTypeId       String
+  status          CandidateMarkerStatus @default(UNKNOWN)
+  notes           String?
+  source          MarkerSource          @default(SELF)
+  updatedByUserId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  candidate       Candidate             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  ppeType         PpeType               @relation(fields: [ppeTypeId], references: [id])
+
+  @@unique([candidateId, ppeTypeId])
+  @@index([candidateId])
+  @@index([ppeTypeId])
+}
+
+model OrderTradeRequirement {
+  id           String                 @id @default(cuid())
+  orderId      String
+  tradeId      String
+  priority     RequirementPriority    @default(REQUIRED)
+  enforcement  RequirementEnforcement @default(FLAG)
+  notes        String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  baseBillRate Decimal?
+  basePayRate  Decimal?
+  order        Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  trade        Trade                  @relation(fields: [tradeId], references: [id])
+
+  @@unique([orderId, tradeId])
+  @@index([orderId])
+  @@index([tradeId])
+}
+
+model OrderCertificationRequirement {
+  id          String                 @id @default(cuid())
+  orderId     String
+  certTypeId  String
+  priority    RequirementPriority    @default(REQUIRED)
+  enforcement RequirementEnforcement @default(FLAG)
+  isTrainable Boolean                @default(false)
+  notes       String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  certType    CertificationType      @relation(fields: [certTypeId], references: [id])
+  order       Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, certTypeId])
+  @@index([orderId])
+  @@index([certTypeId])
+}
+
+model OrderToolRequirement {
+  id          String                 @id @default(cuid())
+  orderId     String
+  toolTypeId  String
+  priority    RequirementPriority    @default(REQUIRED)
+  enforcement RequirementEnforcement @default(FLAG)
+  notes       String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  order       Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  toolType    ToolType               @relation(fields: [toolTypeId], references: [id])
+
+  @@unique([orderId, toolTypeId])
+  @@index([orderId])
+  @@index([toolTypeId])
+}
+
+model OrderPpeRequirement {
+  id          String                 @id @default(cuid())
+  orderId     String
+  ppeTypeId   String
+  priority    RequirementPriority    @default(REQUIRED)
+  enforcement RequirementEnforcement @default(FLAG)
+  notes       String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  order       Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ppeType     PpeType                @relation(fields: [ppeTypeId], references: [id])
+
+  @@unique([orderId, ppeTypeId])
+  @@index([orderId])
+  @@index([ppeTypeId])
+}
+
+model PayrollBurdenRate {
+  id              String                   @id @default(cuid())
+  level           BurdenLevel
+  category        BurdenCategory
+  effectiveDate   DateTime                 @default(now())
+  ratePercent     Float
+  workerId        String?
+  locationId      String?
+  stateCode       String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  createdByUserId String
+  updatedByUserId String
+  createdBy       User                     @relation("PayrollBurdenRateCreatedBy", fields: [createdByUserId], references: [id])
+  location        Location?                @relation("PayrollBurdenRateLocation", fields: [locationId], references: [id], onDelete: Cascade)
+  updatedBy       User                     @relation("PayrollBurdenRateUpdatedBy", fields: [updatedByUserId], references: [id])
+  worker          User?                    @relation("PayrollBurdenRateWorker", fields: [workerId], references: [id], onDelete: Cascade)
+  audits          PayrollBurdenRateAudit[]
+
+  @@index([level, category])
+  @@index([effectiveDate])
+  @@index([workerId])
+  @@index([locationId])
+  @@index([stateCode])
+}
+
+model PayrollBurdenRateAudit {
+  id              String            @id @default(cuid())
+  burdenRateId    String
+  action          String
+  before          Json?
+  after           Json?
+  createdAt       DateTime          @default(now())
+  createdByUserId String
+  burdenRate      PayrollBurdenRate @relation(fields: [burdenRateId], references: [id], onDelete: Cascade)
+  createdBy       User              @relation(fields: [createdByUserId], references: [id])
+
+  @@index([burdenRateId])
+  @@index([createdAt])
+}
+
+model PayrollDeductionElection {
+  id            String   @id @default(cuid())
+  employeeId    String
+  code          String
+  amountCents   Int?
+  percentBasis  Float?
+  effectiveWeek DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  createdBy     String?
+  updatedAt     DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([code])
+}
+
+model PayrollRun {
+  id                String   @id @default(cuid())
+  weekStart         DateTime
+  weekEnd           DateTime
+  timezone          String
+  snapshotJson      Json
+  includeDeductions Boolean  @default(false)
+  includeReference  Boolean  @default(false)
+  finalizedAt       DateTime @default(now())
+  finalizedByUserId String?
+  createdAt         DateTime @default(now())
+
+  @@index([weekStart, weekEnd])
+  @@index([finalizedAt])
+}
+
+model DirectDepositOptInSubmission {
+  id                 String   @id @default(cuid())
+  employeeId         String
+  magicLinkId        String?
+  wantsDirectDeposit Boolean  @default(false)
+  wantsEtvDonation   Boolean  @default(false)
+  etvAmountCents     Int?
+  majorEdVideoUrl    String?
+  status             String   @default("SUBMITTED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([magicLinkId])
+  @@index([status])
+}
+
+model MedicalScreen {
+  id             String              @id @default(cuid())
+  employeeId     String
+  type           MedicalScreenType
+  status         MedicalScreenStatus @default(PENDING)
+  administeredAt DateTime?
+  expiresAt      DateTime?
+  notes          String?
+  source         String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([status])
+}
+
+model EmployeeHoursSelfReport {
+  id           String    @id @default(cuid())
+  employeeId   String
+  orderId      String
+  workDate     DateTime
+  totalMinutes Int?
+  startTime    DateTime?
+  endTime      DateTime?
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([employeeId, orderId, workDate])
+  @@index([employeeId])
+  @@index([orderId])
+  @@index([workDate])
+}
+
+model PayrollPacket {
+  id                String              @id @default(cuid())
+  weekStart         DateTime            @unique
+  timezone          String              @default("America/Chicago")
+  status            PayrollPacketStatus @default(DRAFT)
+  generatedAt       DateTime            @default(now())
+  exportedAt        DateTime?
+  generatedByUserId String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  lines             PayrollPacketLine[]
+
+  @@index([weekStart])
+  @@index([status])
+}
+
+model PayrollPacketLine {
+  id                     String        @id @default(cuid())
+  packetId               String
+  employeeId             String
+  employeeName           String
+  ssn                    String
+  loc                    String
+  regRate                Decimal
+  regHours               Decimal       @default(0)
+  otHours                Decimal       @default(0)
+  dtHours                Decimal       @default(0)
+  holidayHours           Decimal       @default(0)
+  bonusAmount            Decimal       @default(0)
+  reimbAmount            Decimal       @default(0)
+  mileageAmount          Decimal       @default(0)
+  perDiemAmount          Decimal       @default(0)
+  advanceDeductionAmount Decimal       @default(0)
+  etvDeductionAmount     Decimal       @default(0)
+  createdAt              DateTime      @default(now())
+  packet                 PayrollPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
+
+  @@index([packetId])
+  @@index([employeeId])
+  @@index([loc])
+}
+
+model OrderCandidate {
+  id         String               @id @default(cuid())
+  orderId    String
+  employeeId String
+  status     OrderCandidateStatus
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  employee   User                 @relation(fields: [employeeId], references: [id])
+  order      Order                @relation(fields: [orderId], references: [id])
+  vettings   OrderVetting[]
+
+  @@unique([orderId, employeeId])
+}
+
+model OrderVetting {
+  id                   String              @id @default(cuid())
+  orderCandidateId     String
+  status               OrderVettingStatus
+  holdReason           String?
+  reviewedByEmployeeId String?
+  reviewedAt           DateTime?
+  notes                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  orderCandidate       OrderCandidate      @relation(fields: [orderCandidateId], references: [id])
+  audits               OrderVettingAudit[]
+}
+
+/// Phase 26B ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Vetting Audit Trail (immutable)
+model OrderVettingAudit {
+  id                String       @id @default(cuid())
+  orderVettingId    String
+  orderCandidateId  String
+  action            String
+  previousStatus    String
+  newStatus         String
+  reason            String?
+  performedByUserId String
+  createdAt         DateTime     @default(now())
+  orderVetting      OrderVetting @relation(fields: [orderVettingId], references: [id], onDelete: Cascade)
+
+  @@index([orderVettingId])
+  @@index([orderCandidateId])
+  @@index([performedByUserId])
+  @@index([createdAt])
+}
+
+model InvoiceAdjustment {
+  id                 String                  @id @default(cuid())
+  adjustmentNumber   String?                 @unique
+  invoiceId          String
+  type               InvoiceAdjustmentType
+  status             InvoiceAdjustmentStatus @default(DRAFT)
+  amountCents        Int
+  reason             String?
+  issuedAt           DateTime?
+  issuedByUserId     String?
+  issuedSnapshotJson Json?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  invoice            Invoice                 @relation(fields: [invoiceId], references: [id])
+  issuedBy           User?                   @relation("InvoiceAdjustmentIssuedBy", fields: [issuedByUserId], references: [id])
+
+  @@index([invoiceId])
+  @@index([status])
+  @@index([type])
+}
+
+model Quote {
+  id         String                   @id @default(cuid())
+  customerId String?
+  title      String
+  state      String
+  status     QuoteStatus              @default(DRAFT)
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  snapshots  OrderEconomicsSnapshot[]
+  lines      QuoteLine[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model QuoteLine {
+  id        String   @id @default(cuid())
+  quoteId   String
+  tradeId   String
+  baseRate  Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([tradeId])
+}
+
+model OrderEconomicsSnapshot {
+  id          String   @id @default(cuid())
+  quoteId     String
+  inputHash   String
+  payloadJson Json
+  createdAt   DateTime @default(now())
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, inputHash])
+  @@index([quoteId])
+}
+
+model Salesperson {
+  id        String     @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  customers Customer[]
+
+  @@index([isActive])
+}
+
+enum CustomerContactRole {
+  PROJECT_MANAGER
+  EXECUTIVE
+  AP
+  SAFETY
+  SITE_SUPERVISOR
+  OTHER
+}
+
+enum OrderStatus {
+  DRAFT
+  NEEDS_TO_BE_FILLED
+  FILLED
+  COMPLETED
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  DISPATCHED
+  ON_ASSIGNMENT
+  COMPLETED
+}
+
+enum HoursEntryType {
+  OFFICIAL
+  REFERENCE
+}
+
+enum HoursEnteredBy {
+  CUSTOMER
+  MW4H
+  EMPLOYEE
+}
+
+enum HoursApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OutreachResponseStatus {
+  PENDING
+  INTERESTED
+  NOT_INTERESTED
+  EXPIRED
+  INVALIDATED
+}
+
+enum InvoiceLineItemType {
+  TRADE_SALES
+  TRADE_LABOR
+  BONUS
+  TRAVEL
+  PER_DIEM
+  REIMBURSEMENT
+  FEE
+  OTHER
+  MOB_DEMOB
+  CREDIT
+  DISCOUNT
+  BACK_CHARGE
+}
+
+enum CommissionPlanType {
+  PERCENT_OF_TRADE_MARGIN
+}
+
+enum CommissionReportSection {
+  PRIOR_WEEK_EARNED
+  CATCH_UP_LATE_POSTED
+}
+
+enum ApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  VOIDED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum ConsentType {
+  ELECTRONIC_COMMUNICATIONS
+  DATA_STORAGE
+  LOCATION_ARRIVAL_VERIFICATION
+  SAFETY_VIDEO_TRACKING
+}
+
+enum CommissionReportRunStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum MarkerSource {
+  SELF
+  RECRUITER
+  IMPORT
+}
+
+enum CandidateMarkerStatus {
+  HAS
+  DOES_NOT_HAVE
+  UNKNOWN
+}
+
+enum CandidateCertVerification {
+  SELF_ATTESTED
+  VERIFIED
+  REJECTED
+}
+
+enum TradeProficiency {
+  UNKNOWN
+  BASIC
+  JOURNEYMAN
+  MASTER
+}
+
+enum PayrollEarningCode {
+  REG
+  OT
+  DT
+  H
+  PD
+  TRV
+  BONUS
+  REM
+}
+
+enum PayrollDeductionCode {
+  ETV
+  ADV
+}
+
+enum HoursEntryUnit {
+  HOURS
+  DAYS
+  DOLLARS
+  REG_SD
+  OT_SD
+  DT_SD
+}
+
+enum RequirementPriority {
+  REQUIRED
+  PREFERRED
+}
+
+enum RequirementEnforcement {
+  FLAG
+  FILTER
+}
+
+enum BurdenLevel {
+  WORKER
+  SITE
+  STATE
+  GLOBAL
+}
+
+enum BurdenCategory {
+  WC
+  GL
+  FICA
+  SUTA
+  FUTA
+  PEO
+  OVERHEAD
+  INT_W
+  INT_PD
+}
+
+enum MedicalScreenType {
+  DRUG_5_PANEL
+  DRUG_10_PANEL
+  DRUG_HAIR
+  DOT_PHYSICAL
+  OTHER
+}
+
+enum MedicalScreenStatus {
+  PENDING
+  PASSED
+  FAILED
+  EXPIRED
+}
+
+enum PayrollPacketStatus {
+  DRAFT
+  EXPORTED
+}
+
+enum OrderCandidateStatus {
+  IDENTIFIED
+  WITHDRAWN_PLACED_ELSEWHERE
+  WITHDRAWN_REJECTED
+  WITHDRAWN_WITHDRAWN
+}
+
+enum OrderVettingStatus {
+  VETTING
+  VETTING_HOLD
+  APPROVED
+  REJECTED
+}
+
+enum InvoiceAdjustmentType {
+  CREDIT
+  DEBIT
+}
+
+enum InvoiceAdjustmentStatus {
+  DRAFT
+  ISSUED
+}
+
+enum QuoteStatus {
+  DRAFT
+  GENERATED
+}

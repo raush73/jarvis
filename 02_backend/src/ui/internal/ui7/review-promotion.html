@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internal Review & Promotion Decision - UI-7</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      color: #333;
+      border-bottom: 2px solid #4a90e2;
+      padding-bottom: 0.5rem;
+    }
+
+    .warning-banner {
+      background-color: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      color: #856404;
+      font-weight: 500;
+    }
+
+    .header-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .header-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-label {
+      font-size: 0.875rem;
+      color: #666;
+      margin-bottom: 0.25rem;
+    }
+
+    .header-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #333;
+      font-family: monospace;
+    }
+
+    .main-display {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .main-display {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .left-section {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 1.5rem;
+      background: #fafafa;
+    }
+
+    .right-section {
+      border: 2px solid #0c5460;
+      border-radius: 8px;
+      padding: 1.5rem;
+      background: #f0f8f9;
+    }
+
+    .section-label {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid #333;
+      color: #333;
+    }
+
+    .section-label.reference {
+      color: #856404;
+      border-bottom-color: #856404;
+    }
+
+    .section-label.official {
+      color: #0c5460;
+      border-bottom-color: #0c5460;
+    }
+
+    .daily-table-container {
+      margin-top: 1.5rem;
+    }
+
+    .daily-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    .daily-table th,
+    .daily-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .daily-table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .daily-table td {
+      color: #333;
+      font-family: monospace;
+    }
+
+    .daily-table td:nth-child(2) {
+      text-align: right;
+    }
+
+    .total-row {
+      font-weight: 600;
+      background-color: #f8f9fa;
+    }
+
+    .week-highlight {
+      background-color: #fff3cd;
+      border: 2px solid #ffc107;
+    }
+
+    .delta-display {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .delta-label {
+      font-size: 0.875rem;
+      color: #666;
+      margin-bottom: 0.25rem;
+    }
+
+    .delta-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    .delta-value.positive {
+      color: #28a745;
+    }
+
+    .delta-value.negative {
+      color: #dc3545;
+    }
+
+    .delta-value.zero {
+      color: #666;
+    }
+
+    .official-total-display {
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-family: monospace;
+      color: #0c5460;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Internal Review & Promotion Decision - UI-7</h1>
+
+    <div class="warning-banner" id="warningBanner">
+      Employee hours are reference-only and NOT billable.
+    </div>
+
+    <div class="header-info" id="headerInfo" style="display: none;">
+      <div class="header-item">
+        <span class="header-label">Order ID</span>
+        <span class="header-value" id="orderIdValue">-</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">Employee ID</span>
+        <span class="header-value" id="employeeIdValue">-</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">Week Range (Sun–Sat)</span>
+        <span class="header-value" id="weekRangeValue">-</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">Timezone</span>
+        <span class="header-value" id="timezoneValue">-</span>
+      </div>
+    </div>
+
+    <div class="main-display">
+      <div class="left-section" id="leftSection">
+        <div class="section-label reference">Daily Employee Hours (REFERENCE-ONLY)</div>
+        <div class="daily-table-container">
+          <table class="daily-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Employee Hours (Ref)</th>
+              </tr>
+            </thead>
+            <tbody id="dailyTableBody">
+              <tr>
+                <td colspan="2" style="text-align: center; color: #999; font-style: italic;">NO DATA</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right-section" id="rightSection">
+        <div class="section-label official">Official Hours (WEEK TOTAL)</div>
+        <div class="official-total-display" id="officialTotalValue">0.00</div>
+        <div class="delta-display">
+          <div class="delta-label">Weekly Delta</div>
+          <div class="delta-value zero" id="deltaValue">0.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      if (typeof window.__DATA__ === 'undefined') {
+        return;
+      }
+
+      const data = window.__DATA__;
+
+      // Show header info
+      document.getElementById('headerInfo').style.display = 'grid';
+      document.getElementById('orderIdValue').textContent = data.orderId || '-';
+      document.getElementById('employeeIdValue').textContent = data.employeeId || '-';
+      document.getElementById('weekRangeValue').textContent = `${data.weekStart} to ${data.weekEnd}`;
+      document.getElementById('timezoneValue').textContent = data.timezone || 'America/Chicago';
+
+      // Render daily table
+      const tableBody = document.getElementById('dailyTableBody');
+      if (data.leftData && Array.isArray(data.leftData)) {
+        tableBody.innerHTML = '';
+        let totalHours = 0;
+
+        data.leftData.forEach((day) => {
+          const row = document.createElement('tr');
+          totalHours += day.hours || 0;
+
+          const dateCell = document.createElement('td');
+          dateCell.textContent = day.date || '-';
+
+          const hoursCell = document.createElement('td');
+          hoursCell.textContent = (day.hours || 0).toFixed(2);
+          hoursCell.style.textAlign = 'right';
+
+          row.appendChild(dateCell);
+          row.appendChild(hoursCell);
+          tableBody.appendChild(row);
+        });
+
+        // Add total row
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'total-row';
+        const totalLabelCell = document.createElement('td');
+        totalLabelCell.textContent = 'Week Total';
+        const totalValueCell = document.createElement('td');
+        totalValueCell.textContent = (data.leftTotalHours || 0).toFixed(2);
+        totalValueCell.style.textAlign = 'right';
+
+        totalRow.appendChild(totalLabelCell);
+        totalRow.appendChild(totalValueCell);
+        tableBody.appendChild(totalRow);
+      }
+
+      // Render official total
+      document.getElementById('officialTotalValue').textContent = (data.officialWeekTotalHours || 0).toFixed(2);
+
+      // Render delta
+      const deltaValue = data.weeklyDelta || 0;
+      const deltaElement = document.getElementById('deltaValue');
+      deltaElement.textContent = (deltaValue >= 0 ? '+' : '') + deltaValue.toFixed(2);
+
+      if (deltaValue > 0.01) {
+        deltaElement.className = 'delta-value positive';
+      } else if (deltaValue < -0.01) {
+        deltaElement.className = 'delta-value negative';
+      } else {
+        deltaElement.className = 'delta-value zero';
+      }
+
+      // Highlight week section if different
+      if (data.isDifferentWeek === true) {
+        document.getElementById('leftSection').classList.add('week-highlight');
+        document.getElementById('rightSection').classList.add('week-highlight');
+      }
+    })();
+  </script>
+</body>
+</html>

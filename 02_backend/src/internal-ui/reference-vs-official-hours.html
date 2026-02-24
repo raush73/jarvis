@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference vs Official Hours (Internal)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      color: #333;
+      border-bottom: 2px solid #4a90e2;
+      padding-bottom: 0.5rem;
+    }
+
+    .note {
+      background-color: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      color: #856404;
+      font-weight: 500;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filter-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #333;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: #4a90e2;
+      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    thead {
+      background-color: #4a90e2;
+      color: white;
+    }
+
+    th {
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e9ecef;
+      font-size: 0.9rem;
+    }
+
+    tbody tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .status-match {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status-mismatch {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-missing-reference {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .status-missing-official {
+      background-color: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .delta-positive {
+      color: #155724;
+      font-weight: 500;
+    }
+
+    .delta-negative {
+      color: #721c24;
+      font-weight: 500;
+    }
+
+    .delta-zero {
+      color: #6c757d;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6c757d;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #6c757d;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #495057;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .legend-color.match {
+      background-color: transparent;
+    }
+
+    .legend-color.mismatch {
+      background-color: #ffebee;
+    }
+
+    .legend-color.missing {
+      background-color: #fff8e1;
+    }
+
+    tbody tr.row-match {
+      background-color: transparent;
+    }
+
+    tbody tr.row-mismatch {
+      background-color: #ffebee;
+    }
+
+    tbody tr.row-missing {
+      background-color: #fff8e1;
+    }
+
+    .export-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding: 0 1rem;
+      align-items: center;
+    }
+
+    .export-actions button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      font-family: inherit;
+    }
+
+    .export-actions button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .export-actions button:not(:disabled):hover {
+      opacity: 0.9;
+    }
+
+    .btn-download-csv {
+      background-color: #4a90e2;
+      color: white;
+    }
+
+    .btn-print {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .export-message {
+      color: #6c757d;
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    @media print {
+      .filters,
+      .export-actions,
+      .note {
+        display: none !important;
+      }
+
+      .container {
+        box-shadow: none;
+        padding: 0;
+      }
+
+      body {
+        background-color: white;
+        padding: 0;
+      }
+
+      table {
+        font-size: 0.8rem;
+      }
+
+      th, td {
+        padding: 0.5rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+
+      .table-container {
+        overflow-x: scroll;
+      }
+
+      table {
+        min-width: 800px;
+      }
+
+      .export-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .export-actions button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Reference vs Official Hours (Internal)</h1>
+
+    <div class="note">
+      <strong>Note:</strong> Reference hours are NOT billable and do not affect payroll. This dashboard is for internal visibility only.
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-color match"></span>
+        <span>Match: No highlighting</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color mismatch"></span>
+        <span>Mismatch: Light red background</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color missing"></span>
+        <span>Missing Reference/Official: Amber background</span>
+      </div>
+    </div>
+
+    <div class="export-actions">
+      <button id="downloadCsvBtn" class="btn-download-csv">Download CSV</button>
+      <button id="printBtn" class="btn-print">Print / Save PDF</button>
+      <span id="exportMessage" class="export-message" style="display: none;">No rows to export</span>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label for="weekSelect">Week</label>
+        <input type="week" id="weekSelect" name="week">
+      </div>
+      <div class="filter-group">
+        <label for="orderSelect">Order</label>
+        <select id="orderSelect" name="order">
+          <option value="">All Orders</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="employeeSelect">Employee</label>
+        <select id="employeeSelect" name="employee">
+          <option value="">All Employees</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+
+    <div class="table-container">
+      <table id="hoursTable">
+        <thead>
+          <tr>
+            <th>Employee Name</th>
+            <th>Order</th>
+            <th>Work Date</th>
+            <th>Reference Hours</th>
+            <th>Official Hours</th>
+            <th>Delta</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="hoursTableBody">
+          <tr>
+            <td colspan="7" class="loading">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // Sample data structure - in real implementation, this would come from an API
+      let allData = [];
+      let filteredData = [];
+
+      const weekSelect = document.getElementById('weekSelect');
+      const orderSelect = document.getElementById('orderSelect');
+      const employeeSelect = document.getElementById('employeeSelect');
+      const hoursTableBody = document.getElementById('hoursTableBody');
+      const errorMessage = document.getElementById('errorMessage');
+      const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+      const printBtn = document.getElementById('printBtn');
+      const exportMessage = document.getElementById('exportMessage');
+
+      // CSV Export function
+      function downloadCSV() {
+        if (filteredData.length === 0) {
+          return;
+        }
+
+        const headers = ['employeeName', 'employeeId', 'orderName', 'orderId', 'workDate', 'referenceTotalMinutes', 'referenceStartTime', 'referenceEndTime', 'officialTotalMinutes', 'deltaMinutes', 'status', 'flagsFollowUp', 'flagsInvestigating', 'internalNote'];
+        
+        const rows = filteredData.map(item => {
+          const refHours = item.referenceHours;
+          const officialHours = item.officialHours;
+          const delta = calculateDelta(refHours, officialHours);
+          const status = getStatus(refHours, officialHours, delta);
+          
+          const deltaMinutes = delta !== null && delta !== undefined ? Math.round(delta * 60) : '';
+          
+          const refTotalMinutes = refHours && refHours.totalMinutes !== null && refHours.totalMinutes !== undefined 
+            ? refHours.totalMinutes 
+            : '';
+          const refStartTime = refHours && refHours.startTime ? refHours.startTime : '';
+          const refEndTime = refHours && refHours.endTime ? refHours.endTime : '';
+          const officialTotalMinutes = officialHours !== null && officialHours !== undefined 
+            ? Math.round(officialHours * 60) 
+            : '';
+
+          return [
+            item.employeeName || '',
+            item.employeeId || '',
+            item.orderName || '',
+            item.orderId || '',
+            item.workDate || '',
+            refTotalMinutes,
+            refStartTime,
+            refEndTime,
+            officialTotalMinutes,
+            deltaMinutes,
+            status.text
+          ];
+        });
+
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => {
+            const cellStr = String(cell || '');
+            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          }).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `reference-vs-official-hours-${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // Print function
+      function handlePrint() {
+        window.print();
+      }
+
+      // Update export button state
+      function updateExportButtonState() {
+        if (filteredData.length === 0) {
+          downloadCsvBtn.disabled = true;
+          exportMessage.style.display = 'inline';
+        } else {
+          downloadCsvBtn.disabled = false;
+          exportMessage.style.display = 'none';
+        }
+      }
+
+      downloadCsvBtn.addEventListener('click', downloadCSV);
+      printBtn.addEventListener('click', handlePrint);
+
+      // URL and localStorage persistence helpers
+      function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          week: params.get('week') || null,
+          order: params.get('order') || null,
+          employee: params.get('employee') || null
+        };
+      }
+
+      function setUrlParams(week, order, employee) {
+        const params = new URLSearchParams();
+        if (week) params.set('week', week);
+        if (order) params.set('order', order);
+        if (employee) params.set('employee', employee);
+        const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+
+      function getLocalStorageFilters() {
+        try {
+          const stored = localStorage.getItem('reference-vs-official-hours-filters');
+          return stored ? JSON.parse(stored) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function setLocalStorageFilters(week, order, employee) {
+        try {
+          const filters = { week, order, employee };
+          localStorage.setItem('reference-vs-official-hours-filters', JSON.stringify(filters));
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+      }
+
+      function restoreFilters() {
+        const urlParams = getUrlParams();
+        
+        // URL params take precedence
+        if (urlParams.week || urlParams.order || urlParams.employee) {
+          if (urlParams.week) weekSelect.value = urlParams.week;
+          if (urlParams.order) orderSelect.value = urlParams.order;
+          if (urlParams.employee) employeeSelect.value = urlParams.employee;
+        } else {
+          // Fallback to localStorage
+          const stored = getLocalStorageFilters();
+          if (stored) {
+            if (stored.week) weekSelect.value = stored.week;
+            if (stored.order) orderSelect.value = stored.order;
+            if (stored.employee) employeeSelect.value = stored.employee;
+          } else {
+            // Set default week to current week
+            const today = new Date();
+            const year = today.getFullYear();
+            const week = getWeekNumber(today);
+            const weekString = `${year}-W${String(week).padStart(2, '0')}`;
+            weekSelect.value = weekString;
+          }
+        }
+      }
+
+      function syncFilters() {
+        const week = weekSelect.value || '';
+        const order = orderSelect.value || '';
+        const employee = employeeSelect.value || '';
+        setUrlParams(week, order, employee);
+        setLocalStorageFilters(week, order, employee);
+      }
+
+      function getWeekNumber(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+
+      function formatHours(hours) {
+        if (hours === null || hours === undefined) return 'N/A';
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        if (h === 0) return `${m}m`;
+        if (m === 0) return `${h}h`;
+        return `${h}h ${m}m`;
+      }
+
+      function formatReferenceHours(refHours) {
+        if (!refHours) return 'N/A';
+        if (refHours.totalMinutes !== null && refHours.totalMinutes !== undefined) {
+          return `${refHours.totalMinutes} minutes`;
+        }
+        if (refHours.startTime && refHours.endTime) {
+          const start = new Date(refHours.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          const end = new Date(refHours.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          return `${start} - ${end}`;
+        }
+        return 'N/A';
+      }
+
+      function calculateDelta(refHours, officialHours) {
+        if (refHours === null || refHours === undefined) return null;
+        if (officialHours === null || officialHours === undefined) return null;
+        
+        let refValue = 0;
+        if (refHours.totalMinutes !== null && refHours.totalMinutes !== undefined) {
+          refValue = refHours.totalMinutes / 60;
+        } else if (refHours.totalHours) {
+          refValue = refHours.totalHours;
+        }
+
+        return refValue - officialHours;
+      }
+
+      function getStatus(refHours, officialHours, delta) {
+        if (refHours === null || refHours === undefined) {
+          return { text: 'Missing Reference', class: 'status-missing-reference' };
+        }
+        if (officialHours === null || officialHours === undefined) {
+          return { text: 'Missing Official', class: 'status-missing-official' };
+        }
+        if (delta === null || delta === undefined) {
+          return { text: 'Mismatch', class: 'status-mismatch' };
+        }
+        const tolerance = 0.01; // Small tolerance for floating point comparison
+        if (Math.abs(delta) < tolerance) {
+          return { text: 'Match', class: 'status-match' };
+        }
+        return { text: 'Mismatch', class: 'status-mismatch' };
+      }
+
+      function formatDelta(delta) {
+        if (delta === null || delta === undefined) return 'N/A';
+        const formatted = delta.toFixed(2);
+        if (delta > 0) {
+          return { text: `+${formatted}h`, class: 'delta-positive' };
+        } else if (delta < 0) {
+          return { text: `${formatted}h`, class: 'delta-negative' };
+        } else {
+          return { text: '0.00h', class: 'delta-zero' };
+        }
+      }
+
+      function renderTable() {
+        if (filteredData.length === 0) {
+          hoursTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">No data found for the selected filters.</td></tr>';
+          updateExportButtonState();
+          return;
+        }
+
+        const rows = filteredData.map(item => {
+          const refHours = item.referenceHours;
+          const officialHours = item.officialHours;
+          const delta = calculateDelta(refHours, officialHours);
+          const status = getStatus(refHours, officialHours, delta);
+          const deltaFormatted = formatDelta(delta);
+
+          let rowClass = '';
+          if (status.class === 'status-match') {
+            rowClass = 'row-match';
+          } else if (status.class === 'status-mismatch') {
+            rowClass = 'row-mismatch';
+          } else if (status.class === 'status-missing-reference' || status.class === 'status-missing-official') {
+            rowClass = 'row-missing';
+          }
+
+          return `
+            <tr class="${rowClass}">
+              <td>${item.employeeName || 'N/A'}</td>
+              <td>${item.orderName || item.orderId || 'N/A'}</td>
+              <td>${formatDate(item.workDate)}</td>
+              <td>${formatReferenceHours(refHours)}</td>
+              <td>${formatHours(officialHours)}</td>
+              <td class="${deltaFormatted.class}">${deltaFormatted.text}</td>
+              <td><span class="status-badge ${status.class}">${status.text}</span></td>
+            </tr>
+          `;
+        }).join('');
+
+        hoursTableBody.innerHTML = rows;
+        updateExportButtonState();
+      }
+
+      function applyFilters() {
+        const selectedWeek = weekSelect.value;
+        const selectedOrder = orderSelect.value;
+        const selectedEmployee = employeeSelect.value;
+
+        filteredData = allData.filter(item => {
+          if (selectedWeek) {
+            const itemDate = new Date(item.workDate);
+            const [year, weekNum] = selectedWeek.split('-W');
+            const weekStart = getWeekStartDate(parseInt(year), parseInt(weekNum));
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            if (itemDate < weekStart || itemDate >= weekEnd) {
+              return false;
+            }
+          }
+          if (selectedOrder && item.orderId !== selectedOrder) {
+            return false;
+          }
+          if (selectedEmployee && item.employeeId !== selectedEmployee) {
+            return false;
+          }
+          return true;
+        });
+
+        syncFilters();
+        renderTable();
+      }
+
+      function getWeekStartDate(year, week) {
+        const simple = new Date(year, 0, 1 + (week - 1) * 7);
+        const dow = simple.getDay();
+        const ISOweekStart = simple;
+        if (dow <= 4) {
+          ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+        } else {
+          ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+        }
+        return ISOweekStart;
+      }
+
+      function populateFilters(data) {
+        const orders = [...new Set(data.map(item => ({ id: item.orderId, name: item.orderName || item.orderId })))];
+        const employees = [...new Set(data.map(item => ({ id: item.employeeId, name: item.employeeName })))];
+
+        orderSelect.innerHTML = '<option value="">All Orders</option>' +
+          orders.map(o => `<option value="${o.id}">${o.name || o.id}</option>`).join('');
+
+        employeeSelect.innerHTML = '<option value="">All Employees</option>' +
+          employees.map(e => `<option value="${e.id}">${e.name || e.id}</option>`).join('');
+
+        // Restore filters after populating options
+        restoreFilters();
+      }
+
+      async function loadData() {
+        try {
+          // Try to fetch from API endpoint (adjust path as needed)
+          let response;
+          try {
+            response = await fetch('/internal/reference-vs-official-hours', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+          } catch (err) {
+            // API endpoint may not exist yet - use empty data
+            allData = [];
+            filteredData = [];
+            restoreFilters();
+            syncFilters();
+            renderTable();
+            return;
+          }
+
+          if (response.ok) {
+            const data = await response.json();
+            allData = data;
+            populateFilters(data);
+            applyFilters();
+          } else {
+            throw new Error('Failed to load data');
+          }
+        } catch (error) {
+          errorMessage.textContent = 'Unable to load data. API endpoint may not be available yet.';
+          errorMessage.style.display = 'block';
+          allData = [];
+          filteredData = [];
+          restoreFilters();
+          syncFilters();
+          renderTable();
+        }
+      }
+
+      weekSelect.addEventListener('change', applyFilters);
+      orderSelect.addEventListener('change', applyFilters);
+      employeeSelect.addEventListener('change', applyFilters);
+
+      loadData();
+    })();
+  </script>
+</body>
+</html>
+

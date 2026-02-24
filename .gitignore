@@ -1,5 +1,36 @@
-# Backend is its own repo
-02_backend/
+﻿# Backend (track source, ignore build artifacts)
+# We keep backend code in this repo, but do NOT commit node_modules/dist/logs.
+
+# Ignore everything in backend by default...
+02_backend/*
+
+# ...then explicitly allow source + config we need
+!02_backend/src/
+!02_backend/src/**
+
+!02_backend/prisma/
+!02_backend/prisma/**
+
+!02_backend/package.json
+!02_backend/package-lock.json
+!02_backend/tsconfig.json
+!02_backend/tsconfig.build.json
+!02_backend/nest-cli.json
+!02_backend/.env.example
+
+# Allow backend utility scripts
+!02_backend/scripts/
+!02_backend/scripts/**
+
+# Ignore backend artifacts
+02_backend/node_modules/
+02_backend/dist/
+02_backend/.nest/
+02_backend/coverage/
+02_backend/*.log
+02_backend/_logs/
+02_backend/reports/
+02_backend/_audit/
 
 # OS junk
 .DS_Store
@@ -12,24 +43,23 @@ _quarantine_untracked_*/
 tools/
 
 # Patch files
-phase15_safety_patch.diffnode_modules/
-reports/
-_audit/
 *.BACKUP-*
+phase15_safety_patch.diff
 
+# Frontend/general deps & logs (repo-wide)
 node_modules/
-
 _logs/
 
-# Allow committing backend utility scripts (keep rest of 02_backend ignored)
-02_backend/*
-!02_backend/scripts/
-!02_backend/scripts/**
-
-
-
+# Cursor
 .cursor/
 
 # Bot run logs
 _bot_runs/
 
+# Ignore generated artifacts / reports
+reports/
+_audit/
+bots/reports/
+
+# Ignore backend local env files
+02_backend/scripts/_db_source.env

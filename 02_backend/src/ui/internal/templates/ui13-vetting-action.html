@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vetting Action – UI-13</title>
+
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1f2937;
+      --muted: #64748b;
+
+      --purple: #7c3aed;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+      --blue: #2563eb;
+
+      --radius: 10px;
+      --shadow: 0 6px 20px rgba(0,0,0,.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+      color: #fff;
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius) var(--radius) 0 0;
+      font-weight: 600;
+      letter-spacing: .2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 0 0 var(--radius) var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+    }
+
+    .section {
+      margin-bottom: 1.25rem;
+    }
+
+    .label {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: .25rem;
+      font-weight: 600;
+    }
+
+    .value {
+      font-size: .9rem;
+      font-weight: 600;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-size: .82rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: .75rem 1.25rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: .25rem .55rem;
+      font-size: .65rem;
+      font-weight: 700;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .badge.green { background: #dcfce7; color: #166534; }
+    .badge.red { background: #fee2e2; color: #991b1b; }
+    .badge.amber { background: #fffbeb; color: #92400e; }
+    .badge.purple { background: #ede9fe; color: #5b21b6; }
+    .badge.gray { background: #f1f5f9; color: #475569; }
+    .badge.blue { background: #dbeafe; color: #1e40af; }
+
+    .divider {
+      border-top: 1px solid var(--border);
+      margin: 1.25rem 0;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: .6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    textarea:disabled {
+      background: #f8fafc;
+      cursor: not-allowed;
+    }
+
+    .actions {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      margin-top: .75rem;
+    }
+
+    button {
+      flex: 1;
+      min-width: 120px;
+      padding: .6rem .75rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.approve { background: var(--green); color: #fff; }
+    button.reject { background: var(--red); color: #fff; }
+    button.hold { background: var(--amber); color: #fff; }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .alert {
+      padding: .75rem;
+      border-radius: 8px;
+      font-size: .85rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert.error { background: #fee2e2; color: #991b1b; }
+    .alert.success { background: #dcfce7; color: #166534; }
+    .alert.info { background: #eff6ff; color: #1e40af; }
+    .alert.warning { background: #fffbeb; color: #92400e; }
+
+    .placeholder {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    /* Preview-only banner */
+    .preview-banner {
+      background: linear-gradient(90deg, #fef3c7, #fef9c3);
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #92400e;
+    }
+
+    .preview-banner .icon {
+      font-size: 1rem;
+    }
+
+    /* Locked vetting highlight */
+    .locked-banner {
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .locked-banner.approved {
+      background: linear-gradient(90deg, #dcfce7, #bbf7d0);
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+
+    .locked-banner.rejected {
+      background: linear-gradient(90deg, #fee2e2, #fecaca);
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+
+    .locked-banner .icon {
+      font-size: 1rem;
+    }
+
+    /* Audit inline display */
+    .audit-section {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .audit-section .section-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .audit-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .audit-row:last-child {
+      border-bottom: none;
+    }
+
+    .audit-row .audit-label {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+    }
+
+    .audit-row .audit-value {
+      font-weight: 600;
+    }
+
+    .no-audit {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <span>Recruiting Vetting Action</span>
+      <span id="headerBadge" class="header-badge" style="display:none"></span>
+    </div>
+    <div class="card">
+
+      <div id="alert"></div>
+
+      <!-- Preview-Only Banner -->
+      <div id="previewBanner" class="preview-banner" style="display:none">
+        <span class="icon">⚠️</span>
+        <span><strong>Preview Only</strong> — Actions are disabled. This view is read-only.</span>
+      </div>
+
+      <!-- Locked Vetting Banner -->
+      <div id="lockedBanner" class="locked-banner" style="display:none">
+        <span class="icon"></span>
+        <span></span>
+      </div>
+
+      <div id="placeholder" class="placeholder">
+        Provide <code>orderId</code> and <code>employeeId</code> to take vetting action.
+      </div>
+
+      <div id="content" style="display:none">
+
+        <!-- Order Header -->
+        <div class="section">
+          <div class="label">Order</div>
+          <div class="grid">
+            <div>
+              <div class="label">Order ID</div>
+              <div class="value mono" id="orderId"></div>
+            </div>
+            <div>
+              <div class="label">Customer</div>
+              <div class="value mono" id="customerId"></div>
+            </div>
+            <div>
+              <div class="label">Status</div>
+              <div class="value"><span id="orderStatus" class="badge gray"></span></div>
+            </div>
+            <div>
+              <div class="label">Created</div>
+              <div class="value" id="orderCreated"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Candidate -->
+        <div class="section">
+          <div class="label">Candidate</div>
+          <div class="grid">
+            <div>
+              <div class="label">Employee ID</div>
+              <div class="value mono" id="employeeId"></div>
+            </div>
+            <div>
+              <div class="label">Candidate Status</div>
+              <div class="value"><span id="candidateStatus" class="badge gray"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Vetting -->
+        <div class="section">
+          <div class="label">Current Vetting</div>
+          <div class="grid">
+            <div>
+              <div class="label">Status</div>
+              <div class="value"><span id="vettingStatus" class="badge gray"></span></div>
+            </div>
+            <div>
+              <div class="label">Last Reviewed</div>
+              <div class="value" id="reviewedAt">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Audit (read-only inline) -->
+        <div id="auditSection" class="audit-section" style="display:none">
+          <div class="section-title">
+            <span>📋</span>
+            <span>Latest Audit Entry</span>
+          </div>
+          <div id="auditContent"></div>
+        </div>
+
+        <div class="section">
+          <div class="label">Reason / Notes</div>
+          <textarea id="reason" placeholder="Required for Reject / Hold"></textarea>
+        </div>
+
+        <!-- Actions -->
+        <form id="vettingForm" method="POST" action="/ui/internal/ui13/vetting-action">
+          <input type="hidden" name="orderId" id="formOrderId" />
+          <input type="hidden" name="employeeId" id="formEmployeeId" />
+          <input type="hidden" name="action" id="actionInput" />
+
+          <div class="actions" id="actionButtons">
+            <button type="submit" class="approve" onclick="setAction('APPROVE')">Approve</button>
+            <button type="submit" class="hold" onclick="setAction('HOLD')">Hold</button>
+            <button type="submit" class="reject" onclick="setAction('REJECT')">Reject</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      if (!window.__DATA__) return;
+
+      const d = window.__DATA__;
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      // Handle alerts
+      if (d.message) {
+        document.getElementById('alert').innerHTML =
+          '<div class="alert info">' + d.message + '</div>';
+      }
+
+      if (d.error || d.errorMessage) {
+        document.getElementById('alert').innerHTML =
+          '<div class="alert error">' + (d.errorMessage || d.error) + '</div>';
+      }
+
+      if (d.success && d.message) {
+        document.getElementById('alert').innerHTML =
+          '<div class="alert success">' + d.message + '</div>';
+      }
+
+      // Preview-only banner
+      if (d.previewOnly) {
+        document.getElementById('previewBanner').style.display = 'flex';
+        document.getElementById('headerBadge').style.display = 'inline-block';
+        document.getElementById('headerBadge').textContent = 'Preview Only';
+
+        // Disable form interactions
+        document.getElementById('reason').disabled = true;
+        const buttons = document.querySelectorAll('#actionButtons button');
+        buttons.forEach(function(btn) { btn.disabled = true; });
+      }
+
+      // Locked vetting banner
+      if (d.vetting) {
+        const status = d.vetting.status;
+        const lockedBanner = document.getElementById('lockedBanner');
+
+        if (status === 'APPROVED') {
+          lockedBanner.style.display = 'flex';
+          lockedBanner.classList.add('approved');
+          lockedBanner.querySelector('.icon').textContent = '✅';
+          lockedBanner.querySelector('span:last-child').textContent =
+            'This vetting has been APPROVED and is locked. No further changes allowed.';
+
+          // Disable buttons
+          const buttons = document.querySelectorAll('#actionButtons button');
+          buttons.forEach(function(btn) { btn.disabled = true; });
+        } else if (status === 'REJECTED') {
+          lockedBanner.style.display = 'flex';
+          lockedBanner.classList.add('rejected');
+          lockedBanner.querySelector('.icon').textContent = '❌';
+          lockedBanner.querySelector('span:last-child').textContent =
+            'This vetting has been REJECTED and is locked. No further changes allowed.';
+
+          // Disable buttons
+          const buttons = document.querySelectorAll('#actionButtons button');
+          buttons.forEach(function(btn) { btn.disabled = true; });
+        }
+
+        // Color-code vetting status badge
+        const vettingStatusEl = document.getElementById('vettingStatus');
+        vettingStatusEl.textContent = status;
+        vettingStatusEl.className = 'badge';
+        if (status === 'APPROVED') {
+          vettingStatusEl.classList.add('green');
+        } else if (status === 'REJECTED') {
+          vettingStatusEl.classList.add('red');
+        } else if (status === 'VETTING_HOLD') {
+          vettingStatusEl.classList.add('amber');
+        } else if (status === 'PENDING' || status === 'VETTING_PENDING') {
+          vettingStatusEl.classList.add('purple');
+        } else {
+          vettingStatusEl.classList.add('gray');
+        }
+
+        reviewedAt.textContent = d.vetting.reviewedAt || '—';
+        reason.value = d.vetting.holdReason || d.vetting.notes || '';
+      }
+
+      // Order data
+      if (d.order) {
+        orderId.textContent = d.order.id;
+        customerId.textContent = d.order.customerId;
+        orderCreated.textContent = d.order.createdAt;
+        orderStatus.textContent = d.order.status;
+      }
+
+      // Context
+      if (d.context) {
+        employeeId.textContent = d.context.employeeId;
+        formOrderId.value = d.context.orderId;
+        formEmployeeId.value = d.context.employeeId;
+      }
+
+      // Candidate data
+      if (d.candidate) {
+        const cStatus = d.candidate.status;
+        candidateStatus.textContent = cStatus;
+        candidateStatus.className = 'badge';
+        if (cStatus === 'CONFIRMED' || cStatus === 'ACTIVE') {
+          candidateStatus.classList.add('green');
+        } else if (cStatus === 'WITHDRAWN_REJECTED' || cStatus === 'WITHDRAWN') {
+          candidateStatus.classList.add('red');
+        } else if (cStatus === 'PENDING') {
+          candidateStatus.classList.add('purple');
+        } else {
+          candidateStatus.classList.add('gray');
+        }
+      }
+
+      // Latest audit inline (read-only)
+      if (d.latestAudit) {
+        const auditSection = document.getElementById('auditSection');
+        auditSection.style.display = 'block';
+
+        const a = d.latestAudit;
+        const auditContent = document.getElementById('auditContent');
+
+        auditContent.innerHTML =
+          '<div class="audit-row">' +
+            '<div><div class="audit-label">Action</div><div class="audit-value">' + a.action + '</div></div>' +
+            '<div><div class="audit-label">Previous → New</div><div class="audit-value">' + a.previousStatus + ' → ' + a.newStatus + '</div></div>' +
+            '<div><div class="audit-label">Timestamp</div><div class="audit-value">' + formatDate(a.createdAt) + '</div></div>' +
+          '</div>' +
+          (a.reason ? '<div class="audit-row" style="grid-template-columns:1fr"><div><div class="audit-label">Reason</div><div class="audit-value">' + a.reason + '</div></div></div>' : '') +
+          '<div class="audit-row" style="grid-template-columns:1fr"><div><div class="audit-label">Performed By</div><div class="audit-value mono">' + a.performedByUserId + '</div></div></div>';
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        try {
+          const d = new Date(dateStr);
+          return d.toLocaleString();
+        } catch (e) {
+          return dateStr;
+        }
+      }
+    })();
+
+    function setAction(val) {
+      document.getElementById('actionInput').value = val;
+    }
+  </script>
+</body>
+</html>
