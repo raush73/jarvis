@@ -48,11 +48,12 @@ export class CustomersController {
    * Purpose: Owner of customer profile, default commission attribution fallback
    */
   @Permissions(PERMISSIONS.CUSTOMERS_WRITE)
+  @Permissions(PERMISSIONS.CUSTOMERS_WRITE)
   @Patch(':id/default-salesperson')
   assignDefaultSalesperson(
     @Param('id') id: string,
     @Body() dto: AssignDefaultSalespersonDto,
   ) {
-    return this.customersService.assignDefaultSalesperson(id, dto.salespersonUserId);
+    return this.customersService.assignDefaultSalesperson(id, dto.salespersonId ?? null);
   }
 }

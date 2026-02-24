@@ -5,9 +5,10 @@ import { IsString, IsOptional, ValidateIf } from 'class-validator';
  * Pass null to clear the assignment
  */
 export class AssignDefaultSalespersonDto {
-  @ValidateIf((o) => o.salespersonUserId !== null)
+  @ValidateIf((o) => o.salespersonId !== null)
   @IsString()
   @IsOptional()
-  salespersonUserId: string | null;
+  salespersonId: string | null;
 }
+
 
