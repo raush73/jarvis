@@ -63,3 +63,6 @@ bots/reports/
 
 # Ignore backend local env files
 02_backend/scripts/_db_source.env
+
+# Ignore old SQLite migration backups
+02_backend/prisma/_migrations_sqlite_backup_*
