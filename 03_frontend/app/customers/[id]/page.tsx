@@ -548,14 +548,14 @@ export default function CustomerDetailPage() {
 
   // Merge customer with in-memory quotes
   const customer = { ...baseCustomer, quotes };
-  const liveDefaultSalespersonName = (() => {
-    const sp = liveCustomer?.defaultSalesperson;
+  const liveRegistrySalespersonName = (() => {
+    const sp = liveCustomer?.registrySalesperson;
     if (!sp) return null;
     const fullName = typeof sp.fullName === "string" ? sp.fullName.trim() : "";
     const firstLast = `${sp.firstName ?? ""} ${sp.lastName ?? ""}`.trim();
     return fullName || firstLast || sp.email || sp.id || null;
   })();
-  const effectiveOwnerName = liveDefaultSalespersonName ?? customer.ownerSalespersonName;
+  const effectiveOwnerName = liveRegistrySalespersonName ?? customer.ownerSalespersonName;
 
   // Collect UI-only draft orders from sessionStorage
   const draftOrders = useMemo(() => {
@@ -4366,4 +4366,6 @@ export default function CustomerDetailPage() {
     </div>
   );
 }
+
+
 
