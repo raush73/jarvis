@@ -27,6 +27,7 @@ export class CustomersController {
     @Query('search') search?: string,
     @Query('sort') sort?: string,
     @Query('order') order?: string,
+    @Query('state') state?: string,
   ) {
     return this.customersService.findAll({
       take: take ? parseInt(take, 10) : undefined,
@@ -34,8 +35,9 @@ export class CustomersController {
       search: search ?? undefined,
       sort: sort ?? undefined,
       order: order ?? undefined,
+      state: state ?? undefined,
     });
-  }
+}
 
   @Permissions(PERMISSIONS.CUSTOMERS_READ)
   @Get(':id')

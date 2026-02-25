@@ -34,8 +34,33 @@ export class CustomersService {
 
     return customer;
   }
+  // Normalize US state to 2-letter code (e.g., "Pennsylvania" -> "PA", "pa" -> "PA")
+  private normalizeStateToCode(input: string | null | undefined): string | null {
+    if (!input) return null;
+    const raw = String(input).trim();
+    if (!raw) return null;
 
-  async findAll(params: { take?: number; skip?: number; search?: string; sort?: string; order?: string } = {}) {
+    const upper = raw.toUpperCase();
+    if (upper.length === 2) return upper;
+
+    const NAME_TO_CODE: Record<string, string> = {
+      'ALABAMA':'AL','ALASKA':'AK','ARIZONA':'AZ','ARKANSAS':'AR','CALIFORNIA':'CA',
+      'COLORADO':'CO','CONNECTICUT':'CT','DELAWARE':'DE','FLORIDA':'FL','GEORGIA':'GA',
+      'HAWAII':'HI','IDAHO':'ID','ILLINOIS':'IL','INDIANA':'IN','IOWA':'IA',
+      'KANSAS':'KS','KENTUCKY':'KY','LOUISIANA':'LA','MAINE':'ME','MARYLAND':'MD',
+      'MASSACHUSETTS':'MA','MICHIGAN':'MI','MINNESOTA':'MN','MISSISSIPPI':'MS','MISSOURI':'MO',
+      'MONTANA':'MT','NEBRASKA':'NE','NEVADA':'NV','NEW HAMPSHIRE':'NH','NEW JERSEY':'NJ',
+      'NEW MEXICO':'NM','NEW YORK':'NY','NORTH CAROLINA':'NC','NORTH DAKOTA':'ND','OHIO':'OH',
+      'OKLAHOMA':'OK','OREGON':'OR','PENNSYLVANIA':'PA','RHODE ISLAND':'RI','SOUTH CAROLINA':'SC',
+      'SOUTH DAKOTA':'SD','TENNESSEE':'TN','TEXAS':'TX','UTAH':'UT','VERMONT':'VT',
+      'VIRGINIA':'VA','WASHINGTON':'WA','WEST VIRGINIA':'WV','WISCONSIN':'WI','WYOMING':'WY',
+      'DISTRICT OF COLUMBIA':'DC'
+    };
+
+    return NAME_TO_CODE[upper] ?? raw;
+  }
+
+  async findAll(params: { take?: number; skip?: number; search?: string; sort?: string; order?: string; state?: string } = {}) {
     const take = params.take ?? 25;
     const skip = params.skip ?? 0;
 
@@ -55,16 +80,46 @@ export class CustomersService {
     const orderBy = allowedSort[sortKey] ?? { name: 'asc' };
 
     // Search (case-insensitive) across customer name + websiteUrl
-    const where = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' as const } },
-            { websiteUrl: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
-      : undefined;
+    const filters: any = {};
 
-    const [rows, total] = await Promise.all([
+if (search) {
+  filters.OR = [
+    { name: { contains: search, mode: 'insensitive' as const } },
+    { websiteUrl: { contains: search, mode: 'insensitive' as const } },
+  ];
+}
+
+if (params.state) {
+  const raw = String(params.state).trim();
+  const upper = raw.toUpperCase();
+
+  const CODE_TO_NAME: Record<string, string> = {
+    AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+    CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+    HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+    KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+    MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+    MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+    NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+    OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+    SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+    VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+    DC: 'District of Columbia'
+  };
+
+  const full = (upper.length === 2) ? CODE_TO_NAME[upper] : undefined;
+  const variants = [raw, upper, full].filter(Boolean) as string[];
+
+  filters.locations = {
+    some: {
+      OR: variants.map((v) => ({
+        state: { equals: v, mode: 'insensitive' as const },
+      })),
+    },
+  };
+}
+
+const where = Object.keys(filters).length > 0 ? filters : undefined;const [rows, total] = await Promise.all([
       this.prisma.customer.findMany({
         where,
         orderBy,
@@ -116,7 +171,7 @@ export class CustomersService {
       return {
         ...rest,
         locationCity: loc?.city ?? null,
-        locationState: loc?.state ?? null,
+        locationState: this.normalizeStateToCode(loc?.state) ?? null,
         locationName: loc?.name ?? null,
         mainPhone: contact?.officePhone ?? contact?.cellPhone ?? null,
       };
