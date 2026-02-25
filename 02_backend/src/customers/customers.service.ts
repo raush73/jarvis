@@ -26,7 +26,7 @@ export class CustomersService {
         id: true,
         name: true,
         websiteUrl: true,
-        defaultSalespersonUserId: true,
+        registrySalespersonId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -35,27 +35,53 @@ export class CustomersService {
     return customer;
   }
 
-  async findAll(params: { take?: number; skip?: number } = {}) {
+  async findAll(params: { take?: number; skip?: number; search?: string; sort?: string; order?: string } = {}) {
     const take = params.take ?? 25;
     const skip = params.skip ?? 0;
 
+    const rawSearch = (params.search ?? '').trim();
+    const search = rawSearch.length > 0 ? rawSearch : undefined;
+
+    const sortKey = (params.sort ?? 'name').trim();
+    const sortOrder = ((params.order ?? 'asc').toLowerCase() === 'desc') ? 'desc' : 'asc';
+
+    // Whitelist sortable fields (prevents arbitrary DB field sorting)
+    const allowedSort: Record<string, any> = {
+      name: { name: sortOrder },
+      createdAt: { createdAt: sortOrder },
+      updatedAt: { updatedAt: sortOrder },
+    };
+
+    const orderBy = allowedSort[sortKey] ?? { name: 'asc' };
+
+    // Search (case-insensitive) across customer name + websiteUrl
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { websiteUrl: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined;
+
     const [rows, total] = await Promise.all([
       this.prisma.customer.findMany({
-        orderBy: { createdAt: 'desc' },
+        where,
+        orderBy,
         take,
         skip,
         select: {
           id: true,
           name: true,
           websiteUrl: true,
-          defaultSalespersonUserId: true,
-          defaultSalesperson: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          },
+          registrySalespersonId: true,
+          registrySalesperson: {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+  },
+},
           locations: {
             orderBy: { createdAt: 'asc' },
             take: 1,
@@ -79,7 +105,7 @@ export class CustomersService {
           updatedAt: true,
         },
       }),
-      this.prisma.customer.count(),
+      this.prisma.customer.count({ where }),
     ]);
 
     const data = rows.map((row) => {
@@ -109,14 +135,14 @@ export class CustomersService {
         id: true,
         name: true,
         websiteUrl: true,
-        defaultSalespersonUserId: true,
-        defaultSalesperson: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
+        registrySalespersonId: true,
+        registrySalesperson: {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+  },
+},
         locations: {
           orderBy: { createdAt: 'asc' },
           take: 1,
@@ -184,14 +210,14 @@ export class CustomersService {
         id: true,
         name: true,
         websiteUrl: true,
-        defaultSalespersonUserId: true,
-        defaultSalesperson: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
+        registrySalespersonId: true,
+        registrySalesperson: {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+  },
+},
         createdAt: true,
         updatedAt: true,
       },
@@ -231,12 +257,54 @@ export class CustomersService {
       select: {
         id: true,
         name: true,
-        defaultSalespersonUserId: true,
-        defaultSalesperson: {
+        registrySalespersonId: true,
+        registrySalesperson: {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+  },
+},
+        updatedAt: true,
+      },
+    });
+  }
+  /**
+   * Assign registry salesperson (economic ownership)
+   */
+  async assignRegistrySalesperson(customerId: string, registrySalespersonId: string | null) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    if (registrySalespersonId !== null) {
+      const salesperson = await this.prisma.salesperson.findUnique({
+        where: { id: registrySalespersonId },
+        select: { id: true },
+      });
+
+      if (!salesperson) {
+        throw new BadRequestException('Registry salesperson not found');
+      }
+    }
+
+    return this.prisma.customer.update({
+      where: { id: customerId },
+      data: { registrySalespersonId },
+      select: {
+        id: true,
+        name: true,
+        registrySalespersonId: true,
+        registrySalesperson: {
           select: {
             id: true,
-            fullName: true,
-            email: true,
+            firstName: true,
+            lastName: true,
           },
         },
         updatedAt: true,
@@ -244,3 +312,5 @@ export class CustomersService {
     });
   }
 }
+
+
