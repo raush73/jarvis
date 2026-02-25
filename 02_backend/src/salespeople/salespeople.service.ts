@@ -29,14 +29,31 @@ export class SalespeopleService {
   async update(id: string, dto: UpdateSalespersonDto) {
     const existing = await this.findOne(id);
 
-    const isProtected =
-      (existing.firstName === 'House' && existing.lastName === 'Account') ||
-      existing.email === 'mike@mw4h.com';
+    const isHouse =
+      existing.firstName === 'House' && existing.lastName === 'Account';
+    const isMike = (existing.email ?? '').toLowerCase() === 'mike@mw4h.com';
+
+    const isProtected = isHouse || isMike;
 
     if (isProtected) {
-      throw new ForbiddenException(
-        'This salesperson is a protected system record and cannot be edited or deactivated.',
-      );
+      // Never allow deactivation for protected records
+      if (dto.isActive === false) {
+        throw new ForbiddenException(
+          'This salesperson is a protected system record and cannot be deactivated.',
+        );
+      }
+
+      // Never allow name changes for protected records
+      const nextFirst = (dto.firstName ?? existing.firstName).trim();
+      const nextLast = (dto.lastName ?? existing.lastName).trim();
+
+      if (nextFirst !== existing.firstName || nextLast !== existing.lastName) {
+        throw new ForbiddenException(
+          'This salesperson is a protected system record and name fields cannot be edited.',
+        );
+      }
+
+      // Email/phone edits are allowed for protected records
     }
 
     return this.prisma.salesperson.update({
