@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -418,7 +418,7 @@ export default function CustomersPage() {
         <th>Name</th>
         <th>Location</th>
         <th>Main Phone</th>
-        <th>Default Salesperson</th>
+        <th>Customer Owner</th>
         <th>Last Updated</th>
       </tr>
     </thead>
@@ -450,8 +450,8 @@ export default function CustomersPage() {
               <td>{customer.locationCity && customer.locationState ? `${customer.locationCity}, ${customer.locationState}` : "\u2014"}</td>
               <td>{customer.mainPhone ?? "\u2014"}</td>
               <td>
-                {customer.defaultSalesperson
-                  ? `${customer.defaultSalesperson.firstName} ${customer.defaultSalesperson.lastName}`
+                {customer.registrySalesperson
+                  ? `${customer.registrySalesperson.firstName} ${customer.registrySalesperson.lastName}`
                   : "\u2014"}
               </td>
               <td>{formatUpdatedAt(customer.updatedAt)}</td>
@@ -761,5 +761,7 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+
 
 
