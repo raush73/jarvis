@@ -66,3 +66,7 @@ bots/reports/
 
 # Ignore old SQLite migration backups
 02_backend/prisma/_migrations_sqlite_backup_*
+
+# CSV imports (never commit)
+02_backend/_imports/
+
