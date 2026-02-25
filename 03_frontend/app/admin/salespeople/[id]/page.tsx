@@ -36,6 +36,10 @@ export default function SalespersonDetailPage() {
   const [createdAt, setCreatedAt] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
 
+  const isProtected =
+    (firstName.trim() === "House" && lastName.trim() === "Account") ||
+    email.trim().toLowerCase() === "mike@mw4h.com";
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -145,7 +149,7 @@ export default function SalespersonDetailPage() {
     <div className="detail-container">
       {/* UI Shell Banner */}
       <div className="shell-banner">
-        Salesperson edit — Internal management view — not visible to Sales
+        Salesperson edit â€” Internal management view â€” not visible to Sales
         roles.
       </div>
 
@@ -213,6 +217,7 @@ export default function SalespersonDetailPage() {
                   <input
                     type="checkbox"
                     checked={isActive}
+                    disabled={isProtected}
                     onChange={() => setIsActive(!isActive)}
                   />
                   <span className="toggle-slider"></span>
@@ -654,3 +659,7 @@ export default function SalespersonDetailPage() {
     </div>
   );
 }
+
+
+
+
