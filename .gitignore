@@ -70,3 +70,7 @@ bots/reports/
 # CSV imports (never commit)
 02_backend/_imports/
 
+
+# Backend repo owns these scripts; ignore in root repo
+02_backend/scripts/*.ts
+
