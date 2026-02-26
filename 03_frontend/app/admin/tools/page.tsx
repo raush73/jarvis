@@ -9,11 +9,6 @@ type ToolStatus = "Active" | "Inactive";
 type Tool = {
   id: string;
   name: string;
-  flags: {
-    calibrationRequired: boolean;
-    heavyEquipment: boolean;
-    precisionTool: boolean;
-  };
   status: ToolStatus;
 };
 
@@ -22,49 +17,41 @@ const MOCK_TOOLS: Tool[] = [
   {
     id: "TOOL-001",
     name: "Pipe Wrench 24\"",
-    flags: { calibrationRequired: false, heavyEquipment: false, precisionTool: false },
     status: "Active",
   },
   {
     id: "TOOL-002",
     name: "Digital Multimeter",
-    flags: { calibrationRequired: true, heavyEquipment: false, precisionTool: true },
     status: "Active",
   },
   {
     id: "TOOL-003",
     name: "Hydraulic Press",
-    flags: { calibrationRequired: true, heavyEquipment: true, precisionTool: false },
     status: "Active",
   },
   {
     id: "TOOL-004",
     name: "Torque Wrench",
-    flags: { calibrationRequired: true, heavyEquipment: false, precisionTool: true },
     status: "Active",
   },
   {
     id: "TOOL-005",
     name: "Hammer Drill",
-    flags: { calibrationRequired: false, heavyEquipment: false, precisionTool: false },
     status: "Inactive",
   },
   {
     id: "TOOL-006",
     name: "Laser Level",
-    flags: { calibrationRequired: true, heavyEquipment: false, precisionTool: true },
     status: "Active",
   },
   {
     id: "TOOL-007",
     name: "Forklift",
-    flags: { calibrationRequired: false, heavyEquipment: true, precisionTool: false },
     status: "Active",
   },
   {
     id: "TOOL-008",
     name: "Oscilloscope",
-    flags: { calibrationRequired: true, heavyEquipment: false, precisionTool: true },
     status: "Inactive",
   },
 ];
@@ -95,12 +82,6 @@ export default function ToolCatalogPage() {
     }
     return { bg: "rgba(107, 114, 128, 0.12)", color: "#6b7280", border: "rgba(107, 114, 128, 0.25)" };
   };
-
-  // Flag badge style
-  const getFlagStyle = () => {
-    return { bg: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", border: "rgba(59, 130, 246, 0.25)" };
-  };
-
   return (
     <div className="tools-container">
       {/* UI Shell Banner */}
@@ -164,7 +145,6 @@ export default function ToolCatalogPage() {
             <thead>
               <tr>
                 <th>Tool Name</th>
-                <th>Flags</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -173,52 +153,6 @@ export default function ToolCatalogPage() {
               {filteredTools.map((tool) => (
                 <tr key={tool.id}>
                   <td className="cell-name">{tool.name}</td>
-                  <td className="cell-flags">
-                    <div className="flags-wrap">
-                      {tool.flags.calibrationRequired && (
-                        <span
-                          className="flag-badge"
-                          style={{
-                            backgroundColor: getFlagStyle().bg,
-                            color: getFlagStyle().color,
-                            borderColor: getFlagStyle().border,
-                          }}
-                          title="Calibration Required"
-                        >
-                          CAL
-                        </span>
-                      )}
-                      {tool.flags.heavyEquipment && (
-                        <span
-                          className="flag-badge"
-                          style={{
-                            backgroundColor: "rgba(245, 158, 11, 0.12)",
-                            color: "#f59e0b",
-                            borderColor: "rgba(245, 158, 11, 0.25)",
-                          }}
-                          title="Heavy Equipment"
-                        >
-                          HEAVY
-                        </span>
-                      )}
-                      {tool.flags.precisionTool && (
-                        <span
-                          className="flag-badge"
-                          style={{
-                            backgroundColor: "rgba(168, 85, 247, 0.12)",
-                            color: "#a855f7",
-                            borderColor: "rgba(168, 85, 247, 0.25)",
-                          }}
-                          title="Precision Tool"
-                        >
-                          PREC
-                        </span>
-                      )}
-                      {!tool.flags.calibrationRequired && !tool.flags.heavyEquipment && !tool.flags.precisionTool && (
-                        <span className="no-flags">—</span>
-                      )}
-                    </div>
-                  </td>
                   <td className="cell-status">
                     <span
                       className="status-badge"
@@ -444,17 +378,6 @@ export default function ToolCatalogPage() {
           font-weight: 500;
           color: #fff !important;
         }
-
-        .cell-flags {
-          min-width: 180px;
-        }
-
-        .flags-wrap {
-          display: flex;
-          gap: 6px;
-          flex-wrap: wrap;
-        }
-
         .flag-badge {
           display: inline-block;
           padding: 3px 8px;
@@ -465,11 +388,6 @@ export default function ToolCatalogPage() {
           text-transform: uppercase;
           letter-spacing: 0.3px;
         }
-
-        .no-flags {
-          color: rgba(255, 255, 255, 0.3);
-        }
-
         .status-badge {
           display: inline-block;
           padding: 4px 10px;
@@ -516,3 +434,4 @@ export default function ToolCatalogPage() {
     </div>
   );
 }
+
