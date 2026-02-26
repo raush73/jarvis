@@ -24,12 +24,20 @@ export class CustomersController {
   findAll(
     @Query('take') take?: string,
     @Query('skip') skip?: string,
+    @Query('search') search?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+    @Query('state') state?: string,
   ) {
     return this.customersService.findAll({
       take: take ? parseInt(take, 10) : undefined,
       skip: skip ? parseInt(skip, 10) : undefined,
+      search: search ?? undefined,
+      sort: sort ?? undefined,
+      order: order ?? undefined,
+      state: state ?? undefined,
     });
-  }
+}
 
   @Permissions(PERMISSIONS.CUSTOMERS_READ)
   @Get(':id')
@@ -50,10 +58,14 @@ export class CustomersController {
   @Permissions(PERMISSIONS.CUSTOMERS_WRITE)
   @Permissions(PERMISSIONS.CUSTOMERS_WRITE)
   @Patch(':id/default-salesperson')
-  assignDefaultSalesperson(
+  assignRegistrySalesperson(
     @Param('id') id: string,
     @Body() dto: AssignDefaultSalespersonDto,
   ) {
-    return this.customersService.assignDefaultSalesperson(id, dto.salespersonId ?? null);
+    return this.customersService.assignRegistrySalesperson(id, dto.salespersonId ?? null);
   }
 }
+
+
+
+

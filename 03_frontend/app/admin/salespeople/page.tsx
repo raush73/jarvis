@@ -25,14 +25,18 @@ export default function SalespeopleListPage() {
         const raw = Array.isArray(data) ? data : [];
         const mapped = raw.map((r: any) => {
           const fullName = `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim();
+          const lastAct = r.lastActivityAt ?? r.updatedAt ?? null;
           return {
             id: r.id,
             name: fullName || "\u2014",
             email: r.email ?? "\u2014",
+            phone: r.phone ?? "",
             status: r.isActive != null ? (r.isActive ? "Active" : "Inactive") : "Inactive",
-            defaultCommissionPlan: "\u2014",
-            customersOwned: 0,
-            lastActivity: "\u2014",
+            defaultCommissionPlan: r.defaultCommissionPlanName ?? "\u2014",
+            customersOwned: r.customersOwned ?? 0,
+            lastActivity: lastAct
+              ? new Date(lastAct).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : "\u2014",
           };
         });
         setSalespeople(mapped);
@@ -58,7 +62,8 @@ export default function SalespeopleListPage() {
       const query = searchQuery.toLowerCase();
       if (
         !(sp.name ?? "").toLowerCase().includes(query) &&
-        !(sp.email ?? "").toLowerCase().includes(query)
+        !(sp.email ?? "").toLowerCase().includes(query) &&
+        !(sp.phone ?? "").toLowerCase().includes(query)
       ) {
         return false;
       }
@@ -119,7 +124,7 @@ export default function SalespeopleListPage() {
           <input
             id="search"
             type="text"
-            placeholder="Name or email..."
+            placeholder="Name, email, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

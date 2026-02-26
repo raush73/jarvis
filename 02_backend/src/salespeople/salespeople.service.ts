@@ -1,4 +1,4 @@
-﻿import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSalespersonDto } from './dto/create-salesperson.dto';
 import { UpdateSalespersonDto } from './dto/update-salesperson.dto';
@@ -13,8 +13,26 @@ export class SalespeopleService {
     });
   }
 
-  findAll() {
-    return this.prisma.salesperson.findMany();
+  async findAll() {
+    const records = await this.prisma.salesperson.findMany({
+      include: {
+        _count: { select: { customers: true } },
+      },
+    });
+
+    return records.map((r) => ({
+      id: r.id,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      email: r.email,
+      phone: r.phone,
+      isActive: r.isActive,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      customersOwned: r._count.customers,
+      defaultCommissionPlanName: null as string | null,
+      lastActivityAt: r.updatedAt,
+    }));
   }
 
   async findOne(id: string) {
