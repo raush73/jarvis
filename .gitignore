@@ -74,3 +74,7 @@ bots/reports/
 # Backend repo owns these scripts; ignore in root repo
 02_backend/scripts/*.ts
 
+
+# Ignore nested backend repo
+02_backend/
+
