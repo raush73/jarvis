@@ -273,15 +273,7 @@ return (
           ← Back to Trades
         </Link>
         <h1>{trade.name}</h1>
-<div className="mt-3">
-  <a
-    href={"/admin/trades/" + tradeId + "/tools"}
-    className="inline-flex items-center rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
-  >
-    Edit Tools Template →
-  </a>
-</div>
-        <p className="subtitle">Trade details and configuration</p>
+<p className="subtitle">Trade details and configuration</p>
       </div>
 
       {/* Trade Details Card */}
@@ -358,10 +350,26 @@ return (
           </div>
         </div>
       </div>
-      {/* MW4H Minimal Tools (Template) - Summary Only */}
+      {/* MW4H Minimal Tools (Template)
+<span className="ml-3">
+  <a
+    href={"/admin/trades/" + tradeId + "/tools"}
+    className="inline-flex items-center rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
+  >
+    Edit Tools Template →
+  </a>
+</span> - Summary Only */}
       <div className="detail-card tool-list-card">
         <div className="card-header">
-          <h2>MW4H Minimal Tools (Template)</h2>
+          <h2>MW4H Minimal Tools (Template)
+<span className="ml-3">
+  <a
+    href={"/admin/trades/" + tradeId + "/tools"}
+    className="inline-flex items-center rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
+  >
+    Edit Tools Template →
+  </a>
+</span></h2>
         </div>
         <div className="card-body">
           {loadingRequiredTools ? (
@@ -736,6 +744,7 @@ return (
     </div>
   );
 }
+
 
 
 
