@@ -3,29 +3,37 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 export default function AddToolPage() {
   const router = useRouter();
 
-  // Form state
   const [toolName, setToolName] = useState("");
-  const [description, setDescription] = useState("");
-  const [calibrationRequired, setCalibrationRequired] = useState(false);
-  const [heavyEquipment, setHeavyEquipment] = useState(false);
-  const [precisionTool, setPrecisionTool] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Validation - Tool Name is required
   const canSubmit = toolName.trim() !== "";
 
-  // Handle save
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSubmit) return;
 
-    // Generate mock id
-    const mockId = `TOOL-${Date.now()}`;
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Navigate to detail page (no persistence)
-    router.push(`/admin/tools/${mockId}`);
+      await apiFetch("/tool-types", {
+        method: "POST",
+        body: JSON.stringify({
+          name: toolName.trim(),
+        }),
+      });
+
+      router.push("/admin/tools");
+    } catch (err: any) {
+      setError(err?.message || "Failed to create tool.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -34,12 +42,6 @@ export default function AddToolPage() {
 
   return (
     <div className="add-tool-container">
-      {/* UI Shell Banner */}
-      <div className="shell-banner">
-        UI shell (mocked) — Internal management view — not visible to field roles.
-      </div>
-
-      {/* Header */}
       <div className="page-header">
         <Link href="/admin/tools" className="back-link">
           ← Back to Tool Catalog
@@ -50,10 +52,8 @@ export default function AddToolPage() {
         </p>
       </div>
 
-      {/* Form Section */}
       <div className="form-section">
         <div className="form-grid">
-          {/* Tool Name */}
           <div className="form-row full-width">
             <label className="form-label">
               Tool Name <span className="required">*</span>
@@ -66,60 +66,16 @@ export default function AddToolPage() {
               placeholder="e.g., Torque Wrench 3/8 inch"
             />
           </div>
-
-          {/* Description */}
-          <div className="form-row full-width">
-            <label className="form-label">Description</label>
-            <textarea
-              className="form-textarea"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description of the tool..."
-              rows={3}
-            />
-          </div>
-
-          {/* Flags Section */}
-          <div className="form-row full-width">
-            <label className="form-label">Flags</label>
-            <div className="flags-section">
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={calibrationRequired}
-                  onChange={() => setCalibrationRequired(!calibrationRequired)}
-                />
-                <span className="checkbox-label">Calibration Required</span>
-                <span className="checkbox-hint">Tool requires periodic calibration</span>
-              </label>
-
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={heavyEquipment}
-                  onChange={() => setHeavyEquipment(!heavyEquipment)}
-                />
-                <span className="checkbox-label">Heavy Equipment</span>
-                <span className="checkbox-hint">Requires special handling or certification</span>
-              </label>
-
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={precisionTool}
-                  onChange={() => setPrecisionTool(!precisionTool)}
-                />
-                <span className="checkbox-label">Precision Tool</span>
-                <span className="checkbox-hint">High-accuracy measurement or operation</span>
-              </label>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Form Actions */}
       <div className="form-actions">
-        <p className="helper-text">UI-only: saving will be wired later.</p>
+        {error && (
+          <p className="helper-text" style={{ color: "#ef4444" }}>
+            {error}
+          </p>
+        )}
+
         <div className="action-buttons">
           <button type="button" className="cancel-btn" onClick={handleCancel}>
             Cancel
@@ -128,9 +84,9 @@ export default function AddToolPage() {
             type="button"
             className="save-btn"
             onClick={handleSave}
-            disabled={!canSubmit}
+            disabled={!canSubmit || loading}
           >
-            Save
+            {loading ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
@@ -142,20 +98,6 @@ export default function AddToolPage() {
           margin: 0 auto;
         }
 
-        /* Shell Banner */
-        .shell-banner {
-          background: rgba(245, 158, 11, 0.1);
-          border: 1px solid rgba(245, 158, 11, 0.3);
-          border-radius: 8px;
-          padding: 10px 16px;
-          font-size: 12px;
-          font-weight: 500;
-          color: #f59e0b;
-          text-align: center;
-          margin-bottom: 24px;
-        }
-
-        /* Header */
         .page-header {
           margin-bottom: 28px;
         }
@@ -187,7 +129,6 @@ export default function AddToolPage() {
           margin: 0;
         }
 
-        /* Form Section */
         .form-section {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
@@ -224,8 +165,7 @@ export default function AddToolPage() {
           color: #ef4444;
         }
 
-        .form-input,
-        .form-textarea {
+        .form-input {
           padding: 10px 12px;
           font-size: 13px;
           color: #fff;
@@ -235,61 +175,15 @@ export default function AddToolPage() {
           transition: border-color 0.15s ease;
         }
 
-        .form-input:focus,
-        .form-textarea:focus {
+        .form-input:focus {
           outline: none;
           border-color: #3b82f6;
         }
 
-        .form-input::placeholder,
-        .form-textarea::placeholder {
+        .form-input::placeholder {
           color: rgba(255, 255, 255, 0.3);
         }
 
-        .form-textarea {
-          resize: vertical;
-          min-height: 80px;
-        }
-
-        /* Flags Section */
-        .flags-section {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding: 16px;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 8px;
-        }
-
-        .checkbox-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          cursor: pointer;
-          padding: 8px 0;
-        }
-
-        .checkbox-row input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: #3b82f6;
-          cursor: pointer;
-        }
-
-        .checkbox-label {
-          font-size: 14px;
-          font-weight: 500;
-          color: #fff;
-          min-width: 160px;
-        }
-
-        .checkbox-hint {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.4);
-        }
-
-        /* Form Actions */
         .form-actions {
           display: flex;
           justify-content: space-between;
