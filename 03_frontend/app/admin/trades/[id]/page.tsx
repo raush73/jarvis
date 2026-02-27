@@ -154,9 +154,9 @@ export default function TradeDetailPage() {
   // Find the trade from mock data
   const trade = MOCK_TRADES.find((t) => t.id === tradeId);
 
-// MW4H Required Tools Template (read-only preview; edit on /tools)
-const [templateTools, setTemplateTools] = useState<{ id: string; name: string }[]>([]);
-const [loadingTemplateTools, setLoadingTemplateTools] = useState(false);
+// MW4H Minimal Tools Template (read-only summary; required-only)
+const [requiredTools, setRequiredTools] = useState<{ id: string; name: string }[]>([]);
+const [loadingRequiredTools, setLoadingRequiredTools] = useState(false);
 
 useEffect(() => {
   if (!tradeId) return;
@@ -164,19 +164,20 @@ useEffect(() => {
 
   (async () => {
     try {
-      setLoadingTemplateTools(true);
+      setLoadingRequiredTools(true);
       const resp: any = await apiFetch(`/trades/${tradeId}/tool-types`);
-      const items = resp?.items || [];
-      const mapped = items
-        .map((r: any) => r?.toolType)
-        .filter(Boolean)
-        .map((t: any) => ({ id: t.id, name: t.name }));
-      if (!cancelled) setTemplateTools(mapped);
+      const items = resp?.items ?? [];
+      const requiredItems = items.filter((it: any) => it.isRequired);
+      const mapped = requiredItems
+        .map((r: any) => ({ id: r.id, name: r.toolType?.name }))
+        .filter((t: any) => t.name)
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      if (!cancelled) setRequiredTools(mapped);
     } catch (e) {
       console.error("Failed to load trade tool template", e);
-      if (!cancelled) setTemplateTools([]);
+      if (!cancelled) setRequiredTools([]);
     } finally {
-      if (!cancelled) setLoadingTemplateTools(false);
+      if (!cancelled) setLoadingRequiredTools(false);
     }
   })();
 
@@ -374,34 +375,27 @@ return (
           </div>
         </div>
       </div>
-      {/* MW4H Required Tools (Template Preview) */}
+      {/* MW4H Minimal Tools (Template) - Summary Only */}
       <div className="detail-card tool-list-card">
         <div className="card-header">
-          <h2>MW4H Required Tools (Template)</h2>
-          <Link href={`/admin/trades/${tradeId}/tools`} className="back-link">
-            Edit Tools Template →
-          </Link>
+          <h2>MW4H Minimal Tools (Template)</h2>
         </div>
         <div className="card-body">
-          <p className="section-intro">
-            Read-only preview of the saved tools template for this trade.
-          </p>
-
-          {loadingTemplateTools ? (
+          {loadingRequiredTools ? (
             <div className="empty-state">Loading tools…</div>
-          ) : templateTools.length === 0 ? (
-            <div className="empty-state">No required tools configured for this trade.</div>
+          ) : requiredTools.length === 0 ? (
+            <div className="empty-state">No MW4H minimal tool template configured.</div>
           ) : (
             <>
               <div className="selected-pills">
-                {templateTools.map((tool) => (
+                {requiredTools.map((tool) => (
                   <span key={tool.id} className="tool-pill">
                     {tool.name}
                   </span>
                 ))}
               </div>
               <div style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
-                {templateTools.length} tool(s) required by default.
+                {requiredTools.length} required tool(s).
               </div>
             </>
           )}
