@@ -1,95 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
-// Types
-type ToolStatus = "Active" | "Inactive";
-
-type Tool = {
+type ToolType = {
   id: string;
   name: string;
-  status: ToolStatus;
+  isActive: boolean;
 };
 
-// Mock data
-const MOCK_TOOLS: Tool[] = [
-  {
-    id: "TOOL-001",
-    name: "Pipe Wrench 24\"",
-    status: "Active",
-  },
-  {
-    id: "TOOL-002",
-    name: "Digital Multimeter",
-    status: "Active",
-  },
-  {
-    id: "TOOL-003",
-    name: "Hydraulic Press",
-    status: "Active",
-  },
-  {
-    id: "TOOL-004",
-    name: "Torque Wrench",
-    status: "Active",
-  },
-  {
-    id: "TOOL-005",
-    name: "Hammer Drill",
-    status: "Inactive",
-  },
-  {
-    id: "TOOL-006",
-    name: "Laser Level",
-    status: "Active",
-  },
-  {
-    id: "TOOL-007",
-    name: "Forklift",
-    status: "Active",
-  },
-  {
-    id: "TOOL-008",
-    name: "Oscilloscope",
-    status: "Inactive",
-  },
-];
-
 export default function ToolCatalogPage() {
-  // Filter state
+  const [toolTypes, setToolTypes] = useState<ToolType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter logic
-  const filteredTools = MOCK_TOOLS.filter((tool) => {
-    if (statusFilter !== "All" && tool.status !== statusFilter) {
-      return false;
-    }
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      if (!tool.name.toLowerCase().includes(query)) {
-        return false;
-      }
-    }
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<ToolType[]>("/tool-types")
+      .then((data) => {
+        if (!cancelled) setToolTypes(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message ?? "Failed to load tool types");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredTools = toolTypes.filter((t) => {
+    if (statusFilter === "Active" && !t.isActive) return false;
+    if (statusFilter === "Inactive" && t.isActive) return false;
+    if (searchQuery && !t.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
-  // Status badge style
-  const getStatusStyle = (status: ToolStatus) => {
-    if (status === "Active") {
+  const getStatusStyle = (active: boolean) => {
+    if (active) {
       return { bg: "rgba(34, 197, 94, 0.12)", color: "#22c55e", border: "rgba(34, 197, 94, 0.25)" };
     }
     return { bg: "rgba(107, 114, 128, 0.12)", color: "#6b7280", border: "rgba(107, 114, 128, 0.25)" };
   };
+
   return (
     <div className="tools-container">
-      {/* UI Shell Banner */}
       <div className="shell-banner">
-        UI shell (mocked) — Internal management view — not visible to field roles.
+        Internal management view — not visible to field roles.
       </div>
 
-      {/* Header */}
       <div className="page-header">
         <div className="header-left">
           <Link href="/admin" className="back-link">
@@ -107,85 +69,92 @@ export default function ToolCatalogPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="filter-group">
-          <label htmlFor="statusFilter">Status</label>
-          <select
-            id="statusFilter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-        </div>
+      {loading && (
+        <div className="state-box">Loading tool types…</div>
+      )}
 
-        <div className="filter-group search-group">
-          <label htmlFor="search">Search</label>
-          <input
-            id="search"
-            type="text"
-            placeholder="Tool name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {error && (
+        <div className="state-box state-error">{error}</div>
+      )}
 
-        <div className="filter-results">
-          {filteredTools.length} tool{filteredTools.length !== 1 ? "s" : ""}
-        </div>
-      </div>
+      {!loading && !error && (
+        <>
+          <div className="filters-section">
+            <div className="filter-group">
+              <label htmlFor="statusFilter">Status</label>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
 
-      {/* Tools Table */}
-      <div className="table-section">
-        <div className="table-wrap">
-          <table className="tools-table">
-            <thead>
-              <tr>
-                <th>Tool Name</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTools.map((tool) => (
-                <tr key={tool.id}>
-                  <td className="cell-name">{tool.name}</td>
-                  <td className="cell-status">
-                    <span
-                      className="status-badge"
-                      style={{
-                        backgroundColor: getStatusStyle(tool.status).bg,
-                        color: getStatusStyle(tool.status).color,
-                        borderColor: getStatusStyle(tool.status).border,
-                      }}
-                    >
-                      {tool.status}
-                    </span>
-                  </td>
-                  <td className="cell-actions">
-                    <Link href={`/admin/tools/${tool.id}`} className="action-btn">
-                      View
-                    </Link>
-                    <Link href={`/admin/tools/${tool.id}`} className="action-btn">
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {filteredTools.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="empty-row">
-                    No tools match your filters
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            <div className="filter-group search-group">
+              <label htmlFor="search">Search</label>
+              <input
+                id="search"
+                type="text"
+                placeholder="Tool name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="filter-results">
+              {filteredTools.length} tool{filteredTools.length !== 1 ? "s" : ""}
+            </div>
+          </div>
+
+          <div className="table-section">
+            <div className="table-wrap">
+              <table className="tools-table">
+                <thead>
+                  <tr>
+                    <th>Tool Name</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTools.map((tool) => (
+                    <tr key={tool.id}>
+                      <td className="cell-name">{tool.name}</td>
+                      <td className="cell-status">
+                        <span
+                          className="status-badge"
+                          style={{
+                            backgroundColor: getStatusStyle(tool.isActive).bg,
+                            color: getStatusStyle(tool.isActive).color,
+                            borderColor: getStatusStyle(tool.isActive).border,
+                          }}
+                        >
+                          {tool.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="cell-actions">
+                        <Link href={`/admin/tools/${tool.id}`} className="action-btn">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredTools.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="empty-row">
+                        No tools match your filters
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       <style jsx>{`
         .tools-container {
@@ -194,7 +163,6 @@ export default function ToolCatalogPage() {
           margin: 0 auto;
         }
 
-        /* Shell Banner */
         .shell-banner {
           background: rgba(245, 158, 11, 0.1);
           border: 1px solid rgba(245, 158, 11, 0.3);
@@ -207,7 +175,6 @@ export default function ToolCatalogPage() {
           margin-bottom: 24px;
         }
 
-        /* Header */
         .page-header {
           display: flex;
           align-items: flex-start;
@@ -264,7 +231,22 @@ export default function ToolCatalogPage() {
           background: #2563eb;
         }
 
-        /* Filters */
+        .state-box {
+          padding: 32px 20px;
+          text-align: center;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.55);
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+        }
+
+        .state-error {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.06);
+          border-color: rgba(239, 68, 68, 0.2);
+        }
+
         .filters-section {
           display: flex;
           align-items: flex-end;
@@ -327,7 +309,6 @@ export default function ToolCatalogPage() {
           padding-bottom: 8px;
         }
 
-        /* Table */
         .table-section {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
@@ -378,16 +359,7 @@ export default function ToolCatalogPage() {
           font-weight: 500;
           color: #fff !important;
         }
-        .flag-badge {
-          display: inline-block;
-          padding: 3px 8px;
-          font-size: 10px;
-          font-weight: 600;
-          border-radius: 4px;
-          border: 1px solid;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-        }
+
         .status-badge {
           display: inline-block;
           padding: 4px 10px;
@@ -434,4 +406,3 @@ export default function ToolCatalogPage() {
     </div>
   );
 }
-
