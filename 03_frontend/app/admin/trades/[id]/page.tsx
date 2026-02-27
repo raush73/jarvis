@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 import { useParams } from "next/navigation";
 
 // Mock trades data (same as list page for consistency)
@@ -153,6 +154,37 @@ export default function TradeDetailPage() {
   // Find the trade from mock data
   const trade = MOCK_TRADES.find((t) => t.id === tradeId);
 
+// MW4H Required Tools Template (read-only preview; edit on /tools)
+const [templateTools, setTemplateTools] = useState<{ id: string; name: string }[]>([]);
+const [loadingTemplateTools, setLoadingTemplateTools] = useState(false);
+
+useEffect(() => {
+  if (!tradeId) return;
+  let cancelled = false;
+
+  (async () => {
+    try {
+      setLoadingTemplateTools(true);
+      const resp: any = await apiFetch(`/trades/${tradeId}/tool-types`);
+      const items = resp?.items || [];
+      const mapped = items
+        .map((r: any) => r?.toolType)
+        .filter(Boolean)
+        .map((t: any) => ({ id: t.id, name: t.name }));
+      if (!cancelled) setTemplateTools(mapped);
+    } catch (e) {
+      console.error("Failed to load trade tool template", e);
+      if (!cancelled) setTemplateTools([]);
+    } finally {
+      if (!cancelled) setLoadingTemplateTools(false);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [tradeId]);
+
   // MW4H Minimal Tool List state (UI-only)
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
   const [toolSearchQuery, setToolSearchQuery] = useState("");
@@ -207,9 +239,7 @@ export default function TradeDetailPage() {
       return { bg: "rgba(34, 197, 94, 0.12)", color: "#22c55e", border: "rgba(34, 197, 94, 0.25)" };
     }
     return { bg: "rgba(107, 114, 128, 0.12)", color: "#6b7280", border: "rgba(107, 114, 128, 0.25)" };
-  };
-
-  // Not found state
+  };  // Not found state
   if (!trade) {
     return (
       <div className="trade-detail-container">
@@ -218,7 +248,9 @@ export default function TradeDetailPage() {
             ← Back to Trades
           </Link>
           <h1>Trade Not Found</h1>
-          <p className="subtitle">The trade with ID &quot;{tradeId}&quot; could not be found.</p>
+          <p className="subtitle">
+            The trade with ID &quot;{tradeId}&quot; could not be found.
+          </p>
         </div>
 
         <style jsx>{`
@@ -257,8 +289,7 @@ export default function TradeDetailPage() {
       </div>
     );
   }
-
-  return (
+return (
     <div className="trade-detail-container">
       {/* Header with back link */}
       <div className="page-header">
@@ -343,78 +374,37 @@ export default function TradeDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* MW4H Minimal Tool List Section */}
+      {/* MW4H Required Tools (Template Preview) */}
       <div className="detail-card tool-list-card">
         <div className="card-header">
-          <h2>MW4H Minimal Tool List</h2>
+          <h2>MW4H Required Tools (Template)</h2>
+          <Link href={`/admin/trades/${tradeId}/tools`} className="back-link">
+            Edit Tools Template →
+          </Link>
         </div>
         <div className="card-body">
           <p className="section-intro">
-            Company-required minimum tools for this trade. Tools are selected from the Tool Catalog.
+            Read-only preview of the saved tools template for this trade.
           </p>
 
-          {/* Search input */}
-          <div className="tool-search">
-            <input
-              type="text"
-              placeholder="Search Tool Catalog…"
-              value={toolSearchQuery}
-              onChange={(e) => setToolSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Scrollable tool list */}
-          <div className="tool-list-scroll">
-            {filteredTools.map((tool) => (
-              <label key={tool.id} className="tool-row">
-                <input
-                  type="checkbox"
-                  checked={selectedToolIds.includes(tool.id)}
-                  onChange={() => handleToggleTool(tool.id)}
-                />
-                <span className="tool-name">{tool.name}</span>
-                <span className="tool-flags">
-                  {tool.flags.cal && <span className="flag-badge cal">CAL</span>}
-                  {tool.flags.heavy && <span className="flag-badge heavy">HEAVY</span>}
-                  {tool.flags.prec && <span className="flag-badge prec">PREC</span>}
-                </span>
-              </label>
-            ))}
-            {filteredTools.length === 0 && (
-              <div className="tool-empty-search">No tools match your search</div>
-            )}
-          </div>
-
-          {/* Selected tools pills */}
-          <div className="selected-tools-section">
-            <span className="selected-label">Selected Tools:</span>
-            {selectedTools.length > 0 ? (
+          {loadingTemplateTools ? (
+            <div className="empty-state">Loading tools…</div>
+          ) : templateTools.length === 0 ? (
+            <div className="empty-state">No required tools configured for this trade.</div>
+          ) : (
+            <>
               <div className="selected-pills">
-                {selectedTools.map((tool) => (
+                {templateTools.map((tool) => (
                   <span key={tool.id} className="tool-pill">
                     {tool.name}
-                    <button
-                      type="button"
-                      className="pill-remove"
-                      onClick={() => handleRemoveTool(tool.id)}
-                    >
-                      ×
-                    </button>
                   </span>
                 ))}
               </div>
-            ) : (
-              <div className="empty-state">
-                No MW4H minimum tools selected yet. (UI-only)
+              <div style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
+                {templateTools.length} tool(s) required by default.
               </div>
-            )}
-          </div>
-
-          {/* Footer note */}
-          <div className="tool-footer-note">
-            This selection references the Tool Catalog. Orders snapshot required tools at creation.
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -769,3 +759,9 @@ export default function TradeDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
