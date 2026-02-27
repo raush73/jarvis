@@ -7,21 +7,27 @@ function passHeaders(res: Response) {
   return { "content-type": ct };
 }
 
-function authHeader(req: NextRequest): HeadersInit {
-  const auth = req.headers.get("authorization");
-  return auth ? { authorization: auth } : {};
+function authHeader(req: NextRequest): HeadersInit | null {
+  const auth = req.headers.get("authorization") ?? req.headers.get("Authorization");
+  if (!auth) return null;
+  return { authorization: auth };
 }
 
 export async function GET(req: NextRequest) {
-  // preserve querystring (e.g. ?activeOnly=true)
+  const h = authHeader(req);
+  if (!h) {
+    return new Response(
+      JSON.stringify({ ok: false, message: "Missing auth token" }),
+      { status: 401, headers: { "content-type": "application/json" } }
+    );
+  }
+
   const url = new URL(req.url);
   const qs = url.search || "";
 
   const res = await fetch(`${BACKEND}/trades${qs}`, {
     cache: "no-store",
-    headers: {
-      ...authHeader(req),
-    },
+    headers: { ...h },
   });
 
   const text = await res.text();
