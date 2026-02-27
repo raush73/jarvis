@@ -169,10 +169,15 @@ export default function TradeToolsTemplatePage() {
         if (cancelled) return;
 
         setToolTypes(allTools as ToolType[]);
+        const resp = tradeTools as any;
 
-        const resp = tradeTools as TradeToolTypesResponse;
         const nextSelected = new Set<string>();
-        for (const row of resp.tools || []) nextSelected.add(row.toolTypeId);
+
+        for (const row of resp.items || []) {
+          if (row?.toolType?.id) {
+            nextSelected.add(row.toolType.id);
+          }
+        }
 
         setSelectedToolIds(nextSelected);
         setInitialSelected(new Set(nextSelected));
@@ -646,3 +651,4 @@ export default function TradeToolsTemplatePage() {
     </div>
   );
 }
+

@@ -7,9 +7,9 @@ function passHeaders(res: Response) {
   return { "content-type": ct };
 }
 
-function authHeader(req: NextRequest) {
+function authHeader(req: NextRequest): HeadersInit {
   const auth = req.headers.get("authorization");
-  return auth ? { Authorization: auth } : {};
+  return auth ? { authorization: auth } : {};
 }
 
 // Next 16: params is a Promise in route handlers
@@ -51,3 +51,4 @@ export async function PUT(
   const text = await res.text();
   return new Response(text, { status: res.status, headers: passHeaders(res) });
 }
+
