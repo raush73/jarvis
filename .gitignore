@@ -1,4 +1,4 @@
-﻿# Backend (track source, ignore build artifacts)
+# Backend (track source, ignore build artifacts)
 # We keep backend code in this repo, but do NOT commit node_modules/dist/logs.
 
 # Ignore everything in backend by default...
@@ -40,8 +40,7 @@ Thumbs.db
 _quarantine_untracked_*/
 
 # Local tools
-tools/
-
+/tools/
 # Patch files
 *.BACKUP-*
 phase15_safety_patch.diff
@@ -78,3 +77,8 @@ bots/reports/
 # Ignore nested backend repo
 02_backend/
 
+
+
+# Local safety: never commit editor/script backup artifacts
+*.bak_*
+*.fix_*
