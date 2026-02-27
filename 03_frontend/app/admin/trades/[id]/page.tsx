@@ -1,222 +1,105 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { useParams } from "next/navigation";
 
-// Mock trades data (same as list page for consistency)
-const MOCK_TRADES = [
-  {
-    id: "TRD-001",
-    name: "Millwright",
-    code: "MILLWRIGHT",
-    category: "Mechanical",
-    description: "Industrial machinery installation, maintenance, and repair. Alignment and precision work.",
-    status: "Active",
-    notes: "Core MW4H trade. High demand across all regions.",
-    wcClassCode: "3724",
-    createdAt: "2025-01-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-002",
-    name: "Welder",
-    code: "WELDER",
-    category: "Mechanical",
-    description: "Metal fabrication and joining using various welding processes (MIG, TIG, Stick, Flux-Core).",
-    status: "Active",
-    notes: "Certifications tracked separately (6G, etc.).",
-    wcClassCode: "3620",
-    createdAt: "2025-01-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-003",
-    name: "Pipefitter",
-    code: "PIPEFITTER",
-    category: "Mechanical",
-    description: "Industrial piping systems installation and maintenance. Process piping and steam systems.",
-    status: "Active",
-    notes: "",
-    wcClassCode: "5183",
-    createdAt: "2025-01-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-004",
-    name: "Electrician",
-    code: "ELECTRICIAN",
-    category: "Electrical",
-    description: "Electrical systems installation, maintenance, and troubleshooting. Industrial controls.",
-    status: "Active",
-    notes: "Requires state licensure verification.",
-    wcClassCode: "5190",
-    createdAt: "2025-01-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-005",
-    name: "Crane Operator",
-    code: "CRANE_OP",
-    category: "Mechanical",
-    description: "Operation of mobile and overhead cranes for lifting and rigging operations.",
-    status: "Active",
-    notes: "NCCCO certification required.",
-    wcClassCode: "7219",
-    createdAt: "2025-03-01",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-006",
-    name: "Ironworker",
-    code: "IRONWORKER",
-    category: "Structural",
-    description: "Structural steel erection, reinforcing steel placement, and metal decking installation.",
-    status: "Active",
-    notes: "",
-    wcClassCode: "5040",
-    createdAt: "2025-03-01",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-007",
-    name: "Rigger",
-    code: "RIGGER",
-    category: "Structural",
-    description: "Load calculation, rigging equipment selection, and safe lifting operations.",
-    status: "Active",
-    notes: "Often combined with Millwright or Ironworker skills.",
-    wcClassCode: "5057",
-    createdAt: "2025-03-01",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-008",
-    name: "Instrument Technician",
-    code: "INST_TECH",
-    category: "Electrical",
-    description: "Calibration and maintenance of process control instruments and PLCs.",
-    status: "Active",
-    notes: "",
-    wcClassCode: "3681",
-    createdAt: "2025-06-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-009",
-    name: "Boilermaker",
-    code: "BOILERMAKER",
-    category: "Mechanical",
-    description: "Fabrication, assembly, and repair of boilers, tanks, and pressure vessels.",
-    status: "Active",
-    notes: "",
-    wcClassCode: "3620",
-    createdAt: "2025-06-15",
-    updatedAt: "2026-01-20",
-  },
-  {
-    id: "TRD-010",
-    name: "Carpenter",
-    code: "CARPENTER",
-    category: "Structural",
-    description: "Forming, framing, and general carpentry for industrial construction.",
-    status: "Inactive",
-    notes: "Low demand. Kept for historical orders.",
-    wcClassCode: "5403",
-    createdAt: "2025-01-15",
-    updatedAt: "2025-12-01",
-  },
-];
-
-// UI-only mock data: Tool Catalog
-const TOOL_CATALOG_MOCK = [
-  { id: "TOOL-001", name: "Dial Indicator Set", flags: { cal: true, prec: true } },
-  { id: "TOOL-002", name: "Laser Alignment System", flags: { cal: true, prec: true } },
-  { id: "TOOL-003", name: "Hydraulic Torque Wrench", flags: { cal: true, heavy: true } },
-  { id: "TOOL-004", name: "Chain Hoist (2-ton)", flags: { heavy: true } },
-  { id: "TOOL-005", name: "Digital Multimeter", flags: { cal: true } },
-  { id: "TOOL-006", name: "Pipe Threader Set", flags: { heavy: true } },
-  { id: "TOOL-007", name: "Precision Level (Machinist)", flags: { prec: true } },
-  { id: "TOOL-008", name: "Micrometer Set (0-6\")", flags: { cal: true, prec: true } },
-  { id: "TOOL-009", name: "Come-Along (3-ton)", flags: { heavy: true } },
-  { id: "TOOL-010", name: "Feeler Gauge Set", flags: { prec: true } },
-  { id: "TOOL-011", name: "Portable Band Saw", flags: {} },
-  { id: "TOOL-012", name: "Magnetic Drill Press", flags: { heavy: true } },
-  { id: "TOOL-013", name: "Infrared Thermometer", flags: { cal: true } },
-  { id: "TOOL-014", name: "Rigging Shackle Set", flags: { heavy: true } },
-];
+interface Trade {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  description: string;
+  status: string;
+  notes: string;
+  wcClassCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function TradeDetailPage() {
   const params = useParams();
   const tradeId = params.id as string;
 
-  // Find the trade from mock data
-  const trade = MOCK_TRADES.find((t) => t.id === tradeId);
+  const [trade, setTrade] = useState<Trade | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ type: "auth" | "notfound" | "other"; message: string } | null>(null);
 
-// MW4H Minimal Tools Template (read-only summary; required-only)
-const [requiredTools, setRequiredTools] = useState<{ id: string; name: string }[]>([]);
-const [loadingRequiredTools, setLoadingRequiredTools] = useState(false);
+  const [requiredTools, setRequiredTools] = useState<{ id: string; name: string }[]>([]);
+  const [loadingRequiredTools, setLoadingRequiredTools] = useState(false);
 
-useEffect(() => {
-  if (!tradeId) return;
-  let cancelled = false;
+  useEffect(() => {
+    if (!tradeId) return;
+    let cancelled = false;
 
-  (async () => {
-    try {
-      setLoadingRequiredTools(true);
-      const resp: any = await apiFetch(`/trades/${tradeId}/tool-types`);
-      const items = resp?.items ?? [];
-      const requiredItems = items.filter((it: any) => it.isRequired);
-      const mapped = requiredItems
-        .map((r: any) => ({ id: r.id, name: r.toolType?.name }))
-        .filter((t: any) => t.name)
-        .sort((a: any, b: any) => a.name.localeCompare(b.name));
-      if (!cancelled) setRequiredTools(mapped);
-    } catch (e) {
-      console.error("Failed to load trade tool template", e);
-      if (!cancelled) setRequiredTools([]);
-    } finally {
-      if (!cancelled) setLoadingRequiredTools(false);
-    }
-  })();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data: any = await apiFetch(`/trades/${tradeId}`);
+        if (!cancelled) {
+          setTrade({
+            id: data.id,
+            name: data.name,
+            code: data.code,
+            category: data.category ?? "Other",
+            description: data.description ?? "",
+            status: data.isActive ? "Active" : "Inactive",
+            notes: data.notes ?? "",
+            wcClassCode: data.wcClassCode ?? "",
+            createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "",
+            updatedAt: data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "",
+          });
+        }
+      } catch (e: any) {
+        if (cancelled) return;
+        const msg = e?.message ?? String(e);
+        if (msg.includes("no access token") || msg.includes("401") || msg.includes("403")) {
+          setError({ type: "auth", message: "Not authenticated. Please log in again." });
+        } else if (msg.includes("404")) {
+          setError({ type: "notfound", message: `Trade with ID "${tradeId}" not found.` });
+        } else {
+          setError({ type: "other", message: msg });
+        }
+        setTrade(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
-  return () => {
-    cancelled = true;
-  };
-}, [tradeId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [tradeId]);
 
-  // MW4H Minimal Tool List state (UI-only)
-  const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
-  const [toolSearchQuery, setToolSearchQuery] = useState("");
+  useEffect(() => {
+    if (!tradeId || !trade) return;
+    let cancelled = false;
 
-  // Filter tools by search query
-  const filteredTools = useMemo(() => {
-    if (!toolSearchQuery.trim()) return TOOL_CATALOG_MOCK;
-    const query = toolSearchQuery.toLowerCase();
-    return TOOL_CATALOG_MOCK.filter((tool) =>
-      tool.name.toLowerCase().includes(query)
-    );
-  }, [toolSearchQuery]);
+    (async () => {
+      try {
+        setLoadingRequiredTools(true);
+        const resp: any = await apiFetch(`/trades/${tradeId}/tool-types`);
+        const items = resp?.items ?? [];
+        const requiredItems = items.filter((it: any) => it.isRequired);
+        const mapped = requiredItems
+          .map((r: any) => ({ id: r.id, name: r.toolType?.name }))
+          .filter((t: any) => t.name)
+          .sort((a: any, b: any) => a.name.localeCompare(b.name));
+        if (!cancelled) setRequiredTools(mapped);
+      } catch (e) {
+        console.error("Failed to load trade tool template", e);
+        if (!cancelled) setRequiredTools([]);
+      } finally {
+        if (!cancelled) setLoadingRequiredTools(false);
+      }
+    })();
 
-  // Toggle tool selection
-  const handleToggleTool = (toolId: string) => {
-    setSelectedToolIds((prev) =>
-      prev.includes(toolId)
-        ? prev.filter((id) => id !== toolId)
-        : [...prev, toolId]
-    );
-  };
-
-  // Remove selected tool
-  const handleRemoveTool = (toolId: string) => {
-    setSelectedToolIds((prev) => prev.filter((id) => id !== toolId));
-  };
-
-  // Get selected tools for pills display
-  const selectedTools = TOOL_CATALOG_MOCK.filter((tool) =>
-    selectedToolIds.includes(tool.id)
-  );
+    return () => {
+      cancelled = true;
+    };
+  }, [tradeId, trade]);
 
   // Category badge style
   const getCategoryStyle = (category: string) => {
@@ -240,7 +123,99 @@ useEffect(() => {
       return { bg: "rgba(34, 197, 94, 0.12)", color: "#22c55e", border: "rgba(34, 197, 94, 0.25)" };
     }
     return { bg: "rgba(107, 114, 128, 0.12)", color: "#6b7280", border: "rgba(107, 114, 128, 0.25)" };
-  };  // Not found state
+  };
+
+  if (loading) {
+    return (
+      <div className="trade-detail-container">
+        <div className="page-header">
+          <Link href="/admin/trades" className="back-link">
+            ← Back to Trades
+          </Link>
+          <h1>Loading…</h1>
+        </div>
+        <style jsx>{`
+          .trade-detail-container {
+            padding: 24px 40px 60px;
+            max-width: 900px;
+            margin: 0 auto;
+          }
+          .page-header { margin-bottom: 24px; }
+          .back-link {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 12px;
+          }
+          .back-link:hover { color: #3b82f6; }
+          h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+            margin: 0;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (error) {
+    const title = error.type === "auth" ? "Authentication Required" : error.type === "notfound" ? "Trade Not Found" : "Error";
+    return (
+      <div className="trade-detail-container">
+        <div className="page-header">
+          <Link href="/admin/trades" className="back-link">
+            ← Back to Trades
+          </Link>
+          <h1>{title}</h1>
+          <p className="subtitle">{error.message}</p>
+          {error.type === "auth" && (
+            <Link href="/auth/login" className="login-link">Go to Login</Link>
+          )}
+        </div>
+        <style jsx>{`
+          .trade-detail-container {
+            padding: 24px 40px 60px;
+            max-width: 900px;
+            margin: 0 auto;
+          }
+          .page-header { margin-bottom: 24px; }
+          .back-link {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 12px;
+          }
+          .back-link:hover { color: #3b82f6; }
+          h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+            margin: 0 0 8px;
+          }
+          .subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.55);
+            margin: 0;
+          }
+          .login-link {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+          }
+          .login-link:hover { background: #2563eb; }
+        `}</style>
+      </div>
+    );
+  }
+
   if (!trade) {
     return (
       <div className="trade-detail-container">
