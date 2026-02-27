@@ -273,6 +273,14 @@ return (
           ← Back to Trades
         </Link>
         <h1>{trade.name}</h1>
+<div className="mt-3">
+  <a
+    href={"/admin/trades/" + tradeId + "/tools"}
+    className="inline-flex items-center rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
+  >
+    Edit Tools Template →
+  </a>
+</div>
         <p className="subtitle">Trade details and configuration</p>
       </div>
 
@@ -728,6 +736,7 @@ return (
     </div>
   );
 }
+
 
 
 
