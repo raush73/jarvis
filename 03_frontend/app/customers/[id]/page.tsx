@@ -272,6 +272,18 @@ type TabKey = "contacts" | "tools" | "ppe" | "orders" | "quotes" | "invoices";
 // Tool list item shape (UI-only, trade-scoped)
 type ToolLike = { id: string; name: string; notes: string };
 
+// CustomerToolType API types (Capsule 2 persistence)
+type CustomerToolTypeItem = {
+  id: string;
+  isDefault: boolean;
+  notes: string | null;
+  toolType: { id: string; name: string; isActive: boolean };
+};
+type CustomerToolTrade = {
+  trade: { id: string; name: string };
+  items: CustomerToolTypeItem[];
+};
+
 // Base mock tools per trade (read-only; do not mutate)
 const MOCK_TOOLS_BY_TRADE: Record<string, string[]> = {
   Millwright: ["Torque Wrenches (Calibrated)", "Laser Alignment Kits", "Rigging Equipment", "Dial Indicators", "Portable Crane (10-ton)"],
@@ -422,6 +434,10 @@ export default function CustomerDetailPage() {
   // UI-only default tool selection: trade-keyed (tools marked as default baseline for that trade)
   const [uiToolDefaultIdsByTrade, setUiToolDefaultIdsByTrade] = useState<Record<string, Set<string>>>({});
 
+  // CustomerToolType API state (persisted — Capsule 2)
+  const [customerToolTrades, setCustomerToolTrades] = useState<CustomerToolTrade[]>([]);
+  const [customerToolsLoaded, setCustomerToolsLoaded] = useState(false);
+
   // PPE dictionary (Layer 1: Admin PPE types loaded from backend)
   const [ppeTypes, setPpeTypes] = useState<Array<{ id: string; name: string; active?: boolean }>>([]);
   const [ppeTypesLoaded, setPpeTypesLoaded] = useState(false);
@@ -473,6 +489,24 @@ export default function CustomerDetailPage() {
     loadCustomerPpeReqs();
   }, [customerId]);
 
+  const loadCustomerToolTypes = async () => {
+    try {
+      const data = await apiFetch<{ customer: any; trades: CustomerToolTrade[] }>(
+        `/customers/${customerId}/tool-types`
+      );
+      setCustomerToolTrades(data.trades ?? []);
+    } catch (e: any) {
+      console.error("Failed to load customer tool types:", e);
+      setCustomerToolTrades([]);
+    } finally {
+      setCustomerToolsLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomerToolTypes();
+  }, [customerId]);
+
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showEditContactModal, setShowEditContactModal] = useState(false);
   const [showDeleteContactModal, setShowDeleteContactModal] = useState(false);
@@ -512,6 +546,8 @@ export default function CustomerDetailPage() {
     name: string;
     notes: string;
     isUiTool: boolean;
+    toolTypeId?: string;
+    apiTradeId?: string;
   } | null>(null);
   const [editingToolTrade, setEditingToolTrade] = useState<string | null>(null);
   const [deletingTool, setDeletingTool] = useState<{
@@ -849,15 +885,17 @@ export default function CustomerDetailPage() {
     setAddToolForTrade(null);
   };
 
-  // Edit Tool handlers (trade-scoped)
-  const handleOpenEditToolModal = (tool: ToolLike & { isUiTool?: boolean }, tradeId: string) => {
+  // Edit Tool handlers (API-backed tools)
+  const handleOpenEditToolModal = (item: CustomerToolTypeItem, tradeId: string, tradeName: string) => {
     setEditingTool({
-      id: tool.id,
-      name: tool.name,
-      notes: tool.notes ?? "",
-      isUiTool: tool.isUiTool ?? false,
+      id: item.id,
+      name: item.toolType.name,
+      notes: item.notes ?? "",
+      isUiTool: false,
+      toolTypeId: item.toolType.id,
+      apiTradeId: tradeId,
     });
-    setEditingToolTrade(tradeId);
+    setEditingToolTrade(tradeName);
     setShowEditToolModal(true);
   };
 
@@ -867,33 +905,35 @@ export default function CustomerDetailPage() {
     setEditingToolTrade(null);
   };
 
-  const handleSaveEditTool = () => {
-    if (!editingTool || !editingTool.name.trim() || !editingToolTrade) return;
+  const handleSaveEditTool = async () => {
+    if (!editingTool || !editingToolTrade) return;
 
-    const updatedTool: ToolLike = {
-      id: editingTool.id,
-      name: editingTool.name.trim(),
-      notes: editingTool.notes.trim(),
-    };
-    const overrides = uiToolOverridesByTrade[editingToolTrade] || {};
-    const hidden = uiToolHiddenIdsByTrade[editingToolTrade] || new Set();
-    const uiList = uiToolsByTrade[editingToolTrade] || [];
-
-    if (editingTool.isUiTool) {
-      setUiToolsByTrade({
-        ...uiToolsByTrade,
-        [editingToolTrade]: uiList.map((t) => (t.id === updatedTool.id ? updatedTool : t)),
-      });
-    } else {
-      setUiToolOverridesByTrade({
-        ...uiToolOverridesByTrade,
-        [editingToolTrade]: { ...overrides, [updatedTool.id]: updatedTool },
-      });
+    // API-backed tool: PATCH notes only
+    if (editingTool.toolTypeId && editingTool.apiTradeId) {
+      try {
+        const updated = await apiFetch<CustomerToolTypeItem>(`/customers/${customerId}/tool-types`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            tradeId: editingTool.apiTradeId,
+            toolTypeId: editingTool.toolTypeId,
+            notes: editingTool.notes.trim() || null,
+          }),
+        });
+        setCustomerToolTrades((prev) =>
+          prev.map((t) =>
+            t.trade.id === editingTool.apiTradeId
+              ? { ...t, items: t.items.map((i) => (i.id === editingTool.id ? { ...i, notes: updated.notes } : i)) }
+              : t
+          )
+        );
+      } catch (e: any) {
+        console.error("Failed to save tool notes:", e);
+      }
+      setShowEditToolModal(false);
+      setEditingTool(null);
+      setEditingToolTrade(null);
+      return;
     }
-
-    setShowEditToolModal(false);
-    setEditingTool(null);
-    setEditingToolTrade(null);
   };
 
   // Delete Tool handlers (trade-scoped)
@@ -947,19 +987,31 @@ export default function CustomerDetailPage() {
     setDeletingToolTrade(null);
   };
 
-  // Toggle default status for a tool in a trade (UI-only)
-  const handleToggleToolDefault = (toolId: string, tradeId: string) => {
-    const currentDefaults = uiToolDefaultIdsByTrade[tradeId] ?? new Set();
-    const newDefaults = new Set(currentDefaults);
-    if (newDefaults.has(toolId)) {
-      newDefaults.delete(toolId);
-    } else {
-      newDefaults.add(toolId);
+  // Toggle isDefault for a CustomerToolType item (persisted via PATCH)
+  const handleToggleToolDefault = async (item: CustomerToolTypeItem, tradeId: string) => {
+    const newDefault = !item.isDefault;
+    setCustomerToolTrades((prev) =>
+      prev.map((t) =>
+        t.trade.id === tradeId
+          ? { ...t, items: t.items.map((i) => (i.id === item.id ? { ...i, isDefault: newDefault } : i)) }
+          : t
+      )
+    );
+    try {
+      await apiFetch<any>(`/customers/${customerId}/tool-types`, {
+        method: "PATCH",
+        body: JSON.stringify({ tradeId, toolTypeId: item.toolType.id, isDefault: newDefault }),
+      });
+    } catch (e: any) {
+      console.error("Failed to toggle tool default:", e);
+      setCustomerToolTrades((prev) =>
+        prev.map((t) =>
+          t.trade.id === tradeId
+            ? { ...t, items: t.items.map((i) => (i.id === item.id ? { ...i, isDefault: item.isDefault } : i)) }
+            : t
+        )
+      );
     }
-    setUiToolDefaultIdsByTrade({
-      ...uiToolDefaultIdsByTrade,
-      [tradeId]: newDefaults,
-    });
   };
 
   // Compute rendered tools per trade: base (filtered, overrides) + ui-created for that trade only
@@ -1402,18 +1454,24 @@ export default function CustomerDetailPage() {
               <h2>Customer Tools by Trade</h2>
               <span className="panel-note">Tools commonly required at this customer&apos;s sites, grouped by trade</span>
             </div>
-            {AVAILABLE_TRADES.map((tradeId) => {
-              const tools = renderedToolsByTrade[tradeId] ?? [];
-              const defaultsSet = uiToolDefaultIdsByTrade[tradeId] ?? new Set();
-              const defaultCount = tools.filter((t) => defaultsSet.has(t.id)).length;
-              const catalogCount = tools.length;
+            {!customerToolsLoaded ? (
+                <div style={{ textAlign: "center", padding: "24px 16px", color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>
+                  Loading tool types…
+                </div>
+              ) : customerToolTrades.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "24px 16px", color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>
+                  No customer tool types configured yet.
+                </div>
+              ) : customerToolTrades.map(({ trade, items }) => {
+              const defaultCount = items.filter((i) => i.isDefault).length;
+              const catalogCount = items.length;
               return (
-                <div key={tradeId} className="tools-trade-section">
+                <div key={trade.id} className="tools-trade-section">
                   <div className="tools-trade-section-header">
                     <div className="tools-trade-header-left">
-                      <h3 className="tools-trade-title">{tradeId}</h3>
+                      <h3 className="tools-trade-title">{trade.name}</h3>
                       <span className="tools-trade-helper">
-                        Default tools are the typical baseline for this customer&apos;s {tradeId}. Job Orders may add one-off tools.
+                        Default tools are the typical baseline for this customer&apos;s {trade.name}. Job Orders may add one-off tools.
                       </span>
                     </div>
                     <div className="tools-trade-header-right">
@@ -1431,33 +1489,30 @@ export default function CustomerDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {tools.map((tool) => {
-                          const isDefault = defaultsSet.has(tool.id);
-                          return (
-                            <tr key={tool.id}>
-                              <td className="tool-name">{tool.name}</td>
-                              <td className="tool-notes">{tool.notes || "—"}</td>
-                              <td className="tool-default-cell">
-                                <input
-                                  type="checkbox"
-                                  className="tool-default-checkbox"
-                                  checked={isDefault}
-                                  onChange={() => handleToggleToolDefault(tool.id, tradeId)}
-                                  title={isDefault ? "Remove from defaults" : "Mark as default"}
-                                />
-                              </td>
-                              <td className="tool-actions">
-                                <button
-                                  type="button"
-                                  className="tool-action-link"
-                                  onClick={() => handleOpenEditToolModal(tool, tradeId)}
-                                >
-                                  Edit Notes
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="tool-name">{item.toolType.name}</td>
+                            <td className="tool-notes">{item.notes || "—"}</td>
+                            <td className="tool-default-cell">
+                              <input
+                                type="checkbox"
+                                className="tool-default-checkbox"
+                                checked={item.isDefault}
+                                onChange={() => handleToggleToolDefault(item, trade.id)}
+                                title={item.isDefault ? "Remove from defaults" : "Mark as default"}
+                              />
+                            </td>
+                            <td className="tool-actions">
+                              <button
+                                type="button"
+                                className="tool-action-link"
+                                onClick={() => handleOpenEditToolModal(item, trade.id, trade.name)}
+                              >
+                                Edit Notes
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -2411,14 +2466,13 @@ export default function CustomerDetailPage() {
             </div>
             <div className="modal-body">
               <div className="form-row">
-                <label className="form-label">Tool Name <span className="required-star">*</span></label>
+                <label className="form-label">Tool Name</label>
                 <input
                   type="text"
                   className="form-input"
                   value={editingTool.name}
-                  onChange={(e) => setEditingTool({ ...editingTool, name: e.target.value })}
-                  placeholder="e.g., Torque Wrench"
-                  autoFocus
+                  readOnly
+                  style={{ opacity: 0.6, cursor: "default" }}
                 />
               </div>
               <div className="form-row">
@@ -2429,6 +2483,7 @@ export default function CustomerDetailPage() {
                   onChange={(e) => setEditingTool({ ...editingTool, notes: e.target.value })}
                   placeholder="Additional notes about this tool..."
                   rows={3}
+                  autoFocus
                 />
               </div>
             </div>
