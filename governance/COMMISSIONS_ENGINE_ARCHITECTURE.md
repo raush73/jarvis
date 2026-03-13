@@ -26,6 +26,8 @@ Phase 1 explicitly deferred:
 - accounting commission pages
 - resolver/math expansion
 
+Phase 1 deferred implementation of split commissions and job-order override behavior, but the architectural source of truth for future split allocation is locked to the Job Order as defined later in this file.
+
 ## Core Rule
 All commission calculation behavior in Jarvis Prime must flow through a centralized commission engine.
 
@@ -162,3 +164,52 @@ This scalability must be achieved by centralizing logic, not by scattering speci
 ## Authority
 This file is a governance lock for Jarvis Prime.
 All future commission capsules, agent runs, and implementation sessions must comply with it unless Michael explicitly supersedes or unlocks it.
+
+## Commissionable Base Rule
+Commission calculations in Jarvis Prime are based on paid-invoice trade-line gross margin only.
+
+The commissionable base includes:
+- trade labor lines on the invoice
+- gross margin derived from those trade lines through the canonical burden/margin path
+
+The commissionable base explicitly excludes:
+- per diem
+- bonuses
+- travel pay
+- employee reimbursements
+- non-trade compensation lines
+- any non-trade invoice amounts unless explicitly added by future governance
+
+If an invoice contains multiple trade lines, the commissionable base is the combined commissionable gross margin of the eligible trade lines only.
+
+Invoice-level totals must not be used as a shortcut if they include excluded non-commissionable amounts.
+
+## Split Source of Truth Rule
+Commission split percentages are sourced from the Job Order.
+
+Job Order commission split configuration is the source of truth for split allocation when split commissions apply.
+
+The CommissionResolverService must read split allocation from the Job Order commission split structure rather than inventing or inferring split percentages elsewhere.
+
+Split logic must allocate an already-determined commission pool.
+Split logic must not create additional commission value.
+
+## Commission Economic Flow Rule
+The required commission economic flow in Jarvis Prime is:
+
+1. invoice payment is posted
+2. paid invoice trade-line economics are identified
+3. commissionable gross margin is taken from the canonical burden/margin-backed financial path
+4. CommissionResolverService resolves plan, participants, split, and payout-tier context
+5. CommissionMathService calculates commission amounts from the resolved context
+6. commission events and related persisted outputs are created from those results
+
+The CommissionMathService must consume canonical commissionable gross margin inputs.
+It must not independently recreate burden math, trade margin math, or invoice economic snapshots.
+
+## Trade-Line Only Rule
+Commissions are trade-line only.
+
+Even when an invoice contains many line types, only eligible trade lines participate in commission calculations.
+
+Non-trade amounts are non-commissionable by default unless future governance explicitly unlocks them.
