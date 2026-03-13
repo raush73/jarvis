@@ -213,3 +213,81 @@ Commissions are trade-line only.
 Even when an invoice contains many line types, only eligible trade lines participate in commission calculations.
 
 Non-trade amounts are non-commissionable by default unless future governance explicitly unlocks them.
+
+## Phase 3 — Reusable Commission Plans and Job Order Plan Selection
+
+Phase 3 expands the commissions system to support multiple reusable CommissionPlan structures managed from the Admin Commissions interface.
+
+### Commission Plan Templates
+
+Admin users may create and manage reusable CommissionPlan templates.
+
+Each CommissionPlan represents a complete commission payout structure consisting of:
+
+- a base commission rate
+- a set of payout tiers defined by day ranges
+- tier multipliers that adjust the payable commission amount
+
+Example structure:
+
+Default Sales Plan
+0–35 days → 100%
+36–60 days → 75%
+61–90 days → 50%
+91+ → 0%
+
+Alternate plans may modify the day ranges or multiplier structure to accommodate specific business scenarios such as slow-pay customers.
+
+Example:
+
+60 Day Plan
+0–60 days → 100%
+61–75 days → 75%
+76–90 days → 50%
+91+ → 0%
+
+These plans are reusable templates and are created and managed only from the Admin Commissions section.
+
+### Global Default Plan
+
+Exactly one CommissionPlan may be designated as the global default plan.
+
+If no override exists at lower precedence levels, the resolver must use the global default plan.
+
+### Job Order Commission Plan Selection
+
+Job Orders may optionally select a CommissionPlan.
+
+If a Job Order specifies a commissionPlanId, the CommissionResolverService must use that plan when calculating commissions for events generated from that order.
+
+If the Job Order does not specify a plan, the resolver falls back to the global default plan.
+
+### Resolver Precedence Update
+
+The resolver precedence is now defined as:
+
+1. Job Order commission plan override
+2. Salesperson default commission plan (future capability)
+3. Global default commission plan
+
+Only the first and third levels are implemented in Phase 3.
+
+### Job Order Restrictions
+
+Phase 3 intentionally restricts Job Orders from creating custom payout tiers or editing commission math directly.
+
+Job Orders may only select from existing Admin-managed CommissionPlans.
+
+All commission plan definitions remain centralized in the Admin Commissions system.
+
+### Architectural Intent
+
+This design preserves:
+
+- centralized commission logic
+- reusable plan templates
+- consistent payout behavior
+- clean resolver precedence
+
+while allowing Job Orders to accommodate customer-specific payment timelines such as slow-pay contracts.
+
