@@ -291,3 +291,78 @@ This design preserves:
 
 while allowing Job Orders to accommodate customer-specific payment timelines such as slow-pay contracts.
 
+
+## Commission Assignment Chain Rule
+
+Jarvis Prime commission plan assignment follows a fixed inheritance chain.
+
+The chain is:
+
+CommissionPlan Catalog
+→ Salesperson default commission plan
+→ Customer default salesperson
+→ Job Order (inherits salesperson and commission plan)
+
+The Job Order must automatically inherit the commission plan assigned to the salesperson associated with the customer unless an approved override is explicitly applied.
+
+Salespeople must not manually choose commission plans when creating Job Orders under normal operation.
+
+The commission plan associated with the salesperson is considered the default commission context for that Job Order.
+
+
+## Commission Override Governance Rule
+
+Job Orders may request a commission plan override only as an exception to the normal inheritance chain.
+
+Examples of legitimate override scenarios include:
+
+- slow pay contract terms
+- strategic account adjustments
+- special negotiated commission arrangements
+- house accounts
+
+When a Job Order selects a commission plan that differs from the salesperson's default commission plan, the order must be treated as requiring management approval.
+
+Override detection rule:
+
+jobOrder.commissionPlanId != salesperson.defaultCommissionPlanId
+
+If this condition is true, the order must enter the approval workflow before activation.
+
+Salespeople may request overrides but may not self-approve them.
+
+Approval authority must be limited to management roles.
+
+
+## Split Commission Preservation Rule
+
+Split commission functionality is intentionally supported in Jarvis Prime.
+
+Commission splits represent allocation of an already-determined commission pool among multiple participants.
+
+Participants may include:
+
+- salesperson
+- recruiter
+- secondary salesperson
+- other authorized participants defined in future governance
+
+Split percentages must always be sourced from the Job Order.
+
+The Job Order remains the source of truth for split allocation.
+
+Split logic must allocate an already-determined commission pool and must not alter the commission pool size.
+
+
+## Commission Plan Ownership Rule
+
+Commission plan assignment is owned by the Salesperson entity.
+
+Commission plans are selected from the CommissionPlan catalog and attached to salespeople through the Admin Salesperson configuration.
+
+Customers reference the assigned salesperson.
+
+Job Orders inherit both the salesperson and the salesperson's commission plan through this relationship chain.
+
+This structure ensures a single authoritative source for commission plan assignment and prevents inconsistent commission plan selection during Job Order creation.
+
