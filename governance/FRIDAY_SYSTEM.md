@@ -1,0 +1,419 @@
+# FRIDAY SYSTEM
+**Status:** LOCKED GOVERNANCE  
+**System:** Friday  
+**Purpose:** Define the full architecture, data flow, and operating model of the Friday system so all future build work is deterministic, company-first, and aligned with Jarvis Prime.
+
+---
+
+## 1. Purpose
+
+Friday is the **Sales Intelligence and Execution System** inside Jarvis Prime.
+
+Its purpose is to:
+- identify and prioritize target companies
+- provide structured call workflows for sales reps
+- enable real-time execution during calls (via Execution Panel)
+- capture and persist sales intelligence into Jarvis
+- compress the time between first contact and revenue-generating action
+
+Friday is not a traditional CRM.  
+Friday is a **company-first targeting and execution engine**.
+
+---
+
+## 2. Core Philosophy
+
+Friday is built on the following principles:
+
+### 2.1 Company-First Selling
+The primary unit of focus is:
+- the **company**, not the individual contact
+
+Contacts exist within companies, but targeting, scoring, and prioritization begin at the company level.
+
+---
+
+### 2.2 Pre-Call Intelligence > Post-Call Cleanup
+Friday prioritizes:
+- selecting the right companies to call
+- preparing reps with context before dialing
+
+Not:
+- cleaning up notes after the fact
+
+---
+
+### 2.3 Execute During the Call
+Friday integrates:
+- pricing
+- recap
+- quote
+- MSA
+
+directly into the call flow via the **Friday Execution Panel**.
+
+---
+
+### 2.4 No Duplicate Systems
+Friday must not recreate:
+- CRM logic
+- quote system logic
+- burden/pricing logic
+- contract system logic
+
+It orchestrates these systems, it does not replace them.
+
+---
+
+## 3. System Components
+
+Friday consists of the following major components:
+
+1. **Data Ingestion Layer**
+2. **Company Targeting Layer**
+3. **Scoring & Prioritization Engine**
+4. **Rep Work Queue**
+5. **Call Session System**
+6. **Friday Execution Panel (governed separately)**
+7. **Data Persistence & Feedback Loop**
+
+---
+
+## 4. Data Ingestion Layer
+
+### 4.1 Supported ingestion methods
+
+Friday must support:
+
+- **File Uploads**
+  - ZoomInfo exports
+  - call lists
+  - CSV/XLS imports
+
+- **API Integrations (future/expandable)**
+  - ZoomInfo API
+  - other data providers
+
+- **Manual Entry**
+  - rep-entered companies
+  - targeted accounts identified by sales staff
+
+---
+
+### 4.2 Ingestion rule
+
+All ingestion paths must normalize into a consistent **Company object**.
+
+---
+
+### 4.3 Deduplication requirement
+
+The system must avoid creating duplicate companies.
+
+Matching should consider:
+- company name
+- domain (if available)
+- location context
+
+---
+
+## 5. Core Data Model (High-Level)
+
+### 5.1 Company (Primary Object)
+Represents the business being targeted.
+
+May include:
+- name
+- industry (SIC/NAICS)
+- locations
+- status (lead / prospect / customer)
+- known relationships
+- historical interactions
+
+---
+
+### 5.2 Contact
+Represents individuals within a company.
+
+Must be:
+- attached to a company
+- not treated as standalone primary targets
+
+---
+
+### 5.3 Call Target
+A structured record representing:
+- a company selected for outreach
+- optionally tied to a specific contact
+
+---
+
+### 5.4 Call Event
+Represents:
+- a single call session
+- recording
+- transcript
+- actions taken during the call
+
+---
+
+### 5.5 Activity / Timeline
+Tracks:
+- calls
+- emails
+- quotes
+- MSA sends
+- notes
+
+---
+
+## 6. Company Targeting Layer
+
+### 6.1 Purpose
+To define which companies should be called and why.
+
+---
+
+### 6.2 Industry targeting (future-critical)
+Friday should support identifying high-converting industries using:
+- SIC codes
+- NAICS codes
+
+This will later influence scoring and prioritization.
+
+---
+
+### 6.3 Target definition
+A “target” is:
+- a company selected for outreach based on criteria
+- not just any company in the database
+
+---
+
+## 7. Scoring & Prioritization Engine
+
+### 7.1 Purpose
+Friday must rank companies before reps call them.
+
+---
+
+### 7.2 Key idea
+Reps should not decide randomly who to call.
+
+The system should:
+- surface highest-value opportunities first
+
+---
+
+### 7.3 Example scoring inputs (future expansion)
+- industry fit
+- location relevance
+- project signals
+- past interactions
+- recency
+- responsiveness
+- data completeness
+
+---
+
+### 7.4 Output
+A ranked list of companies for outreach.
+
+---
+
+## 8. Rep Work Queue
+
+### 8.1 Purpose
+Provide reps with a structured, prioritized list of who to call.
+
+---
+
+### 8.2 Behavior
+The queue should:
+- present companies (not just contacts)
+- optionally suggest contacts within the company
+- allow rep-driven selection when needed
+- allow assignment or self-pull models (future decision)
+
+---
+
+### 8.3 Prohibition
+Do not reduce the queue to a flat contact dial list.
+
+---
+
+## 9. Call Session System
+
+### 9.1 Requirement
+Calls must occur inside Jarvis/Friday.
+
+---
+
+### 9.2 Capabilities
+Each call session should support:
+- dialing
+- call recording
+- transcript generation
+- association with company/contact
+- linkage to actions performed
+
+---
+
+### 9.3 Call as system object
+A call is a **first-class object**, not just a log entry.
+
+---
+
+## 10. Friday Execution Panel (Reference)
+
+The Friday Execution Panel is governed separately in:
+
+- `FRIDAY_EXECUTION_PANEL.md`
+
+---
+
+### 10.1 Role within system
+It is the **real-time execution layer during the call**, responsible for:
+- pricing (Quick Price)
+- recap emails
+- formal quote launch
+- MSA send
+
+---
+
+### 10.2 Boundary
+The Execution Panel:
+- initiates actions
+- does not own system-of-record data for quotes, contracts, or customers
+
+---
+
+## 11. Data Persistence & Feedback Loop
+
+### 11.1 Purpose
+Ensure all call intelligence feeds back into Jarvis.
+
+---
+
+### 11.2 Required behavior
+After or during a call, the system must persist:
+- company updates
+- contact details
+- call records
+- transcripts
+- pricing discussions
+- actions taken (emails, quotes, MSAs)
+
+---
+
+### 11.3 Feedback loop
+Captured data should improve:
+- targeting
+- scoring
+- rep efficiency over time
+
+---
+
+## 12. Relationship to Jarvis Core Systems
+
+Friday must integrate with, but not replace:
+
+### 12.1 Customer / Company System
+- owns company records
+
+### 12.2 Contact System
+- owns contact records
+
+### 12.3 Quote System
+- owns formal quotes
+
+### 12.4 Burden / Financial Engine
+- owns pricing math
+
+### 12.5 Contract / MSA System
+- owns agreements and signature tracking
+
+---
+
+## 13. Non-Goals / Prohibitions
+
+### 13.1 No CRM duplication
+Do not rebuild a full CRM inside Friday.
+
+---
+
+### 13.2 No contact-first design
+Do not structure Friday as a contact dialing tool.
+
+---
+
+### 13.3 No random call lists
+Do not allow unstructured calling without prioritization.
+
+---
+
+### 13.4 No shadow data models
+Do not create parallel company/contact systems.
+
+---
+
+### 13.5 No financial logic duplication
+Do not reimplement burden or pricing logic inside Friday.
+
+---
+
+## 14. Build Philosophy
+
+Friday should be built as:
+
+- a **targeting system**
+- a **prioritization engine**
+- a **call execution environment**
+- a **data capture system**
+
+It should:
+- guide reps to the right companies
+- support them during the call
+- capture everything that matters
+- feed Jarvis for downstream systems
+
+---
+
+## 15. Future Expansion Notes
+
+Planned expansions include:
+- advanced scoring models
+- industry conversion analytics
+- rep performance insights
+- AI-assisted call coaching
+- automated follow-up scheduling
+- deeper integration with recruiting and dispatch
+
+---
+
+## 16. Final Lock Summary
+
+The following decisions are locked:
+
+- Friday is a **company-first system**
+- Friday is not a traditional CRM
+- Friday supports:
+  - file ingestion
+  - API ingestion
+  - manual entry
+- Companies are the primary targeting unit
+- Contacts are secondary and attached to companies
+- Friday includes a scoring/prioritization engine
+- Reps work from a prioritized company queue
+- Calls occur inside Jarvis and are first-class objects
+- The Execution Panel is a governed subsystem
+- Friday integrates with, but does not replace:
+  - Quotes
+  - Burden
+  - Customers
+  - Contacts
+  - Contracts
+- All call intelligence must persist into Jarvis
+
+---
+**End of governance file**
