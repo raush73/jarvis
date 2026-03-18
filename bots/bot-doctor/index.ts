@@ -20,6 +20,39 @@ interface DoctorReport {
   nextAction: string;
 }
 
+
+interface DoctorCliOptions {
+  mode: string;
+  baseUrl: string;
+  backendUrl: string;
+  demoEmail: string;
+  demoPassword: string;
+}
+
+function parseArgs(argv: string[]): DoctorCliOptions {
+  const opts: DoctorCliOptions = {
+    mode: 'local',
+    baseUrl: 'http://localhost:3000',
+    backendUrl: 'http://127.0.0.1:3002',
+    demoEmail: 'michael+demo@mw4h.com',
+    demoPassword: 'Passw0rd!',
+  };
+
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+    const next = argv[i + 1];
+    switch (arg) {
+      case '--mode': opts.mode = next; i++; break;
+      case '--baseUrl': opts.baseUrl = next; i++; break;
+      case '--backendUrl': opts.backendUrl = next; i++; break;
+      case '--demoEmail': opts.demoEmail = next; i++; break;
+      case '--demoPassword': opts.demoPassword = next; i++; break;
+    }
+  }
+
+  return opts;
+}
+
 function writeReport(report: DoctorReport): void {
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
   fs.writeFileSync(
@@ -46,6 +79,7 @@ function emptyTriage(): TriageReport {
 }
 
 async function main(): Promise<void> {
+  const opts = parseArgs(process.argv);
   console.log('BOT DOCTOR — Aggregate Health Check');
   console.log('=====================================\n');
 
@@ -58,7 +92,7 @@ async function main(): Promise<void> {
   console.log('>>> Running Infra Sentinel...');
   let sentinel: SentinelReport;
   try {
-    sentinel = await runSentinel();
+    sentinel = await runSentinel({ mode: opts.mode, baseUrl: opts.baseUrl, backendUrl: opts.backendUrl, demoEmail: opts.demoEmail, demoPassword: opts.demoPassword });
   } catch (err: any) {
     console.error(`  Sentinel crashed: ${err.message}`);
     process.exit(1);
@@ -150,3 +184,5 @@ main().catch((err) => {
   console.error(`Bot Doctor failed: ${err.message ?? err}`);
   process.exit(1);
 });
+
+
