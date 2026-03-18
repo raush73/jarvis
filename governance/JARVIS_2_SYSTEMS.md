@@ -238,3 +238,135 @@ Jarvis 2.0 should change the threshold source from shared config constants to ad
 Reason for deferral
 
 This is deferred until after Jarvis Prime 1.0 launch to avoid expanding admin/settings scope before April 20.
+
+---
+
+## 🔒 DEFERRED SYSTEM — CUSTOMER APPROVAL & PERMISSION LAYERING (JOB ORDERS + CHANGE ORDERS)
+
+### Status
+Deferred to Jarvis 1.2+ (NOT part of Jarvis 1.0 launch)
+
+---
+
+### Purpose
+
+This section defines the future-state permission and customer approval system for:
+
+- Job Orders
+- Change Orders
+
+This system introduces structured, customer-facing approval workflows using magic links.
+
+---
+
+### Current Jarvis 1.0 Behavior
+
+- Job Orders are created and managed internally
+- Change Orders are created and managed internally
+- No customer-facing approval links are required for core operation
+- Staff controls workflow execution
+
+---
+
+### Future Jarvis Behavior (Planned)
+
+Jarvis will support customer-facing approval flows using:
+
+- Email delivery
+- SMS delivery
+- Action-scoped magic links (no login required)
+
+---
+
+### Approval Scope
+
+#### Job Orders (Future Consideration)
+
+Customer approval may be required for:
+
+- Initial Job Order confirmation (optional / configurable)
+- Order activation in certain scenarios
+
+This behavior is not required for Jarvis 1.0 and will be evaluated post-rollout.
+
+---
+
+#### Change Orders (Primary Target for Approval System)
+
+Customer approval will be required for:
+
+- Bill rate increases
+- Headcount increases
+- Any financial-impacting changes
+
+Customer approval will NOT be required for:
+
+- Start date changes
+- Headcount decreases
+- No-show adjustments
+- Backfill disable decisions
+
+---
+
+### Delivery Method (LOCKED FUTURE BEHAVIOR)
+
+All customer approvals will be sent via:
+
+- Email AND SMS simultaneously
+
+No single-channel fallback logic. Dual delivery is required.
+
+---
+
+### Magic Link Behavior (LOCKED)
+
+- Action-scoped links
+- No login required
+- Single-purpose approval action
+- Fully auditable
+
+---
+
+### Internal Permission Layering (Future)
+
+Jarvis will introduce role-based permissions controlling:
+
+- Who can create Change Orders
+- Who can approve internally
+- Who can send customer approvals
+- Who can override or cancel Change Orders
+
+This will integrate with existing role/permission systems.
+
+---
+
+### Reason for Deferral
+
+This system is intentionally deferred because:
+
+- Staff must first learn Job Orders and Change Orders
+- Introducing customer approvals immediately increases complexity
+- Phased rollout improves adoption and reduces resistance
+
+---
+
+### Upgrade Path
+
+This system is designed to be:
+
+- Plug-in compatible with existing Change Order architecture
+- Added without breaking existing workflows
+- Introduced in controlled phases
+
+---
+
+### Architectural Note
+
+This section is a **future-state governance definition only**.
+
+It must NOT be interpreted as active system behavior in Jarvis 1.0.
+
+All implementation must be explicitly pulled from this section into active governance before development.
+
+---
+
