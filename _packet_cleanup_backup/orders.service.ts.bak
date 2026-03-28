@@ -1,0 +1,1431 @@
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrderStatus, ORDER_STATUS_TRANSITION_PERMISSIONS, getOrderLifecyclePhase } from './order-status';
+import { validateOrderStatusTransition } from './order-status.validator';
+import { $Enums, Prisma } from '@prisma/client';
+import { CreateOrderDto, CreateRampRowDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { assertHasPermissions } from '../auth/permission.assert';
+import { OrderApprovalRoutingService } from './order-approval-routing.service';
+import { MarginHealthService } from './margin-health.service';
+import { ChangeOrderEffectiveStateService } from './change-order-effective-state.service';
+
+@Injectable()
+export class OrdersService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approvalRouting: OrderApprovalRoutingService,
+    private readonly marginHealth: MarginHealthService,
+    private readonly effectiveState: ChangeOrderEffectiveStateService,
+  ) {}
+
+  validateStatusChange(
+    currentStatus: OrderStatus,
+    nextStatus: OrderStatus,
+  ): OrderStatus {
+    if (currentStatus === nextStatus) {
+      throw new BadRequestException('Order is already in the requested status');
+    }
+
+    validateOrderStatusTransition(currentStatus, nextStatus);
+
+    return nextStatus;
+  }
+
+  checkTransitionPermission(
+    currentStatus: OrderStatus,
+    nextStatus: OrderStatus,
+    userPermissions: string[],
+  ): void {
+    const transitionKey = `${currentStatus}->${nextStatus}`;
+    const requiredPermission =
+      ORDER_STATUS_TRANSITION_PERMISSIONS[transitionKey] || 'orders.write';
+
+    assertHasPermissions(
+      userPermissions,
+      requiredPermission,
+      `order status transition ${currentStatus} -> ${nextStatus}`,
+    );
+  }
+
+  /**
+   * Shared completion validator — centralized, locked.
+   * Called from both completeOrder() and updateOrderStatus() when
+   * transitioning to COMPLETED, ensuring the rule cannot diverge.
+   *
+   * Locked governance (JOB_ORDER_ARCHITECTURE.md):
+   * - no active/open assignments remaining
+   * - no hours entries in PENDING or REJECTED status
+   * - does NOT require invoice existence
+   */
+  private async validateCompletionPreconditions(orderId: string): Promise<void> {
+    const openAssignments = await this.prisma.assignment.count({
+      where: { orderId, endDate: null },
+    });
+    if (openAssignments > 0) {
+      throw new BadRequestException(
+        'Cannot complete order: active assignments must be closed first',
+      );
+    }
+
+    const unresolvedHours = await this.prisma.hoursEntry.findFirst({
+      where: {
+        orderId,
+        approvalStatus: { in: ['PENDING', 'REJECTED'] },
+      },
+      select: { id: true },
+    });
+    if (unresolvedHours) {
+      throw new BadRequestException(
+        'Cannot complete order: all hours must be approved or resolved',
+      );
+    }
+  }
+
+  /**
+   * Activate a DRAFT order — transitions to NEEDS_TO_BE_FILLED.
+   *
+   * Locked governance preconditions:
+   * - at least one trade requirement exists
+   * - at least one has requestedHeadcount > 0
+   * - at least one has a valid (non-null) startDate
+   */
+  async activateOrder(orderId: string, userPermissions: string[]) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    const phase = getOrderLifecyclePhase(currentStatus);
+    if (phase !== 'DRAFT') {
+      throw new BadRequestException('Only DRAFT orders can be activated');
+    }
+
+    const tradeRequirements = await this.prisma.orderTradeRequirement.findMany({
+      where: { orderId },
+      select: { id: true, requestedHeadcount: true, startDate: true },
+    });
+
+    if (tradeRequirements.length === 0) {
+      throw new BadRequestException(
+        'Cannot activate order: at least one trade requirement is required',
+      );
+    }
+
+    const hasHeadcount = tradeRequirements.some(
+      (tr) => tr.requestedHeadcount != null && tr.requestedHeadcount > 0,
+    );
+    if (!hasHeadcount) {
+      throw new BadRequestException(
+        'Cannot activate order: at least one trade requirement must have requestedHeadcount > 0',
+      );
+    }
+
+    const hasStartDate = tradeRequirements.some((tr) => tr.startDate != null);
+    if (!hasStartDate) {
+      throw new BadRequestException(
+        'Cannot activate order: at least one trade requirement must have a valid startDate',
+      );
+    }
+
+    const nextStatus = OrderStatus.NEEDS_TO_BE_FILLED;
+    this.validateStatusChange(currentStatus, nextStatus);
+    this.checkTransitionPermission(currentStatus, nextStatus, userPermissions);
+
+    const routingOutcome = await this.approvalRouting.evaluate(orderId);
+
+    if (routingOutcome.action === 'ROUTE_MANAGER') {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { approvalStatus: 'PENDING' as $Enums.ApprovalStatus },
+      });
+
+      const updated = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, status: true, approvalStatus: true, customerId: true, createdAt: true, updatedAt: true },
+      });
+
+      return { ...updated, approvalRequired: true, routingOutcome };
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: nextStatus as unknown as $Enums.OrderStatus,
+        approvalStatus: 'NOT_REQUIRED' as $Enums.ApprovalStatus,
+      },
+      select: { id: true, status: true, approvalStatus: true, customerId: true, createdAt: true, updatedAt: true },
+    });
+  }
+
+  /**
+   * Complete an ACTIVE order — transitions to COMPLETED.
+   * Manual MW4H business action (operational close, not an invoicing event).
+   * Delegates to shared validateCompletionPreconditions.
+   */
+  async completeOrder(orderId: string, userPermissions: string[]) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    const phase = getOrderLifecyclePhase(currentStatus);
+    if (phase !== 'ACTIVE') {
+      throw new BadRequestException('Only ACTIVE orders can be completed');
+    }
+
+    await this.validateCompletionPreconditions(orderId);
+
+    const nextStatus = OrderStatus.COMPLETED;
+    this.validateStatusChange(currentStatus, nextStatus);
+    this.checkTransitionPermission(currentStatus, nextStatus, userPermissions);
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: nextStatus as unknown as $Enums.OrderStatus },
+      select: { id: true, status: true, customerId: true, createdAt: true, updatedAt: true },
+    });
+  }
+
+  /**
+   * Cancel a DRAFT or ACTIVE order — transitions to CANCELLED.
+   * Blocked if open assignments remain.
+   */
+  async cancelOrder(orderId: string, userPermissions: string[]) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    const phase = getOrderLifecyclePhase(currentStatus);
+    if (phase !== 'DRAFT' && phase !== 'ACTIVE') {
+      throw new BadRequestException('Only DRAFT or ACTIVE orders can be cancelled');
+    }
+
+    const openAssignments = await this.prisma.assignment.count({
+      where: { orderId, endDate: null },
+    });
+    if (openAssignments > 0) {
+      throw new BadRequestException(
+        'Cannot cancel order: active assignments must be closed first',
+      );
+    }
+
+    const nextStatus = OrderStatus.CANCELLED;
+    this.validateStatusChange(currentStatus, nextStatus);
+    this.checkTransitionPermission(currentStatus, nextStatus, userPermissions);
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: nextStatus as unknown as $Enums.OrderStatus },
+      select: { id: true, status: true, customerId: true, createdAt: true, updatedAt: true },
+    });
+  }
+
+  /**
+   * Approve a DRAFT order with approvalStatus = PENDING.
+   * Manager judgment override — does NOT re-run margin evaluation.
+   * Transitions order to NEEDS_TO_BE_FILLED (active).
+   */
+  async approveOrder(orderId: string, userId: string, note?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, approvalStatus: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    if (order.status !== 'DRAFT') {
+      throw new BadRequestException('Only DRAFT orders can be approved');
+    }
+
+    if (order.approvalStatus !== 'PENDING') {
+      throw new BadRequestException(
+        'Order is not pending approval',
+      );
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'NEEDS_TO_BE_FILLED' as $Enums.OrderStatus,
+        approvalStatus: 'APPROVED' as $Enums.ApprovalStatus,
+        approvedByUserId: userId,
+        approvedAt: new Date(),
+        approvalNote: note ?? null,
+      },
+      select: {
+        id: true,
+        status: true,
+        approvalStatus: true,
+        approvedByUserId: true,
+        approvedAt: true,
+        approvalNote: true,
+        customerId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  /**
+   * Reject a DRAFT order with approvalStatus = PENDING.
+   * Order stays DRAFT — salesperson may edit rates and re-attempt activation.
+   */
+  async rejectOrder(orderId: string, userId: string, reason: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, approvalStatus: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    if (order.status !== 'DRAFT') {
+      throw new BadRequestException('Only DRAFT orders can be rejected');
+    }
+
+    if (order.approvalStatus !== 'PENDING') {
+      throw new BadRequestException(
+        'Order is not pending approval',
+      );
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        approvalStatus: 'REJECTED' as $Enums.ApprovalStatus,
+        approvedByUserId: userId,
+        approvedAt: new Date(),
+        approvalNote: reason,
+      },
+      select: {
+        id: true,
+        status: true,
+        approvalStatus: true,
+        approvedByUserId: true,
+        approvedAt: true,
+        approvalNote: true,
+        customerId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateOrderStatus(
+    orderId: string,
+    nextStatus: OrderStatus,
+    userPermissions: string[],
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const currentStatus = order.status as OrderStatus;
+
+    const validatedStatus = this.validateStatusChange(
+      currentStatus,
+      nextStatus,
+    );
+
+    this.checkTransitionPermission(currentStatus, validatedStatus, userPermissions);
+
+    if (
+      currentStatus === OrderStatus.DRAFT &&
+      validatedStatus === OrderStatus.NEEDS_TO_BE_FILLED
+    ) {
+      const approvalCheck = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { approvalStatus: true },
+      });
+      if (
+        approvalCheck &&
+        approvalCheck.approvalStatus !== 'NOT_REQUIRED' &&
+        approvalCheck.approvalStatus !== 'APPROVED'
+      ) {
+        throw new BadRequestException(
+          'Cannot activate order: approval is required. Use POST /orders/:id/activate instead.',
+        );
+      }
+    }
+
+    if (validatedStatus === OrderStatus.COMPLETED) {
+      await this.validateCompletionPreconditions(orderId);
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: validatedStatus as unknown as $Enums.OrderStatus,
+      },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  private static readonly ALLOWED_CONTACT_ROLES = [
+    'PROJECT_MANAGER', 'EXECUTIVE', 'AP', 'SAFETY', 'SITE_SUPERVISOR', 'OTHER',
+  ];
+
+  private async validateSupervisorContacts(
+    tradeRequirements: Array<{ supervisorOverride?: boolean; supervisorContactId?: string }>,
+    customerId: string,
+  ) {
+    const supervisorContactIds = tradeRequirements
+      .filter((tr) => tr.supervisorOverride)
+      .map((tr) => {
+        if (!tr.supervisorContactId) {
+          throw new BadRequestException(
+            'supervisorContactId is required when supervisorOverride is enabled',
+          );
+        }
+        return tr.supervisorContactId;
+      });
+
+    if (supervisorContactIds.length === 0) return;
+
+    const uniqueIds = [...new Set(supervisorContactIds)];
+    const contacts = await this.prisma.customerContact.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, customerId: true },
+    });
+
+    for (const contactId of uniqueIds) {
+      const found = contacts.find((c) => c.id === contactId);
+      if (!found) {
+        throw new BadRequestException(`Supervisor contact not found: ${contactId}`);
+      }
+      if (found.customerId !== customerId) {
+        throw new BadRequestException('Supervisor contact does not belong to this customer');
+      }
+    }
+  }
+
+  private async validateTradeSpecializations(
+    tradeRequirements: Array<{ tradeId: string; specializationId?: string }>,
+  ): Promise<void> {
+    const specsToValidate = tradeRequirements.filter((tr) => tr.specializationId);
+    if (specsToValidate.length === 0) return;
+
+    const uniqueSpecIds = [...new Set(specsToValidate.map((tr) => tr.specializationId!))];
+    const specializations = await this.prisma.specialization.findMany({
+      where: { id: { in: uniqueSpecIds } },
+      select: { id: true, tradeId: true },
+    });
+
+    for (const tr of specsToValidate) {
+      const spec = specializations.find((s) => s.id === tr.specializationId);
+      if (!spec) {
+        throw new BadRequestException(`Specialization not found: ${tr.specializationId}`);
+      }
+      if (spec.tradeId !== tr.tradeId) {
+        throw new BadRequestException('Specialization does not belong to selected trade');
+      }
+    }
+  }
+
+  private validateRampSchedule(rows: CreateRampRowDto[]): void {
+    if (rows.length === 0) return;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.headcount < 1) {
+        throw new BadRequestException(
+          `Ramp row ${i + 1}: headcount must be >= 1`,
+        );
+      }
+      const start = new Date(row.startDate);
+      const end = new Date(row.endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new BadRequestException(
+          `Ramp row ${i + 1}: startDate and endDate must be valid dates`,
+        );
+      }
+      if (end <= start) {
+        throw new BadRequestException(
+          `Ramp row ${i + 1}: endDate must be after startDate (endDate is exclusive)`,
+        );
+      }
+    }
+
+    // Ramp date boundaries:
+    // - startDate is INCLUSIVE (headcount takes effect on this date)
+    // - endDate is EXCLUSIVE (headcount no longer applies starting on this date)
+    // - Adjacent rows (next.startDate === current.endDate) are VALID
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
+    for (let i = 1; i < sorted.length; i++) {
+      const prevEnd = new Date(sorted[i - 1].endDate).getTime();
+      const currStart = new Date(sorted[i].startDate).getTime();
+      if (currStart < prevEnd) {
+        throw new BadRequestException(
+          `Ramp rows must not overlap: row ${i + 1} starts before row ${i} ends`,
+        );
+      }
+    }
+  }
+
+  private async persistRampRows(
+    tx: Prisma.TransactionClient,
+    otrId: string,
+    rows: CreateRampRowDto[],
+  ): Promise<void> {
+    if (!rows || rows.length === 0) return;
+
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
+
+    await tx.orderTradeRamp.createMany({
+      data: sorted.map((row, idx) => ({
+        orderTradeRequirementId: otrId,
+        startDate: new Date(row.startDate),
+        endDate: new Date(row.endDate),
+        headcount: row.headcount,
+        sortOrder: idx,
+      })),
+    });
+  }
+
+  async createOrder(dto: CreateOrderDto) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: dto.customerId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new BadRequestException('Customer not found');
+    }
+
+    if (dto.contacts && dto.contacts.length > 0) {
+      for (const c of dto.contacts) {
+        if (!OrdersService.ALLOWED_CONTACT_ROLES.includes(c.role)) {
+          throw new BadRequestException(`Invalid contact role: ${c.role}`);
+        }
+      }
+
+      const contactIds = dto.contacts.map((c) => c.customerContactId);
+      const contacts = await this.prisma.customerContact.findMany({
+        where: { id: { in: contactIds } },
+        select: { id: true, customerId: true, isActive: true },
+      });
+
+      for (const c of dto.contacts) {
+        const found = contacts.find((cc) => cc.id === c.customerContactId);
+        if (!found) {
+          throw new BadRequestException(`Customer contact not found: ${c.customerContactId}`);
+        }
+        if (found.customerId !== dto.customerId) {
+          throw new BadRequestException('Contact does not belong to this customer');
+        }
+        if (!found.isActive) {
+          throw new BadRequestException('Cannot assign inactive contact to order');
+        }
+      }
+
+      const primaryCount = dto.contacts.filter((c) => c.isPrimary).length;
+      if (primaryCount > 1) {
+        throw new BadRequestException('Only one contact may be marked as primary');
+      }
+    }
+
+    if (dto.tradeRequirements && dto.tradeRequirements.length > 0) {
+      await this.validateSupervisorContacts(dto.tradeRequirements, dto.customerId);
+      await this.validateTradeSpecializations(dto.tradeRequirements);
+    }
+
+    const order = await this.prisma.order.create({
+      data: {
+        customerId: dto.customerId,
+        title: dto.title ?? null,
+        status: 'DRAFT',
+        ...(dto.sdPayDeltaRate !== undefined ? { sdPayDeltaRate: dto.sdPayDeltaRate } : {}),
+        ...(dto.sdBillDeltaRate !== undefined ? { sdBillDeltaRate: dto.sdBillDeltaRate } : {}),
+        ...(dto.commissionPlanId ? { commissionPlanId: dto.commissionPlanId } : {}),
+        ...(dto.jobSiteName !== undefined ? { jobSiteName: dto.jobSiteName } : {}),
+        ...(dto.jobSiteAddress1 !== undefined ? { jobSiteAddress1: dto.jobSiteAddress1 } : {}),
+        ...(dto.jobSiteAddress2 !== undefined ? { jobSiteAddress2: dto.jobSiteAddress2 } : {}),
+        ...(dto.jobSiteCity !== undefined ? { jobSiteCity: dto.jobSiteCity } : {}),
+        ...(dto.jobSiteState !== undefined ? { jobSiteState: dto.jobSiteState } : {}),
+        ...(dto.jobSiteZip !== undefined ? { jobSiteZip: dto.jobSiteZip } : {}),
+        ...(dto.jobSiteNotes !== undefined ? { jobSiteNotes: dto.jobSiteNotes } : {}),
+        ...(dto.isOsep !== undefined ? { isOsep: dto.isOsep } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        customerId: true,
+        sdPayDeltaRate: true,
+        sdBillDeltaRate: true,
+        commissionPlanId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const hasTradeReqs = dto.tradeRequirements && dto.tradeRequirements.length > 0;
+    const hasContacts = dto.contacts && dto.contacts.length > 0;
+
+    if (hasTradeReqs || hasContacts) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const tr of dto.tradeRequirements ?? []) {
+          const otr = await tx.orderTradeRequirement.create({
+            data: {
+              orderId: order.id,
+              tradeId: tr.tradeId,
+              specializationId: tr.specializationId ?? null,
+              priority: tr.priority,
+              enforcement: tr.enforcement,
+              notes: tr.notes ?? null,
+              basePayRate: tr.basePayRate ? new Prisma.Decimal(tr.basePayRate) : null,
+              baseBillRate: tr.baseBillRate ? new Prisma.Decimal(tr.baseBillRate) : null,
+              requestedHeadcount: tr.requestedHeadcount ?? null,
+              startDate: tr.startDate ? new Date(tr.startDate) : null,
+              expectedEndDate: tr.expectedEndDate ? new Date(tr.expectedEndDate) : null,
+              supervisorOverride: tr.supervisorOverride ?? false,
+              supervisorContactId: tr.supervisorOverride ? (tr.supervisorContactId ?? null) : null,
+              otBillRate: tr.otBillRate != null ? new Prisma.Decimal(tr.otBillRate) : null,
+              dtBillRate: tr.dtBillRate != null ? new Prisma.Decimal(tr.dtBillRate) : null,
+              estimatedRegHoursPerWeek: tr.estimatedRegHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedRegHoursPerWeek) : null,
+              estimatedOtHoursPerWeek: tr.estimatedOtHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedOtHoursPerWeek) : null,
+              estimatedDtHoursPerWeek: tr.estimatedDtHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedDtHoursPerWeek) : null,
+              estimatedWorkDaysPerWeek: tr.estimatedWorkDaysPerWeek ?? null,
+              perDiemDaysPerWeek: tr.perDiemDaysPerWeek != null ? new Prisma.Decimal(tr.perDiemDaysPerWeek) : null,
+              estimatedDurationWeeks: tr.estimatedDurationWeeks ?? null,
+            },
+          });
+
+          if (tr.capabilityIds && tr.capabilityIds.length > 0) {
+            await tx.orderTradeRequirementCapability.createMany({
+              data: tr.capabilityIds.map((capabilityId) => ({
+                orderTradeRequirementId: otr.id,
+                capabilityId,
+              })),
+            });
+          }
+
+          if (tr.ppeRequirements && tr.ppeRequirements.length > 0) {
+            await tx.orderPpeRequirement.createMany({
+              data: tr.ppeRequirements.map((ppe) => ({
+                orderTradeRequirementId: otr.id,
+                ppeTypeId: ppe.ppeTypeId,
+                priority: ppe.priority,
+                enforcement: ppe.enforcement,
+                notes: ppe.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.toolRequirements && tr.toolRequirements.length > 0) {
+            await tx.orderToolRequirement.createMany({
+              data: tr.toolRequirements.map((tool) => ({
+                orderTradeRequirementId: otr.id,
+                toolId: tool.toolId,
+                priority: tool.priority,
+                enforcement: tool.enforcement,
+                notes: tool.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.certRequirements && tr.certRequirements.length > 0) {
+            await tx.orderCertificationRequirement.createMany({
+              data: tr.certRequirements.map((cert) => ({
+                orderTradeRequirementId: otr.id,
+                certTypeId: cert.certTypeId,
+                priority: cert.priority,
+                enforcement: cert.enforcement,
+                isTrainable: cert.isTrainable ?? false,
+                notes: cert.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.complianceRequirements && tr.complianceRequirements.length > 0) {
+            await tx.orderLineItemComplianceRequirement.createMany({
+              data: tr.complianceRequirements.map((comp) => ({
+                orderTradeRequirementId: otr.id,
+                requirementTypeId: comp.requirementTypeId,
+                variantId: comp.variantId ?? null,
+                notes: comp.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.rampSchedule && tr.rampSchedule.length > 0) {
+            this.validateRampSchedule(tr.rampSchedule);
+            await this.persistRampRows(tx, otr.id, tr.rampSchedule);
+          }
+        }
+
+        if (dto.contacts && dto.contacts.length > 0) {
+          await tx.jobOrderContact.createMany({
+            data: dto.contacts.map((c, idx) => ({
+              orderId: order.id,
+              contactId: c.customerContactId,
+              role: c.role,
+              isPrimary: c.isPrimary ?? false,
+              sortOrder: idx,
+            })),
+          });
+        }
+      });
+    }
+
+    return order;
+  }
+
+  async findOrderById(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        approvalStatus: true,
+        approvedByUserId: true,
+        approvedAt: true,
+        approvalNote: true,
+        customerId: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            registrySalespersonId: true,
+            registrySalesperson: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                defaultCommissionPlanId: true,
+                defaultCommissionPlan: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        jobSiteName: true,
+        jobSiteAddress1: true,
+        jobSiteAddress2: true,
+        jobSiteCity: true,
+        jobSiteState: true,
+        jobSiteZip: true,
+        jobSiteNotes: true,
+        jobLocationCode: true,
+        isOsep: true,
+        tradeRequirements: {
+          select: {
+            id: true,
+            orderId: true,
+            tradeId: true,
+            trade: { select: { id: true, name: true } },
+            specializationId: true,
+            specialization: { select: { id: true, name: true } },
+            capabilityRequirements: {
+              select: {
+                id: true,
+                capabilityId: true,
+                capability: { select: { id: true, name: true } },
+              },
+            },
+            priority: true,
+            enforcement: true,
+            notes: true,
+            basePayRate: true,
+            baseBillRate: true,
+            requestedHeadcount: true,
+            startDate: true,
+            expectedEndDate: true,
+            supervisorOverride: true,
+            supervisorContactId: true,
+            otBillRate: true,
+            dtBillRate: true,
+            estimatedRegHoursPerWeek: true,
+            estimatedOtHoursPerWeek: true,
+            estimatedDtHoursPerWeek: true,
+            estimatedWorkDaysPerWeek: true,
+            perDiemDaysPerWeek: true,
+            estimatedDurationWeeks: true,
+            supervisorContact: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+            assignments: {
+              select: {
+                id: true,
+                userId: true,
+                status: true,
+                endDate: true,
+              },
+            },
+            ppeRequirements: {
+              select: {
+                id: true,
+                ppeTypeId: true,
+                ppeType: { select: { id: true, name: true } },
+                priority: true,
+                enforcement: true,
+                notes: true,
+              },
+            },
+            toolRequirements: {
+              select: {
+                id: true,
+                toolId: true,
+                tool: { select: { id: true, name: true } },
+                priority: true,
+                enforcement: true,
+                notes: true,
+              },
+            },
+            certRequirements: {
+              select: {
+                id: true,
+                certTypeId: true,
+                certType: { select: { id: true, name: true, code: true } },
+                priority: true,
+                enforcement: true,
+                isTrainable: true,
+                notes: true,
+              },
+            },
+            complianceRequirements: {
+              select: {
+                id: true,
+                requirementTypeId: true,
+                variantId: true,
+                requirementType: { select: { id: true, name: true } },
+                variant: { select: { id: true, name: true } },
+                notes: true,
+              },
+            },
+            rampSchedule: {
+              select: {
+                id: true,
+                startDate: true,
+                endDate: true,
+                headcount: true,
+                sortOrder: true,
+              },
+              orderBy: { sortOrder: 'asc' as const },
+            },
+          },
+        },
+        jobOrderContacts: {
+          select: {
+            id: true,
+            contactId: true,
+            role: true,
+            isPrimary: true,
+            sortOrder: true,
+            contact: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+        primaryCustomerContactId: true,
+        primaryCustomerContact: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            officePhone: true,
+            cellPhone: true,
+          },
+        },
+        sdPayDeltaRate: true,
+        sdBillDeltaRate: true,
+        commissionPlanId: true,
+        commissionPlan: {
+          select: { id: true, name: true },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const sp = order.customer.registrySalesperson;
+    const spDefaultPlanId = sp?.defaultCommissionPlanId ?? null;
+    let commissionPlanSource: 'INHERITED' | 'OVERRIDE' | null = null;
+    if (sp && spDefaultPlanId) {
+      commissionPlanSource =
+        order.commissionPlanId === spDefaultPlanId ? 'INHERITED' : 'OVERRIDE';
+    }
+
+    const marginHealthPreview =
+      await this.marginHealth.evaluateOrderHealth(orderId);
+
+    const effectiveOrderState =
+      await this.effectiveState.getEffectiveOrderState(orderId);
+
+    const effectiveByTradeReqId = new Map(
+      effectiveOrderState.tradeLines.map((tl) => [
+        tl.orderTradeRequirementId,
+        tl,
+      ]),
+    );
+
+    const allAssignmentIds = order.tradeRequirements.flatMap((tr) =>
+      tr.assignments.map((a) => a.id),
+    );
+    const assignmentEffectiveStates = await Promise.all(
+      allAssignmentIds.map((id) =>
+        this.effectiveState.getEffectiveAssignmentState(id),
+      ),
+    );
+    const effectiveByAssignmentId = new Map(
+      assignmentEffectiveStates.map((s) => [s.assignmentId, s]),
+    );
+
+    return {
+      ...order,
+      customer: { id: order.customer.id, name: order.customer.name },
+      salesperson: sp
+        ? { id: sp.id, firstName: sp.firstName, lastName: sp.lastName }
+        : null,
+      salespersonDefaultCommissionPlanId: spDefaultPlanId,
+      commissionPlanSource,
+      marginHealth: marginHealthPreview,
+      tradeRequirements: order.tradeRequirements.map((tr) => {
+        const eff = effectiveByTradeReqId.get(tr.id);
+        return {
+          ...tr,
+          assignments: tr.assignments.map((a) => {
+            const aEff = effectiveByAssignmentId.get(a.id);
+            return {
+              ...a,
+              effectiveAssignmentState: aEff
+                ? {
+                    payRate: aEff.assignmentEffective.payRate,
+                    billRate: aEff.assignmentEffective.billRate,
+                    source: aEff.source,
+                  }
+                : null,
+            };
+          }),
+          effectiveState: eff
+            ? {
+                requestedHeadcount: eff.effective.requestedHeadcount,
+                baseBillRate: eff.effective.baseBillRate,
+                basePayRate: eff.effective.basePayRate,
+                startDate: eff.effective.startDate,
+                backfillPolicy: eff.effective.backfillPolicy,
+                appliedChangeOrderIds: eff.appliedChangeOrderIds,
+              }
+            : null,
+        };
+      }),
+      effectiveTotals: {
+        baselineTotalHeadcount: effectiveOrderState.totals.baselineTotalHeadcount,
+        effectiveTotalHeadcount: effectiveOrderState.totals.effectiveTotalHeadcount,
+      },
+      jobOrderContacts: order.jobOrderContacts.map((joc) => ({
+        id: joc.id,
+        contactId: joc.contactId,
+        contactName: `${joc.contact.firstName} ${joc.contact.lastName}`,
+        role: joc.role,
+        isPrimary: joc.isPrimary,
+      })),
+    };
+  }
+
+  async getStaffingSummary(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const tradeRequirements = await this.prisma.orderTradeRequirement.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        tradeId: true,
+        specializationId: true,
+        specialization: { select: { id: true, name: true } },
+        requestedHeadcount: true,
+        startDate: true,
+        expectedEndDate: true,
+        trade: { select: { id: true, name: true } },
+        assignments: {
+          select: {
+            id: true,
+            status: true,
+            endDate: true,
+          },
+        },
+        candidates: {
+          select: {
+            id: true,
+            status: true,
+            vettings: {
+              select: { status: true },
+              orderBy: { createdAt: 'desc' as const },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const tradeLines = tradeRequirements.map((tr) => {
+      const active = tr.assignments.filter((a) => a.endDate === null);
+      const assignedCount = active.length;
+      const requested = tr.requestedHeadcount ?? 0;
+
+      const activeCandidates = tr.candidates.filter(
+        (c) => c.status === 'IDENTIFIED',
+      );
+      const latestVettingStatus = (c: (typeof tr.candidates)[number]) =>
+        c.vettings[0]?.status ?? null;
+
+      return {
+        orderTradeRequirementId: tr.id,
+        tradeId: tr.tradeId,
+        tradeName: tr.trade?.name ?? null,
+        specializationId: tr.specializationId,
+        specializationName: tr.specialization?.name ?? null,
+        requestedHeadcount: tr.requestedHeadcount,
+        startDate: tr.startDate ? new Date(tr.startDate) : null,
+        expectedEndDate: tr.expectedEndDate ? new Date(tr.expectedEndDate).toISOString() : null,
+        assignedCount,
+        openCount: Math.max(0, requested - assignedCount),
+        dispatchedCount: active.filter((a) => a.status === 'DISPATCHED').length,
+        arrivedCount: active.filter((a) => a.status === 'ARRIVED').length,
+        onAssignmentCount: active.filter((a) => a.status === 'ON_ASSIGNMENT').length,
+        noShowCount: tr.assignments.filter((a) => a.status === 'NO_SHOW').length,
+        dragUpCount: tr.assignments.filter((a) => a.status === 'DRAG_UP').length,
+        terminatedCount: tr.assignments.filter((a) => a.status === 'TERMINATED').length,
+        completedCount: tr.assignments.filter((a) => a.status === 'COMPLETED').length,
+        identifiedCount: activeCandidates.length,
+        inVettingCount: activeCandidates.filter(
+          (c) => {
+            const vs = latestVettingStatus(c);
+            return vs === 'VETTING' || vs === 'VETTING_HOLD';
+          },
+        ).length,
+        vettingApprovedCount: activeCandidates.filter(
+          (c) => latestVettingStatus(c) === 'APPROVED',
+        ).length,
+      };
+    });
+
+    return {
+      orderId,
+      tradeLines,
+    };
+  }
+
+  async getDispatchRoster(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const tradeRequirements = await this.prisma.orderTradeRequirement.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        tradeId: true,
+        specializationId: true,
+        specialization: { select: { id: true, name: true } },
+        requestedHeadcount: true,
+        startDate: true,
+        expectedEndDate: true,
+        trade: { select: { id: true, name: true } },
+        assignments: {
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+            user: {
+              select: { id: true, fullName: true, email: true },
+            },
+          },
+        },
+      },
+    });
+
+    const tradeLines = tradeRequirements.map((tr) => {
+      const active = tr.assignments.filter((a) => a.endDate === null);
+      const assignedCount = active.length;
+      const requested = tr.requestedHeadcount ?? 0;
+
+      return {
+        orderTradeRequirementId: tr.id,
+        tradeId: tr.tradeId,
+        tradeName: tr.trade?.name ?? null,
+        specializationId: tr.specializationId,
+        specializationName: tr.specialization?.name ?? null,
+        requestedHeadcount: tr.requestedHeadcount,
+        startDate: tr.startDate ? new Date(tr.startDate) : null,
+        expectedEndDate: tr.expectedEndDate ? new Date(tr.expectedEndDate).toISOString() : null,
+
+        assignedCount,
+        openCount: Math.max(0, requested - assignedCount),
+        dispatchedCount: active.filter((a) => a.status === 'DISPATCHED').length,
+        arrivedCount: active.filter((a) => a.status === 'ARRIVED').length,
+        onAssignmentCount: active.filter((a) => a.status === 'ON_ASSIGNMENT').length,
+        noShowCount: tr.assignments.filter((a) => a.status === 'NO_SHOW').length,
+        dragUpCount: tr.assignments.filter((a) => a.status === 'DRAG_UP').length,
+        terminatedCount: tr.assignments.filter((a) => a.status === 'TERMINATED').length,
+        completedCount: tr.assignments.filter((a) => a.status === 'COMPLETED').length,
+
+        assignments: tr.assignments.map((a) => ({
+          assignmentId: a.id,
+          workerId: a.userId,
+          workerName: a.user?.fullName ?? null,
+          workerEmail: a.user?.email ?? null,
+          status: a.status,
+          startDate: a.startDate,
+          endDate: a.endDate,
+        })),
+      };
+    });
+
+    return {
+      orderId,
+      tradeLines,
+    };
+  }
+
+  async updateOrder(orderId: string, dto: UpdateOrderDto) {
+    const existing = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, customerId: true },
+    });
+
+    if (!existing) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const phase = getOrderLifecyclePhase(existing.status as OrderStatus);
+    const isJobLocationCodeOnly = dto.jobLocationCode !== undefined &&
+      Object.keys(dto).every((k) => k === 'jobLocationCode');
+
+    if ((phase === 'COMPLETED' || phase === 'CANCELLED') && !isJobLocationCodeOnly) {
+      throw new BadRequestException('Cannot edit a completed or cancelled order');
+    }
+    if (phase === 'ACTIVE' && dto.tradeRequirements !== undefined) {
+      throw new BadRequestException(
+        'Trade requirements cannot be replaced on an active order. Use a change order.',
+      );
+    }
+
+    if (dto.customerId) {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: dto.customerId },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        throw new BadRequestException('Customer not found');
+      }
+    }
+
+    const order = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...(dto.customerId ? { customerId: dto.customerId } : {}),
+        ...(dto.title !== undefined ? { title: dto.title } : {}),
+        ...(dto.sdPayDeltaRate !== undefined ? { sdPayDeltaRate: dto.sdPayDeltaRate } : {}),
+        ...(dto.sdBillDeltaRate !== undefined ? { sdBillDeltaRate: dto.sdBillDeltaRate } : {}),
+        ...(dto.commissionPlanId !== undefined ? { commissionPlanId: dto.commissionPlanId || null } : {}),
+        ...(dto.jobLocationCode !== undefined ? { jobLocationCode: dto.jobLocationCode || null } : {}),
+        ...(dto.jobSiteName !== undefined ? { jobSiteName: dto.jobSiteName || null } : {}),
+        ...(dto.jobSiteAddress1 !== undefined ? { jobSiteAddress1: dto.jobSiteAddress1 || null } : {}),
+        ...(dto.jobSiteAddress2 !== undefined ? { jobSiteAddress2: dto.jobSiteAddress2 || null } : {}),
+        ...(dto.jobSiteCity !== undefined ? { jobSiteCity: dto.jobSiteCity || null } : {}),
+        ...(dto.jobSiteState !== undefined ? { jobSiteState: dto.jobSiteState || null } : {}),
+        ...(dto.jobSiteZip !== undefined ? { jobSiteZip: dto.jobSiteZip || null } : {}),
+        ...(dto.jobSiteNotes !== undefined ? { jobSiteNotes: dto.jobSiteNotes || null } : {}),
+        ...(dto.isOsep !== undefined ? { isOsep: dto.isOsep } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        customerId: true,
+        sdPayDeltaRate: true,
+        sdBillDeltaRate: true,
+        commissionPlanId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (dto.tradeRequirements && dto.tradeRequirements.length > 0) {
+      const resolvedCustomerId = dto.customerId || existing.customerId;
+      await this.validateSupervisorContacts(dto.tradeRequirements, resolvedCustomerId);
+      await this.validateTradeSpecializations(dto.tradeRequirements);
+    }
+
+    if (dto.tradeRequirements !== undefined) {
+      const assignmentCount = await this.prisma.assignment.count({
+        where: { orderId },
+      });
+
+      if (assignmentCount > 0) {
+        throw new BadRequestException(
+          'Cannot replace trade requirements after assignments exist for this order',
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.orderTradeRequirement.deleteMany({
+          where: { orderId },
+        });
+
+        for (const tr of dto.tradeRequirements!) {
+          const otr = await tx.orderTradeRequirement.create({
+            data: {
+              orderId,
+              tradeId: tr.tradeId,
+              specializationId: tr.specializationId ?? null,
+              priority: tr.priority,
+              enforcement: tr.enforcement,
+              notes: tr.notes ?? null,
+              basePayRate: tr.basePayRate ? new Prisma.Decimal(tr.basePayRate) : null,
+              baseBillRate: tr.baseBillRate ? new Prisma.Decimal(tr.baseBillRate) : null,
+              requestedHeadcount: tr.requestedHeadcount ?? null,
+              startDate: tr.startDate ? new Date(tr.startDate) : null,
+              expectedEndDate: tr.expectedEndDate ? new Date(tr.expectedEndDate) : null,
+              supervisorOverride: tr.supervisorOverride ?? false,
+              supervisorContactId: tr.supervisorOverride ? (tr.supervisorContactId ?? null) : null,
+              otBillRate: tr.otBillRate != null ? new Prisma.Decimal(tr.otBillRate) : null,
+              dtBillRate: tr.dtBillRate != null ? new Prisma.Decimal(tr.dtBillRate) : null,
+              estimatedRegHoursPerWeek: tr.estimatedRegHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedRegHoursPerWeek) : null,
+              estimatedOtHoursPerWeek: tr.estimatedOtHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedOtHoursPerWeek) : null,
+              estimatedDtHoursPerWeek: tr.estimatedDtHoursPerWeek != null ? new Prisma.Decimal(tr.estimatedDtHoursPerWeek) : null,
+              estimatedWorkDaysPerWeek: tr.estimatedWorkDaysPerWeek ?? null,
+              perDiemDaysPerWeek: tr.perDiemDaysPerWeek != null ? new Prisma.Decimal(tr.perDiemDaysPerWeek) : null,
+              estimatedDurationWeeks: tr.estimatedDurationWeeks ?? null,
+            },
+          });
+
+          if (tr.capabilityIds && tr.capabilityIds.length > 0) {
+            await tx.orderTradeRequirementCapability.createMany({
+              data: tr.capabilityIds.map((capabilityId) => ({
+                orderTradeRequirementId: otr.id,
+                capabilityId,
+              })),
+            });
+          }
+
+          if (tr.ppeRequirements && tr.ppeRequirements.length > 0) {
+            await tx.orderPpeRequirement.createMany({
+              data: tr.ppeRequirements.map((ppe) => ({
+                orderTradeRequirementId: otr.id,
+                ppeTypeId: ppe.ppeTypeId,
+                priority: ppe.priority,
+                enforcement: ppe.enforcement,
+                notes: ppe.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.toolRequirements && tr.toolRequirements.length > 0) {
+            await tx.orderToolRequirement.createMany({
+              data: tr.toolRequirements.map((tool) => ({
+                orderTradeRequirementId: otr.id,
+                toolId: tool.toolId,
+                priority: tool.priority,
+                enforcement: tool.enforcement,
+                notes: tool.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.certRequirements && tr.certRequirements.length > 0) {
+            await tx.orderCertificationRequirement.createMany({
+              data: tr.certRequirements.map((cert) => ({
+                orderTradeRequirementId: otr.id,
+                certTypeId: cert.certTypeId,
+                priority: cert.priority,
+                enforcement: cert.enforcement,
+                isTrainable: cert.isTrainable ?? false,
+                notes: cert.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.complianceRequirements && tr.complianceRequirements.length > 0) {
+            await tx.orderLineItemComplianceRequirement.createMany({
+              data: tr.complianceRequirements.map((comp) => ({
+                orderTradeRequirementId: otr.id,
+                requirementTypeId: comp.requirementTypeId,
+                variantId: comp.variantId ?? null,
+                notes: comp.notes ?? null,
+              })),
+            });
+          }
+
+          if (tr.rampSchedule && tr.rampSchedule.length > 0) {
+            this.validateRampSchedule(tr.rampSchedule);
+            await this.persistRampRows(tx, otr.id, tr.rampSchedule);
+          }
+        }
+      });
+    }
+
+    return order;
+  }
+
+  async listOrders() {
+    const orders = await this.prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        approvalStatus: true,
+        customerId: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        primaryCustomerContactId: true,
+        primaryCustomerContact: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Compute margin health summaries in parallel for all orders.
+    // Failures (missing state code, missing WC class code, etc.) resolve to null.
+    const healthResults = await Promise.allSettled(
+      orders.map((o) => this.marginHealth.evaluateOrderHealth(o.id)),
+    );
+
+    return orders.map((order, idx) => {
+      const settled = healthResults[idx];
+      const health =
+        settled.status === 'fulfilled' && settled.value != null
+          ? {
+              orderHealthStatus: settled.value.orderHealthStatus,
+              orderBlendedMarginPct: settled.value.orderBlendedMarginPct,
+            }
+          : null;
+      return { ...order, marginHealth: health };
+    });
+  }
+
+  async assignPrimaryCustomerContact(orderId: string, contactId: string | null) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, customerId: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    if (contactId !== null) {
+      const contact = await this.prisma.customerContact.findUnique({
+        where: { id: contactId },
+        select: { id: true, customerId: true, isActive: true },
+      });
+
+      if (!contact) {
+        throw new BadRequestException('Customer contact not found');
+      }
+
+      if (contact.customerId !== order.customerId) {
+        throw new BadRequestException('Contact does not belong to this order\'s customer');
+      }
+
+      if (!contact.isActive) {
+        throw new BadRequestException('Cannot assign inactive contact as primary');
+      }
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { primaryCustomerContactId: contactId },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+        primaryCustomerContactId: true,
+        primaryCustomerContact: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            officePhone: true,
+            cellPhone: true,
+          },
+        },
+        updatedAt: true,
+      },
+    });
+  }
+}
+
+
+
+
+
+
+
+
+
+
+

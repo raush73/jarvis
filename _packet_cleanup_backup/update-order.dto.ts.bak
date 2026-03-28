@@ -1,0 +1,213 @@
+import { RequirementPriority, RequirementEnforcement } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  CreateOrderPpeRequirementDto,
+  CreateOrderToolRequirementDto,
+  CreateOrderCertRequirementDto,
+  CreateOrderComplianceRequirementDto,
+  CreateRampRowDto,
+} from './create-order.dto';
+
+export class UpdateOrderTradeRequirementDto {
+  @IsString()
+  @IsNotEmpty()
+  tradeId: string;
+
+  @IsOptional()
+  @IsString()
+  specializationId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  capabilityIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  priority?: RequirementPriority;
+
+  @IsOptional()
+  @IsEnum(RequirementEnforcement)
+  enforcement?: RequirementEnforcement;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  basePayRate?: string;
+
+  @IsOptional()
+  @IsString()
+  baseBillRate?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  requestedHeadcount?: number;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expectedEndDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  supervisorOverride?: boolean;
+
+  @IsOptional()
+  @IsString()
+  supervisorContactId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  otBillRate?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  dtBillRate?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedRegHoursPerWeek?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedOtHoursPerWeek?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedDtHoursPerWeek?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  estimatedWorkDaysPerWeek?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  perDiemDaysPerWeek?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  estimatedDurationWeeks?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderPpeRequirementDto)
+  ppeRequirements?: CreateOrderPpeRequirementDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderToolRequirementDto)
+  toolRequirements?: CreateOrderToolRequirementDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderCertRequirementDto)
+  certRequirements?: CreateOrderCertRequirementDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderComplianceRequirementDto)
+  complianceRequirements?: CreateOrderComplianceRequirementDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRampRowDto)
+  rampSchedule?: CreateRampRowDto[];
+}
+
+export class UpdateOrderDto {
+  @IsString()
+  @IsOptional()
+  customerId?: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  sdPayDeltaRate?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  sdBillDeltaRate?: number;
+
+  @IsOptional()
+  @IsString()
+  commissionPlanId?: string;
+
+  @IsOptional()
+  @IsString()
+  jobLocationCode?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteName?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteAddress1?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteAddress2?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteCity?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteState?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteZip?: string;
+
+  @IsOptional()
+  @IsString()
+  jobSiteNotes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isOsep?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateOrderTradeRequirementDto)
+  tradeRequirements?: UpdateOrderTradeRequirementDto[];
+}
