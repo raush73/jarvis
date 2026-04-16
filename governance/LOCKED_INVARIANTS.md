@@ -31,3 +31,15 @@
 - Additive delta only
 - Stored at Job Order
 - Mirrored into snapshots (no recompute)
+
+## ZoomInfo Integration (Phase 11A)
+
+- Legacy Enterprise API only
+- Native fetch only
+- No contact ingestion
+- No ownership assignment during pull
+- Lifecycle = LEAD on create
+- No lifecycle downgrade on update
+- Dedup chain = ZoomInfo ID → domain → name+state
+- Re-pull must update, never duplicate
+

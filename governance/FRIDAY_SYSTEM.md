@@ -417,3 +417,56 @@ The following decisions are locked:
 
 ---
 **End of governance file**
+
+## 2026-04-13 ADDENDUM — OWNED-FIRST / UNOWNED-LEAD FALLBACK (LOCKED)
+
+The Friday queue model is locked as a two-layer system:
+
+1. OWNED WORK REMAINS PRIMARY
+   - Existing owned/prospect/customer work for the rep remains the first priority layer.
+   - This includes overdue follow-ups, due-today follow-ups, stale owned accounts/customers that require contact, and other owned callable work already governed by Friday.
+   - This owned path is NOT removed or replaced.
+
+2. UNOWNED LEADS ARE GAP FILLER / FALLBACK
+   - Unowned leads from ZoomInfo, spreadsheets, resumes, manual entry, and other lead sources must be eligible to enter Friday call flow without pre-existing ownership.
+   - Unowned leads are a fallback layer beneath owned work.
+   - They are served only when there is no OWNED WORK THAT IS CALLABLE NOW.
+
+3. CALLABLE-NOW GATE
+   - The gate is NOT "owned work exists."
+   - The gate IS "owned work is callable now."
+   - Future-scheduled owned work later in the day does NOT block unowned lead fallback before that time arrives.
+   - Owned overdue work, owned due-now work, and other owned callable-now work continue to outrank leads.
+
+4. OWNERSHIP CREATION POINT
+   - Unowned leads do NOT start with ownership.
+   - Ownership is created only after meaningful/progressing engagement through existing control logic.
+   - Only then does the record transition into Friday prospect/control enforcement (11-day / 55-day clocks, etc.).
+
+5. ENFORCEMENT / CONTROL PRESERVATION
+   - Phase 9 enforcement logic remains intact.
+   - Phase 10 control panel logic remains intact.
+   - This change is additive beneath the existing owned-work engine and does not weaken enforcement.
+
+6. CUSTOMER / PROSPECT / LEAD ALIGNMENT
+   - Customer.lifecycleStatus / CompanyLifecycleStatus remains the canonical lifecycle classification for LEAD / PROSPECT / CUSTOMER.
+   - Friday intake must respect that classification, while preserving owned-work priority and stale-customer call behavior.
+
+7. CURRENT STATUS
+   - FRIDAY 9.1 correction is fixed in code and build-validated.
+   - Live lead runtime verification is still pending until real lead data is available in the system.
+
+
+## 2026-04-15 ADDENDUM — PHASE 11A ZOOMINFO INTEGRATION RULES (LOCKED)
+
+1. ZoomInfo integration uses Legacy Enterprise API ONLY.
+2. This codebase uses native fetch (NOT Axios).
+3. Native fetch returns JSON directly (no extra response.data layer).
+4. Enrich base path is res.data.result.
+5. Result items are wrapper objects; actual company data is inside result[].data[].
+6. Extraction must unwrap result[].data[] and ignore invalid structures safely.
+7. primaryIndustry may be string OR string[]; normalization must handle both.
+8. No contact ingestion. No ownership assignment. Lifecycle = LEAD on create.
+9. Dedup: ZoomInfo ID → domain → name+state. Re-pull updates only.
+10. No silent scope expansion in correction builds.
+
