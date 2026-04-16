@@ -575,4 +575,45 @@ The following decisions are locked by this governance file:
 - The panel is an execution/action layer, not a replacement for CRM, Quotes, or Contracts
 
 ---
+
+## 2026-04-13 ADDENDUM — OWNED-FIRST / UNOWNED-LEAD FALLBACK (LOCKED)
+
+The Friday queue model is locked as a two-layer system:
+
+1. OWNED WORK REMAINS PRIMARY
+   - Existing owned/prospect/customer work for the rep remains the first priority layer.
+   - This includes overdue follow-ups, due-today follow-ups, stale owned accounts/customers that require contact, and other owned callable work already governed by Friday.
+   - This owned path is NOT removed or replaced.
+
+2. UNOWNED LEADS ARE GAP FILLER / FALLBACK
+   - Unowned leads from ZoomInfo, spreadsheets, resumes, manual entry, and other lead sources must be eligible to enter Friday call flow without pre-existing ownership.
+   - Unowned leads are a fallback layer beneath owned work.
+   - They are served only when there is no OWNED WORK THAT IS CALLABLE NOW.
+
+3. CALLABLE-NOW GATE
+   - The gate is NOT "owned work exists."
+   - The gate IS "owned work is callable now."
+   - Future-scheduled owned work later in the day does NOT block unowned lead fallback before that time arrives.
+   - Owned overdue work, owned due-now work, and other owned callable-now work continue to outrank leads.
+
+4. OWNERSHIP CREATION POINT
+   - Unowned leads do NOT start with ownership.
+   - Ownership is created only after meaningful/progressing engagement through existing control logic.
+   - Only then does the record transition into Friday prospect/control enforcement (11-day / 55-day clocks, etc.).
+
+5. ENFORCEMENT / CONTROL PRESERVATION
+   - Phase 9 enforcement logic remains intact.
+   - Phase 10 control panel logic remains intact.
+   - This change is additive beneath the existing owned-work engine and does not weaken enforcement.
+
+6. CUSTOMER / PROSPECT / LEAD ALIGNMENT
+   - Customer.lifecycleStatus / CompanyLifecycleStatus remains the canonical lifecycle classification for LEAD / PROSPECT / CUSTOMER.
+   - Friday intake must respect that classification, while preserving owned-work priority and stale-customer call behavior.
+
+7. CURRENT STATUS
+   - FRIDAY 9.1 correction is fixed in code and build-validated.
+   - Live lead runtime verification is still pending until real lead data is available in the system.
+
+
+---
 **End of governance file**
