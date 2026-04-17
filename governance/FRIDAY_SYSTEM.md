@@ -483,3 +483,24 @@ The Friday queue model is locked as a two-layer system:
 8. Operating rule until later fix: use campaign pulls without state filtering.
 9. This limitation does not invalidate the campaign pipeline; it narrows the currently safe operating envelope.
 
+
+## 2026-04-17 ADDENDUM — PHASE 11C COMPLETE (LOCKED)
+
+1. Phase 11C is complete and runtime-validated.
+2. Campaign-created companies move through:
+   - STAGED
+   - READY_FOR_PROMOTION
+   - PROMOTED
+3. Promotion must synchronize the linked Customer lifecycle:
+   - null / undefined / missing -> LEAD
+   - LEAD -> unchanged
+   - PROSPECT -> unchanged
+   - CUSTOMER -> unchanged
+4. CampaignMember remains tracking layer only; Customer remains canonical system-of-record.
+5. Promoted campaign leads must become queue-eligible through Customer lifecycle, not through a parallel queue object.
+6. Customer.phone is the authoritative first-touch dial path for campaign-created leads.
+7. Named contacts are optional and not required.
+8. Contact-level phone may be used only as fallback when Customer.phone is unavailable or when a human explicitly chooses a contact later.
+9. No paid ZoomInfo contact data is required for campaign-created lead calling.
+10. Phase 11C was runtime-validated end-to-end:
+    Campaign -> STAGED -> PROMOTED -> Customer.lifecycleStatus=LEAD -> Intelligence Queue -> Call Session -> Customer.phone.
