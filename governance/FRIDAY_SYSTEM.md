@@ -470,3 +470,16 @@ The Friday queue model is locked as a two-layer system:
 9. Dedup: ZoomInfo ID → domain → name+state. Re-pull updates only.
 10. No silent scope expansion in correction builds.
 
+
+## 2026-04-16 ADDENDUM � PHASE 11B LIVE CAMPAIGN OPERATING STATUS (LOCKED)
+
+1. Phase 11B campaign pipeline is now live-operational in its no-state form.
+2. Live validated path: Campaign -> ZoomInfo -> Customer -> CampaignMember STAGED.
+3. Live verified result observed: 25 found / 23 created / 23 members staged.
+4. Campaign UI is now readable enough for real operation and exposes create, activate, pull, refill, detail, promote, and reject actions.
+5. Employee range translation to ZoomInfo legacy employeeCount buckets is locked as required behavior.
+6. ZoomInfo outbound request hardening is locked: diagnostics, single retry, timeout handling.
+7. Current known limitation: legacy ZoomInfo /search/company rejects locationState in the current campaign-search path.
+8. Operating rule until later fix: use campaign pulls without state filtering.
+9. This limitation does not invalidate the campaign pipeline; it narrows the currently safe operating envelope.
+
