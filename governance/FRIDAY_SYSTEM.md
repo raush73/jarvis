@@ -504,3 +504,36 @@ The Friday queue model is locked as a two-layer system:
 9. No paid ZoomInfo contact data is required for campaign-created lead calling.
 10. Phase 11C was runtime-validated end-to-end:
     Campaign -> STAGED -> PROMOTED -> Customer.lifecycleStatus=LEAD -> Intelligence Queue -> Call Session -> Customer.phone.
+
+## 2026-04-18 ADDENDUM — CALL COMPLETION MODEL (LOCKED)
+
+Friday now uses a locked two-step call completion model for the rep-facing call flow:
+
+1. Outcome
+2. CTA
+
+This applies inside one completion modal and separates:
+- what happened
+- what happens next
+
+### Context Rule
+The rep-facing completion flow now includes bounded operational context:
+- note history
+- call history
+- active follow-up
+- attempt count
+
+### Lead Activity Language Rule
+LEAD call history must use activity language only:
+- Last called by
+- Last rep who touched this record
+
+LEADs do not gain ownership semantics from this display.
+
+### Intent
+This change strengthens rep clarity, reduces duplicated completion actions, and keeps Friday aligned with its company-first execution model.
+
+
+=== 2026-04-18 CALL COMPLETION LOCK (FINAL) ===
+Call completion two-step model locked.
+
