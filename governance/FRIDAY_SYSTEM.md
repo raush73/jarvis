@@ -537,3 +537,47 @@ This change strengthens rep clarity, reduces duplicated completion actions, and 
 === 2026-04-18 CALL COMPLETION LOCK (FINAL) ===
 Call completion two-step model locked.
 
+
+----------------------------------------------------------------
+
+## 2026-04-19 ADDENDUM - PHASE 13 ROUTING CONTRACT NORMALIZATION (LOCKED)
+
+The Friday system routing contract is now explicitly locked as:
+
+- Browser requests use /api/*
+- Next route handlers receive /api/*
+- Frontend proxy forwards to backend /*
+- Backend controllers must NOT include api/ in @Controller() prefixes
+
+Normalized in this session:
+- Friday backend controllers
+- Campaigns backend controller
+- ZoomInfo backend controller
+- All affected frontend proxy backendPath strings
+
+Final contract:
+Browser -> /api/*
+Next route handlers -> /api/*
+Proxy -> backend /*
+Backend controllers -> /*
+
+This resolves the prior mixed-contract drift where some controllers expected api/ and others did not.
+
+----------------------------------------------------------------
+
+## 2026-04-19 ADDENDUM - PHASE 13 EXECUTION CLARITY + DEFER CONTROL (LOCKED)
+
+Phase 13 is complete.
+
+Locked outcomes:
+- Call Session no longer returns invalid/null-phone targets
+- queue and execution truth are aligned
+- empty state messaging is controlled and minimal
+- local-time callability uses zip-first with state fallback
+- reps can defer the current system-assigned target using preset or custom time
+- defer reuses the existing Phase 6 follow-up system and conflict rules
+- successful defer advances the session to the next target or clean empty state
+
+This phase is complete and should be treated as the final operational stability layer before Phase 14.
+
+----------------------------------------------------------------
