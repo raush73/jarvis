@@ -43,3 +43,25 @@
 - Dedup chain = ZoomInfo ID → domain → name+state
 - Re-pull must update, never duplicate
 
+## Webex / Friday Phone Integration (2026-06-19)
+
+- Single admin OAuth token is used for all Webex dialing; per-user OAuth is NOT required.
+- Friday calls dial on behalf of the logged-in user via User.webexPersonId.
+  - MUST NOT use /members/me/dial.
+- Destination phone numbers MUST be normalized to E.164 before dialing.
+- CallEvent is the canonical call record; no parallel phone-call model.
+  - CallEvent.webexCallId stores the dial-response callId.
+  - CallEvent.webexCallStatus stores the last observed Webex state.
+- Webex webhook correlation matches on payload data.callId (NOT data.id).
+- Disconnect detection has two paths that MUST stay convergent:
+  - Primary: Webex webhook at POST /webex/events.
+  - Fallback: poller via GET /telephony/calls/{callId}.
+  - The poller MUST remain as fallback (do not remove).
+  - Both MUST route through the single idempotent WebexCallReconcilerService.
+- /webex/events MUST verify X-Spark-Signature (HMAC-SHA1) using WEBEX_WEBHOOK_SECRET over the raw body.
+- Disconnect reconciliation stamps endedAt/durationSeconds/webexCallStatus only.
+  - No automatic CallOutcome.
+  - No automatic CallNote.
+- Friday queue calls are CallSession-backed; disconnect flips IN_CALL -> COMPLETING and the
+  frontend auto-opens the existing completion gate. Manual calls are not session-backed.
+
