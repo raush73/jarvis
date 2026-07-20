@@ -439,9 +439,10 @@ The Friday queue model is locked as a two-layer system:
    - Owned overdue work, owned due-now work, and other owned callable-now work continue to outrank leads.
 
 4. OWNERSHIP CREATION POINT
-   - Unowned leads do NOT start with ownership.
-   - Ownership is created only after meaningful/progressing engagement through existing control logic.
-   - Only then does the record transition into Friday prospect/control enforcement (11-day / 55-day clocks, etc.).
+   - Imported / unowned leads do NOT start with ownership.
+   - For imported / unowned leads, ownership is created only after a qualifying meaningful/progressing engagement through existing control logic.
+   - Only then does the imported / unowned record transition into Friday prospect/control enforcement (11-day / 55-day clocks, etc.).
+   - EXCEPTION (see 2026-07-17 addendum): a Prospect intentionally created by a Salesperson inside Friday starts with temporary control immediately at creation. This is the only path where temporary control begins before a meaningful engagement event.
 
 5. ENFORCEMENT / CONTROL PRESERVATION
    - Phase 9 enforcement logic remains intact.
@@ -579,5 +580,116 @@ Locked outcomes:
 - successful defer advances the session to the next target or clean empty state
 
 This phase is complete and should be treated as the final operational stability layer before Phase 14.
+
+----------------------------------------------------------------
+
+## 2026-07-17 ADDENDUM - SALESPERSON-CREATED PROSPECT IMMEDIATE CONTROL (LOCKED)
+
+Leadership has approved a revised Prospect ownership philosophy. This addendum
+EXPANDS the prior governance; it does NOT replace it. The meaningful-engagement rule
+continues to apply to imported / unowned leads. This addendum adds a second, equally
+legitimate entry point: immediate temporary control for intentionally created
+Salesperson Prospects (see the OWNED-FIRST / UNOWNED-LEAD FALLBACK addendum,
+section 4 - OWNERSHIP CREATION POINT, and the TEMPORARY CONTROL ENTRY POINTS section below).
+
+1. NEW BUSINESS RULE
+   - When a Salesperson intentionally creates a new Prospect inside Friday, the
+     system SHALL immediately grant that Salesperson temporary control of the Prospect.
+   - The act of intentionally creating the Prospect represents a business investment
+     and establishes accountability.
+   - Temporary control begins immediately upon Prospect creation. No meaningful
+     interaction is required to start the clock.
+
+2. TEMPORARY CONTROL START (SALESPERSON-CREATED PROSPECTS)
+   Upon creation, the following begin immediately:
+   - Temporary control
+   - Ownership timer
+   - 11-working-day touch timer
+   - 55-working-day control window
+   The Salesperson is now responsible for progressing the opportunity.
+
+3. SCOPE - APPLIES ONLY TO SALESPERSON-CREATED PROSPECTS
+   - This change applies ONLY to Prospects intentionally created by a Salesperson.
+   - Imported Leads remain UNCHANGED (ZoomInfo, spreadsheet imports, resume imports,
+     marketing imports, and other unowned lead sources).
+   - Imported / unowned records remain unowned until a qualifying control event occurs
+     under existing governance.
+
+4. ENFORCEMENT UNCHANGED
+   All existing enforcement rules remain in force. Only the STARTING POINT changes for
+   salesperson-created Prospects. The following continue to apply unchanged:
+   - 11-working-day touch rule
+   - 4-day grace period
+   - 55-working-day control window
+   - Automatic release
+   - Override rules
+   - Anti-hoarding enforcement
+   - Admin override
+
+5. OWNERSHIP PHILOSOPHY (CLARIFIED)
+   - Salesperson-created Prospect: rep intentionally identifies and creates the
+     opportunity -> temporary control begins immediately.
+   - Imported Lead: lead enters the system without ownership -> temporary control begins
+     only after a qualifying governance-approved control event.
+
+6. INTENT
+   "We reward initiative while still enforcing accountability."
+   - Salespeople are trusted with temporary control immediately after creating a Prospect.
+   - If they fail to develop the opportunity within the governed timeframes, the system
+     automatically releases the Prospect back to the pool under the existing enforcement rules.
+   - As stated during architecture review: "The system gives the Salesperson enough rope
+     to hang themselves." The Salesperson immediately gains responsibility; failure to
+     actively manage the Prospect results in automatic release under the existing rules.
+
+----------------------------------------------------------------
+
+## 2026-07-17 ADDENDUM - TEMPORARY CONTROL ENTRY POINTS (LOCKED)
+
+Governance clarification. This section documents that temporary control now has
+exactly TWO governance-approved entry points. The governance has been EXPANDED,
+not replaced: both paths are legitimate, and both converge into the same temporary-
+control enforcement model.
+
+### METHOD 1 - Salesperson-Created Prospect
+   - A Salesperson intentionally creates a new Prospect inside Friday.
+   - Immediate temporary control begins upon Prospect creation.
+   - Immediately begin:
+     - Temporary control
+     - Ownership timer
+     - 11-working-day touch timer
+     - 55-working-day control window
+   - Rationale: intentional creation is a business investment and establishes accountability.
+
+### METHOD 2 - Imported / Unowned Lead
+   - An imported or otherwise unowned Lead enters Friday.
+   - Examples include:
+     - ZoomInfo
+     - Spreadsheet imports
+     - Resume imports
+     - Marketing imports
+     - Other imported lead sources
+   - These Leads remain unowned until a qualifying governance-approved control event occurs.
+   - Only then does temporary control begin.
+
+### OWNERSHIP PHILOSOPHY (EXPANDED)
+   "We reward initiative while still enforcing accountability."
+   - Salesperson-created Prospects reward initiative.
+   - Imported Leads reward earned engagement.
+   - Both paths ultimately enter the same temporary-control enforcement system.
+   - After temporary control begins, ALL existing enforcement remains identical regardless
+     of how temporary control was obtained.
+
+### ENFORCEMENT (BOTH METHODS)
+   Both entry methods immediately enter the same enforcement model. The following continue
+   to apply, unchanged, regardless of entry path:
+   - 11-working-day touch rule
+   - 4-day grace period
+   - 55-working-day control window
+   - Automatic release
+   - Override rules
+   - Anti-hoarding enforcement
+   - Admin override
+
+   The ONLY difference between the two paths is the event that begins temporary control.
 
 ----------------------------------------------------------------
