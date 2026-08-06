@@ -6,6 +6,20 @@
   - Production DB
 - No schema drift permitted between environments.
 
+### Schema and migration topology (ratified 2026-08-05)
+Clarifies, and does not relax, the dual database model above. Recorded here because
+`WORKFORCE_APPLICATION_ONBOARDING_IMPLEMENTATION_CHECKLIST.md` names a single authoritative
+production database, and the two statements had to be reconciled before any Workforce Onboarding
+migration could be authored.
+
+- Dual database means two DEPLOYMENTS, not two schemas. Training and Production are identical
+  environments differing only in data.
+- There is ONE `schema.prisma` and ONE migration set. The same migration set is applied to both
+  deployments, which is what makes "no schema drift" enforceable rather than aspirational.
+- A migration is never authored per environment, and never branched per environment.
+- Authoring a migration and applying it are SEPARATE authorized events. Application follows
+  `02_backend/governance/JARVIS_PRODUCTION_DATABASE_MIGRATION_RUNBOOK.md`.
+
 ## Timesheet Model
 - Working Timesheets → Editable internal workflow
 - Snapshot Timesheets → Immutable system of record
