@@ -754,4 +754,16 @@ A legitimate LEAD may be promoted to PROSPECT through Customer Detail **Promote 
 Permanent/economic ownership from Order → Customer is a separate next slice.
 
 ---
+
+## 2026-08-21 ADDENDUM — R2 ORDER BOUNDARY EXITS FRIDAY CONTROL (LOCKED)
+
+Owner-approved. Method 1/2/3 above are unchanged as Friday **entry** paths.
+
+The first time an Order reaches `NEEDS_TO_BE_FILLED`, Friday temporary control **exits** through existing `handleOrderBoundaryExit` / `ORDER_BOUNDARY`. That same event converts LEAD/PROSPECT → CUSTOMER and preserves/establishes `registrySalespersonId` in Jarvis Core — Friday is not the Customer lifecycle or permanent-ownership engine.
+
+`DRAFT` creation does not end Friday control and does not convert to CUSTOMER. Later cancellation of that Order does not restore Friday Lead/Prospect control or reverse CUSTOMER.
+
+Control-window durations remain Friday Control Panel configuration. Historical “11 / 55 working day” language in this file is not a newly hardcoded implementation value.
+
+---
 **End of governance file**

@@ -144,6 +144,9 @@ Quote alone does NOT create permanent ownership.
 
 Revenue event required.
 
+> **SUPERSEDED FOR CUSTOMER LIFECYCLE / PERMANENT SALESPERSON OWNERSHIP (2026-08-21 R2).**
+> The three bullets above are no longer the active Customer-conversion rule. See the R2 addendum at the end of this file. MSA/quote still do not create permanent Customer ownership.
+
 ---
 
 # 6️⃣ CALL ENGINE BEHAVIOR
@@ -180,3 +183,31 @@ Ownership must follow revenue.
 ---
 
 **LOCKED BY ARCHITECT APPROVAL**
+
+---
+
+## 2026-08-21 ADDENDUM — R2 QUALIFYING ORDER BOUNDARY (LOCKED; SUPERSEDES SECTION 5)
+
+Owner-approved. This addendum is the authoritative interpretation of “actual ORDER” / revenue trigger for **Customer lifecycle** and **permanent Customer salesperson ownership**.
+
+### Superseded wording
+
+Section 5 language that permanent ownership begins when an Order is “created,” when an invoice is generated, or when job dispatch occurs is **superseded** for this boundary.
+
+### Authoritative rule
+
+- `DRAFT` Order creation is **not** Customer conversion and does **not** grant permanent Customer ownership.
+- Pending manager approval is **not** sufficient.
+- `FILLED`, dispatch, invoice, and later operational/revenue events are **not** required before Customer conversion.
+- The qualifying operational Order is: `Order.status = NEEDS_TO_BE_FILLED`.
+
+The first time an Order for a LEAD or PROSPECT successfully reaches `NEEDS_TO_BE_FILLED`:
+
+1. the company becomes `lifecycleStatus = CUSTOMER`;
+2. permanent Customer salesperson assignment is established or preserved on `Customer.registrySalespersonId`;
+3. Friday temporary control ends through the existing `ORDER_BOUNDARY` mechanism.
+
+Signed MSA alone still does not create permanent Customer ownership.
+Quote alone still does not create permanent Customer ownership.
+
+Friday enforcement durations remain configurable. This addendum does not hardcode control-window lengths.
