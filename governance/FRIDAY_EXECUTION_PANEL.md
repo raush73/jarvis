@@ -727,4 +727,31 @@ control enforcement model.
    The ONLY difference between the two paths is the event that begins temporary control.
 
 ---
+
+## 2026-08-21 ADDENDUM — REGISTRY ASSIGNMENT + LEAD → PROSPECT CORRECTION (LOCKED)
+
+Owner rulings. Friday Execution Method 1 (salesperson-created Prospect) is expanded to also establish Customer Hub/Profile salesperson assignment. Method 2 (imported/unowned Lead) is unchanged: creating a LEAD does not establish assignment/control.
+
+### Distinct concepts
+
+- **Customer Hub / Profile salesperson assignment:** `registrySalespersonId` → `Salesperson.id`.
+- **Friday temporary control:** `fridayOwnerId` (User.id) + `FridayControlState` via `ControlEnforcementService.grantControl()`.
+- Control windows remain those configured in Friday Control Panel (`touchWindowWorkingDays`, `controlWindowWorkingDays`). Do not hardcode durations. Historical “11 / 55 working day” language in this file describes then-current defaults, not fixed constants.
+
+### METHOD 1 — additional registry stamp
+
+When a properly linked salesperson creates a PROSPECT, Jarvis establishes both registry assignment (creating `Salesperson.id`) and Friday temporary control. Do not replace one with the other.
+
+### METHOD 3 — governed LEAD → PROSPECT correction
+
+A legitimate LEAD may be promoted to PROSPECT through Customer Detail **Promote to Prospect**, producing the same governed Prospect state Method 1 would have produced:
+
+- Unassigned Lead: assign promoting salesperson + grant temporary control.
+- Same salesperson already assigned: preserve registry assignment; grant control if no valid live control exists; do not duplicate or improperly reset timers.
+- Assigned to another salesperson: deny. Existing admin reassignment remains authoritative.
+- If `grantControl()` refuses (active/at-risk conflict, grace, duplicate identity, or other canonical restriction), reject the promotion. Do not leave a half-valid Prospect.
+
+Permanent/economic ownership from Order → Customer is a separate next slice.
+
+---
 **End of governance file**
